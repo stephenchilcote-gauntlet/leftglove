@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code — leftglove tracking</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          background: #0f1117; color: #e2e8f0; padding: 24px; }
+  h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 4px; color: #f8fafc; }
+  .subtitle { font-size: 0.8rem; color: #64748b; margin-bottom: 24px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+             gap: 12px; margin-bottom: 28px; }
+  .stat { background: #1e2330; border: 1px solid #2d3748; border-radius: 10px;
+           padding: 14px 16px; }
+  .stat-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase;
+                  letter-spacing: 0.05em; margin-bottom: 4px; }
+  .stat-value { font-size: 1.4rem; font-weight: 700; color: #f8fafc; }
+  .stat-sub { font-size: 0.7rem; color: #94a3b8; margin-top: 2px; }
+  .section { margin-bottom: 36px; }
+  .section-header { font-size: 0.75rem; font-weight: 600; color: #64748b;
+                     text-transform: uppercase; letter-spacing: 0.08em;
+                     padding: 0 0 10px 12px; margin-bottom: 16px;
+                     border-bottom: 1px solid #2d3748; }
+  .section-header.cost  { border-left: 3px solid #6366f1; color: #818cf8; }
+  .section-header.time  { border-left: 3px solid #34d399; color: #34d399; }
+  .section-header.prompts { border-left: 3px solid #a78bfa; color: #a78bfa; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { background: #1e2330; border: 1px solid #2d3748; border-radius: 10px;
+           padding: 16px; }
+  .card.wide { grid-column: 1 / -1; }
+  .card h2 { font-size: 0.78rem; font-weight: 600; color: #94a3b8;
+               text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+  canvas { max-height: 240px; }
+  .wide canvas { max-height: 200px; }
+  .notice { font-size: 0.78rem; color: #94a3b8; background: #1e2330;
+             border: 1px solid #3b4a6b; border-left: 3px solid #6366f1;
+             border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; }
+  .notice strong { color: #e2e8f0; }
+  @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>Claude Code — leftglove</h1>
+<p class="subtitle">Updated after every session &mdash; open in browser to view</p>
+<p class="notice">&#9432; Cost figures are <strong>API list-price equivalents</strong> (what pay-as-you-go API customers would be charged). If you are on a Max subscription, these are <em>not</em> amounts billed to you.</p>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-label">API list-price equivalent</div>
+    <div class="stat-value">$8.75</div>
+    <div class="stat-sub">across 2 days (not billed)</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Sessions</div>
+    <div class="stat-value">1</div>
+    <div class="stat-sub">62 prompts total</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Output tokens</div>
+    <div class="stat-value">21,534</div>
+    <div class="stat-sub">&nbsp;</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Cache read share</div>
+    <div class="stat-value">88.7%</div>
+    <div class="stat-sub">of all tokens</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Active time</div>
+    <div class="stat-value">11m 46s</div>
+    <div class="stat-sub">avg 0m 11s / prompt</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Key prompts captured</div>
+    <div class="stat-value">0</div>
+    <div class="stat-sub">of 0 total prompts</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Prompt efficiency</div>
+    <div class="stat-value">0%</div>
+    <div class="stat-sub">key / non-trivial (higher = better)</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-header cost">Cost &amp; Usage</div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h2>Cumulative cost</h2>
+      <canvas id="cumul"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Cost per day</h2>
+      <canvas id="costDay"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Prompts per day</h2>
+      <canvas id="sessDay"></canvas>
+    </div>
+
+    <div class="card wide">
+      <h2>Cost by model</h2>
+      <canvas id="modelStack"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-header prompts">Key Prompts</div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h2>Prompts per day</h2>
+      <canvas id="promptsVsTotal"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Efficiency per day (%)</h2>
+      <canvas id="promptEfficiency"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Category breakdown</h2>
+      <canvas id="promptDonut"></canvas>
+    </div>
+
+    <div class="card wide">
+      <h2>Categories per day</h2>
+      <canvas id="promptStack"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-header time">Time</div>
+  <div class="grid">
+
+    <div class="card">
+      <h2>Duration per day</h2>
+      <canvas id="durationDay"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Avg duration per day</h2>
+      <canvas id="avgDurationDay"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Tokens per minute</h2>
+      <canvas id="tokensPerMin"></canvas>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h2 style="margin-bottom:0">Prompt length distribution</h2>
+        <select id="durRange" style="background:#0f1521;color:#94a3b8;border:1px solid #2d3748;
+          border-radius:6px;padding:4px 8px;font-size:0.75rem;cursor:pointer">
+          <option value="30s" selected>0–30s</option>
+          <option value="60s">0–60s</option>
+          <option value="30m">0–30m</option>
+          <option value="60m">0–60m</option>
+        </select>
+      </div>
+      <canvas id="durationDist"></canvas>
+    </div>
+
+    <div class="card wide">
+      <h2>Cumulative time</h2>
+      <canvas id="cumulTime"></canvas>
+    </div>
+
+    <div class="card wide">
+      <h2>Time vs cost</h2>
+      <canvas id="timeVsCost"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const DATES = ["2026-03-16", "2026-03-17"];
+const COST_BY_DATE = [5.3987, 3.3506];
+const SESSIONS_BY_DATE = [43, 19];
+const OUTPUT_BY_DATE = [6619, 14915];
+const OPUS_BY_DATE = [5.3987, 3.3506];
+const SONNET_BY_DATE = [0, 0];
+const CUMUL_LABELS = ["2026-03-16 5d88d020#0", "2026-03-16 5d88d020#1", "2026-03-16 5d88d020#2", "2026-03-16 5d88d020#3", "2026-03-16 5d88d020#4", "2026-03-16 5d88d020#5", "2026-03-16 5d88d020#6", "2026-03-16 5d88d020#7", "2026-03-16 5d88d020#8", "2026-03-16 5d88d020#9", "2026-03-16 5d88d020#10", "2026-03-16 5d88d020#11", "2026-03-16 5d88d020#12", "2026-03-16 5d88d020#13", "2026-03-16 5d88d020#14", "2026-03-16 5d88d020#15", "2026-03-16 5d88d020#16", "2026-03-16 5d88d020#17", "2026-03-16 5d88d020#18", "2026-03-16 5d88d020#19", "2026-03-16 5d88d020#20", "2026-03-16 5d88d020#21", "2026-03-16 5d88d020#22", "2026-03-16 5d88d020#23", "2026-03-16 5d88d020#24", "2026-03-16 5d88d020#25", "2026-03-16 5d88d020#26", "2026-03-16 5d88d020#27", "2026-03-16 5d88d020#28", "2026-03-16 5d88d020#29", "2026-03-16 5d88d020#30", "2026-03-16 5d88d020#31", "2026-03-16 5d88d020#32", "2026-03-16 5d88d020#33", "2026-03-16 5d88d020#34", "2026-03-16 5d88d020#35", "2026-03-16 5d88d020#36", "2026-03-16 5d88d020#37", "2026-03-16 5d88d020#38", "2026-03-16 5d88d020#39", "2026-03-16 5d88d020#40", "2026-03-16 5d88d020#41", "2026-03-16 5d88d020#42", "2026-03-17 5d88d020#43", "2026-03-17 5d88d020#44", "2026-03-17 5d88d020#45", "2026-03-17 5d88d020#46", "2026-03-17 5d88d020#47", "2026-03-17 5d88d020#48", "2026-03-17 5d88d020#49", "2026-03-17 5d88d020#50", "2026-03-17 5d88d020#51", "2026-03-17 5d88d020#52", "2026-03-17 5d88d020#53", "2026-03-17 5d88d020#54", "2026-03-17 5d88d020#55", "2026-03-17 5d88d020#56", "2026-03-17 5d88d020#57", "2026-03-17 5d88d020#58", "2026-03-17 5d88d020#59", "2026-03-17 5d88d020#60", "2026-03-17 5d88d020#61"];
+const CUMUL_VALUES = [0.1528, 0.3056, 0.4584, 0.6112, 0.7816, 0.8435, 0.9054, 0.9673, 1.0119, 1.0565, 1.1134, 1.2442, 1.4084, 1.4569, 1.5054, 1.5539, 1.6831, 1.8564, 1.927, 2.0047, 2.062, 2.1182, 2.1808, 2.2459, 2.3097, 2.3671, 2.435, 2.4947, 2.5478, 2.5999, 2.652, 2.7041, 2.7562, 2.8407, 2.91, 3.0559, 3.1453, 3.2131, 3.7327, 4.2523, 4.7719, 5.3202, 5.3987, 5.4635, 5.526, 5.7182, 5.9733, 6.0591, 6.1449, 6.2654, 6.4008, 6.6414, 6.8202, 6.9702, 7.0633, 7.4751, 7.6387, 8.1844, 8.4173, 8.527, 8.6475, 8.7493];
+const MODEL_LABELS = ["claude-opus-4-6"];
+const MODEL_COSTS = [8.7493];
+const MODEL_SESSIONS = [62];
+const PROMPT_DATES = [];
+const PROMPT_TOTALS = [];
+const PROMPT_CAT_DATASETS = [];
+const DONUT_LABELS = [];
+const DONUT_VALUES = [];
+const DONUT_COLORS = [];
+const ALL_PROMPT_DATES = [];
+const TOTAL_MSGS_BY_DATE = [];
+const TRIVIAL_BY_DATE = [];
+const KEY_PROMPTS_BY_DATE = [];
+const EFFICIENCY_BY_DATE = [];
+const DURATION_BY_DATE = [456, 250];
+const CUMUL_DURATION = [3, 3, 6, 6, 6, 9, 9, 9, 18, 21, 21, 31, 51, 55, 58, 61, 67, 70, 74, 78, 83, 86, 89, 94, 94, 106, 108, 134, 138, 142, 147, 150, 157, 159, 160, 171, 178, 192, 227, 249, 330, 432, 456, 460, 462, 462, 533, 554, 656, 668, 671, 674, 674, 681, 685, 688, 692, 694, 696, 697, 699, 706];
+const AVG_DURATION_BY_DATE = [11, 13];
+const SCATTER_DATA = [{"x": 3, "y": 0.1528, "label": "2026-03-16 5d88d0#0"}, {"x": 3, "y": 0.1528, "label": "2026-03-16 5d88d0#2"}, {"x": 3, "y": 0.0619, "label": "2026-03-16 5d88d0#5"}, {"x": 9, "y": 0.0446, "label": "2026-03-16 5d88d0#8"}, {"x": 3, "y": 0.0446, "label": "2026-03-16 5d88d0#9"}, {"x": 10, "y": 0.1308, "label": "2026-03-16 5d88d0#11"}, {"x": 20, "y": 0.1642, "label": "2026-03-16 5d88d0#12"}, {"x": 4, "y": 0.0485, "label": "2026-03-16 5d88d0#13"}, {"x": 3, "y": 0.0485, "label": "2026-03-16 5d88d0#14"}, {"x": 3, "y": 0.0485, "label": "2026-03-16 5d88d0#15"}, {"x": 6, "y": 0.1292, "label": "2026-03-16 5d88d0#16"}, {"x": 3, "y": 0.1733, "label": "2026-03-16 5d88d0#17"}, {"x": 4, "y": 0.0706, "label": "2026-03-16 5d88d0#18"}, {"x": 4, "y": 0.0777, "label": "2026-03-16 5d88d0#19"}, {"x": 5, "y": 0.0573, "label": "2026-03-16 5d88d0#20"}, {"x": 3, "y": 0.0562, "label": "2026-03-16 5d88d0#21"}, {"x": 3, "y": 0.0626, "label": "2026-03-16 5d88d0#22"}, {"x": 5, "y": 0.0651, "label": "2026-03-16 5d88d0#23"}, {"x": 12, "y": 0.0574, "label": "2026-03-16 5d88d0#25"}, {"x": 2, "y": 0.0679, "label": "2026-03-16 5d88d0#26"}, {"x": 26, "y": 0.0597, "label": "2026-03-16 5d88d0#27"}, {"x": 4, "y": 0.0531, "label": "2026-03-16 5d88d0#28"}, {"x": 4, "y": 0.0521, "label": "2026-03-16 5d88d0#29"}, {"x": 5, "y": 0.0521, "label": "2026-03-16 5d88d0#30"}, {"x": 3, "y": 0.0521, "label": "2026-03-16 5d88d0#31"}, {"x": 7, "y": 0.0521, "label": "2026-03-16 5d88d0#32"}, {"x": 2, "y": 0.0845, "label": "2026-03-16 5d88d0#33"}, {"x": 1, "y": 0.0693, "label": "2026-03-16 5d88d0#34"}, {"x": 11, "y": 0.1459, "label": "2026-03-16 5d88d0#35"}, {"x": 7, "y": 0.0894, "label": "2026-03-16 5d88d0#36"}, {"x": 14, "y": 0.0678, "label": "2026-03-16 5d88d0#37"}, {"x": 35, "y": 0.5196, "label": "2026-03-16 5d88d0#38"}, {"x": 22, "y": 0.5196, "label": "2026-03-16 5d88d0#39"}, {"x": 81, "y": 0.5196, "label": "2026-03-16 5d88d0#40"}, {"x": 102, "y": 0.5483, "label": "2026-03-16 5d88d0#41"}, {"x": 24, "y": 0.0785, "label": "2026-03-16 5d88d0#42"}, {"x": 4, "y": 0.0648, "label": "2026-03-17 5d88d0#43"}, {"x": 2, "y": 0.0625, "label": "2026-03-17 5d88d0#44"}, {"x": 71, "y": 0.2551, "label": "2026-03-17 5d88d0#46"}, {"x": 21, "y": 0.0858, "label": "2026-03-17 5d88d0#47"}, {"x": 102, "y": 0.0858, "label": "2026-03-17 5d88d0#48"}, {"x": 12, "y": 0.1205, "label": "2026-03-17 5d88d0#49"}, {"x": 3, "y": 0.1354, "label": "2026-03-17 5d88d0#50"}, {"x": 3, "y": 0.2406, "label": "2026-03-17 5d88d0#51"}, {"x": 7, "y": 0.15, "label": "2026-03-17 5d88d0#53"}, {"x": 4, "y": 0.0931, "label": "2026-03-17 5d88d0#54"}, {"x": 3, "y": 0.4118, "label": "2026-03-17 5d88d0#55"}, {"x": 4, "y": 0.1636, "label": "2026-03-17 5d88d0#56"}, {"x": 2, "y": 0.5457, "label": "2026-03-17 5d88d0#57"}, {"x": 2, "y": 0.2329, "label": "2026-03-17 5d88d0#58"}, {"x": 1, "y": 0.1097, "label": "2026-03-17 5d88d0#59"}, {"x": 2, "y": 0.1205, "label": "2026-03-17 5d88d0#60"}, {"x": 7, "y": 0.1018, "label": "2026-03-17 5d88d0#61"}];
+const TPM_DATA = [{"x": 3, "y": 180.0, "label": "2026-03-16 5d88d0#0"}, {"x": 3, "y": 180.0, "label": "2026-03-16 5d88d0#2"}, {"x": 3, "y": 520.0, "label": "2026-03-16 5d88d0#5"}, {"x": 9, "y": 120.0, "label": "2026-03-16 5d88d0#8"}, {"x": 3, "y": 360.0, "label": "2026-03-16 5d88d0#9"}, {"x": 10, "y": 48.0, "label": "2026-03-16 5d88d0#11"}, {"x": 20, "y": 1362.0, "label": "2026-03-16 5d88d0#12"}, {"x": 4, "y": 135.0, "label": "2026-03-16 5d88d0#13"}, {"x": 3, "y": 180.0, "label": "2026-03-16 5d88d0#14"}, {"x": 3, "y": 180.0, "label": "2026-03-16 5d88d0#15"}, {"x": 6, "y": 5290.0, "label": "2026-03-16 5d88d0#16"}, {"x": 3, "y": 26460.0, "label": "2026-03-16 5d88d0#17"}, {"x": 4, "y": 30.0, "label": "2026-03-16 5d88d0#18"}, {"x": 4, "y": 1455.0, "label": "2026-03-16 5d88d0#19"}, {"x": 5, "y": 1128.0, "label": "2026-03-16 5d88d0#20"}, {"x": 3, "y": 1920.0, "label": "2026-03-16 5d88d0#21"}, {"x": 3, "y": 3640.0, "label": "2026-03-16 5d88d0#22"}, {"x": 5, "y": 2004.0, "label": "2026-03-16 5d88d0#23"}, {"x": 12, "y": 220.0, "label": "2026-03-16 5d88d0#25"}, {"x": 2, "y": 7110.0, "label": "2026-03-16 5d88d0#26"}, {"x": 26, "y": 200.8, "label": "2026-03-16 5d88d0#27"}, {"x": 4, "y": 315.0, "label": "2026-03-16 5d88d0#28"}, {"x": 4, "y": 135.0, "label": "2026-03-16 5d88d0#29"}, {"x": 5, "y": 108.0, "label": "2026-03-16 5d88d0#30"}, {"x": 3, "y": 180.0, "label": "2026-03-16 5d88d0#31"}, {"x": 7, "y": 77.1, "label": "2026-03-16 5d88d0#32"}, {"x": 2, "y": 11790.0, "label": "2026-03-16 5d88d0#33"}, {"x": 1, "y": 4740.0, "label": "2026-03-16 5d88d0#34"}, {"x": 11, "y": 5656.4, "label": "2026-03-16 5d88d0#35"}, {"x": 7, "y": 2057.1, "label": "2026-03-16 5d88d0#36"}, {"x": 14, "y": 535.7, "label": "2026-03-16 5d88d0#37"}, {"x": 35, "y": 15.4, "label": "2026-03-16 5d88d0#38"}, {"x": 22, "y": 24.5, "label": "2026-03-16 5d88d0#39"}, {"x": 81, "y": 6.7, "label": "2026-03-16 5d88d0#40"}, {"x": 102, "y": 230.6, "label": "2026-03-16 5d88d0#41"}, {"x": 24, "y": 435.0, "label": "2026-03-16 5d88d0#42"}, {"x": 4, "y": 1335.0, "label": "2026-03-17 5d88d0#43"}, {"x": 2, "y": 2220.0, "label": "2026-03-17 5d88d0#44"}, {"x": 71, "y": 715.8, "label": "2026-03-17 5d88d0#46"}, {"x": 21, "y": 34.3, "label": "2026-03-17 5d88d0#47"}, {"x": 102, "y": 7.1, "label": "2026-03-17 5d88d0#48"}, {"x": 12, "y": 2375.0, "label": "2026-03-17 5d88d0#49"}, {"x": 3, "y": 160.0, "label": "2026-03-17 5d88d0#50"}, {"x": 3, "y": 28220.0, "label": "2026-03-17 5d88d0#51"}, {"x": 7, "y": 6162.9, "label": "2026-03-17 5d88d0#53"}, {"x": 4, "y": 150.0, "label": "2026-03-17 5d88d0#54"}, {"x": 3, "y": 85180.0, "label": "2026-03-17 5d88d0#55"}, {"x": 4, "y": 135.0, "label": "2026-03-17 5d88d0#56"}, {"x": 2, "y": 153120.0, "label": "2026-03-17 5d88d0#57"}, {"x": 2, "y": 19920.0, "label": "2026-03-17 5d88d0#58"}, {"x": 1, "y": 600.0, "label": "2026-03-17 5d88d0#59"}, {"x": 2, "y": 4620.0, "label": "2026-03-17 5d88d0#60"}, {"x": 7, "y": 214.3, "label": "2026-03-17 5d88d0#61"}];
+const DUR_HIST_RANGES = {"30s": {"labels": ["0\u20135s", "5\u201310s", "10\u201315s", "15\u201320s", "20\u201325s", "25\u201330s", "30s+"], "values": [29, 9, 5, 0, 4, 1, 5]}, "60s": {"labels": ["0\u201310s", "10\u201320s", "20\u201330s", "30\u201340s", "40\u201350s", "50\u201360s", "60s+"], "values": [38, 5, 5, 1, 0, 0, 4]}, "30m": {"labels": ["0\u20135m", "5\u201310m", "10\u201315m", "15\u201320m", "20\u201325m", "25\u201330m", "30m+"], "values": [53, 0, 0, 0, 0, 0, 0]}, "60m": {"labels": ["0\u201310m", "10\u201320m", "20\u201330m", "30\u201340m", "40\u201350m", "50\u201360m", "60m+"], "values": [53, 0, 0, 0, 0, 0, 0]}};
+
+function formatDuration(s) {
+  if (s <= 0) return '0s';
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.round(s % 60);
+  if (h > 0) return h + 'h ' + m + 'm';
+  if (m > 0) return m + 'm' + (sec > 0 ? ' ' + sec + 's' : '');
+  return sec + 's';
+}
+
+const GRID = '#2d3748';
+const TEXT = '#94a3b8';
+const baseOpts = {
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: { legend: { labels: { color: TEXT, boxWidth: 12, font: { size: 11 } } } },
+  scales: {
+    x: { ticks: { color: TEXT, font: { size: 10 } }, grid: { color: GRID } },
+    y: { ticks: { color: TEXT, font: { size: 10 } }, grid: { color: GRID } }
+  }
+};
+
+// Cumulative cost line
+new Chart(document.getElementById('cumul'), {
+  type: 'line',
+  data: {
+    labels: CUMUL_LABELS,
+    datasets: [{ label: 'Cumulative cost ($)', data: CUMUL_VALUES,
+      borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.15)',
+      fill: true, tension: 0.3, pointRadius: 2 }]
+  },
+  options: { ...baseOpts, plugins: { ...baseOpts.plugins,
+    tooltip: { callbacks: { label: ctx => ' $' + ctx.parsed.y.toFixed(2) } } } }
+});
+
+// Cost per day bar
+new Chart(document.getElementById('costDay'), {
+  type: 'bar',
+  data: {
+    labels: DATES,
+    datasets: [{ label: 'Cost ($)', data: COST_BY_DATE,
+      backgroundColor: '#6366f1', borderRadius: 4 }]
+  },
+  options: { ...baseOpts, plugins: { ...baseOpts.plugins,
+    tooltip: { callbacks: { label: ctx => ' $' + ctx.parsed.y.toFixed(2) } } } }
+});
+
+// Prompts per day
+new Chart(document.getElementById('sessDay'), {
+  type: 'bar',
+  data: {
+    labels: DATES,
+    datasets: [{ label: 'Prompts', data: SESSIONS_BY_DATE,
+      backgroundColor: '#22d3ee', borderRadius: 4 }]
+  },
+  options: baseOpts
+});
+
+// Model stacked per day
+new Chart(document.getElementById('modelStack'), {
+  type: 'bar',
+  data: {
+    labels: DATES,
+    datasets: [
+      { label: 'Opus', data: OPUS_BY_DATE, backgroundColor: '#f59e0b', borderRadius: 2 },
+      { label: 'Sonnet', data: SONNET_BY_DATE, backgroundColor: '#6366f1', borderRadius: 2 }
+    ]
+  },
+  options: { ...baseOpts, scales: { ...baseOpts.scales, x: { ...baseOpts.scales.x, stacked: true },
+    y: { ...baseOpts.scales.y, stacked: true } },
+    plugins: { ...baseOpts.plugins,
+      tooltip: { callbacks: { label: ctx => ' $' + ctx.parsed.y.toFixed(2) } } } }
+});
+
+// Session duration per day
+new Chart(document.getElementById('durationDay'), {
+  type: 'bar',
+  data: {
+    labels: DATES,
+    datasets: [{ label: 'Duration', data: DURATION_BY_DATE,
+      backgroundColor: '#f59e0b', borderRadius: 4 }]
+  },
+  options: { ...baseOpts,
+    scales: { ...baseOpts.scales,
+      y: { ...baseOpts.scales.y,
+        ticks: { ...baseOpts.scales.y.ticks, callback: v => formatDuration(v) } } },
+    plugins: { ...baseOpts.plugins,
+      tooltip: { callbacks: { label: ctx => ' ' + formatDuration(ctx.parsed.y) } } } }
+});
+
+// Avg session duration per day
+new Chart(document.getElementById('avgDurationDay'), {
+  type: 'line',
+  data: {
+    labels: DATES,
+    datasets: [{ label: 'Avg duration', data: AVG_DURATION_BY_DATE,
+      borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.15)',
+      fill: true, tension: 0.3, pointRadius: 3 }]
+  },
+  options: { ...baseOpts,
+    scales: { ...baseOpts.scales,
+      y: { ...baseOpts.scales.y,
+        ticks: { ...baseOpts.scales.y.ticks, callback: v => formatDuration(v) } } },
+    plugins: { ...baseOpts.plugins,
+      tooltip: { callbacks: { label: ctx => ' ' + formatDuration(ctx.parsed.y) } } } }
+});
+
+// Cumulative time line
+new Chart(document.getElementById('cumulTime'), {
+  type: 'line',
+  data: {
+    labels: CUMUL_LABELS,
+    datasets: [{ label: 'Cumulative time', data: CUMUL_DURATION,
+      borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.15)',
+      fill: true, tension: 0.3, pointRadius: 2 }]
+  },
+  options: { ...baseOpts,
+    scales: { ...baseOpts.scales,
+      y: { ...baseOpts.scales.y,
+        ticks: { ...baseOpts.scales.y.ticks, callback: v => formatDuration(v) } } },
+    plugins: { ...baseOpts.plugins,
+      tooltip: { callbacks: { label: ctx => ' ' + formatDuration(ctx.parsed.y) } } } }
+});
+
+// Time vs cost scatter
+new Chart(document.getElementById('timeVsCost'), {
+  type: 'scatter',
+  data: {
+    datasets: [{ label: 'Prompt', data: SCATTER_DATA,
+      backgroundColor: '#34d399', pointRadius: 5, pointHoverRadius: 7 }]
+  },
+  options: { ...baseOpts,
+    scales: { ...baseOpts.scales,
+      x: { ...baseOpts.scales.x, type: 'linear', min: 0,
+        ticks: { ...baseOpts.scales.x.ticks, callback: v => formatDuration(v) },
+        title: { display: true, text: 'Duration', color: TEXT, font: { size: 10 } } },
+      y: { ...baseOpts.scales.y,
+        ticks: { ...baseOpts.scales.y.ticks, callback: v => '$' + v.toFixed(2) },
+        title: { display: true, text: 'Cost (USD)', color: TEXT, font: { size: 10 } } } },
+    plugins: { ...baseOpts.plugins,
+      tooltip: { callbacks: {
+        label: ctx => {
+          const d = ctx.raw;
+          return ` ${d.label}: ${formatDuration(d.x)} / $${d.y.toFixed(4)}`;
+        }
+      } } } }
+});
+
+// Tokens per minute scatter
+new Chart(document.getElementById('tokensPerMin'), {
+  type: 'scatter',
+  data: {
+    datasets: [{ label: 'Prompt', data: TPM_DATA,
+      backgroundColor: '#818cf8', pointRadius: 5, pointHoverRadius: 7 }]
+  },
+  options: { ...baseOpts,
+    scales: { ...baseOpts.scales,
+      x: { ...baseOpts.scales.x, type: 'linear', min: 0,
+        ticks: { ...baseOpts.scales.x.ticks, callback: v => formatDuration(v) },
+        title: { display: true, text: 'Duration', color: TEXT, font: { size: 10 } } },
+      y: { ...baseOpts.scales.y,
+        title: { display: true, text: 'Output tokens / min', color: TEXT, font: { size: 10 } } } },
+    plugins: { ...baseOpts.plugins,
+      tooltip: { callbacks: {
+        label: ctx => {
+          const d = ctx.raw;
+          return ` ${d.label}: ${formatDuration(d.x)} — ${d.y} tok/min`;
+        }
+      } } } }
+});
+
+// Prompt length distribution histogram
+const durChart = new Chart(document.getElementById('durationDist'), {
+  type: 'bar',
+  data: {
+    labels: DUR_HIST_RANGES['30s'].labels,
+    datasets: [{ label: 'Prompts', data: DUR_HIST_RANGES['30s'].values,
+      backgroundColor: '#34d399', borderRadius: 4 }]
+  },
+  options: { ...baseOpts,
+    plugins: { ...baseOpts.plugins, legend: { display: false } },
+    scales: { ...baseOpts.scales,
+      y: { ...baseOpts.scales.y, ticks: { ...baseOpts.scales.y.ticks, stepSize: 1 } } } }
+});
+document.getElementById('durRange').addEventListener('change', function() {
+  const r = DUR_HIST_RANGES[this.value];
+  durChart.data.labels = r.labels;
+  durChart.data.datasets[0].data = r.values;
+  durChart.update();
+});
+
+// Total vs key prompts per day
+new Chart(document.getElementById('promptsVsTotal'), {
+  type: 'bar',
+  data: {
+    labels: ALL_PROMPT_DATES,
+    datasets: [
+      { label: 'Total prompts', data: TOTAL_MSGS_BY_DATE,
+         backgroundColor: 'rgba(148,163,184,0.35)', borderRadius: 4 },
+      { label: 'Trivial prompts', data: TRIVIAL_BY_DATE,
+         backgroundColor: '#34d399', borderRadius: 4 },
+      { label: 'Key prompts', data: KEY_PROMPTS_BY_DATE,
+         backgroundColor: '#a78bfa', borderRadius: 4 }
+    ]
+  },
+  options: baseOpts
+});
+
+// Efficiency % per day
+new Chart(document.getElementById('promptEfficiency'), {
+  type: 'line',
+  data: {
+    labels: ALL_PROMPT_DATES,
+    datasets: [{ label: 'Efficiency (%)', data: EFFICIENCY_BY_DATE,
+      borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.15)',
+      fill: true, tension: 0.3, pointRadius: 3, spanGaps: true }]
+  },
+  options: { ...baseOpts, plugins: { ...baseOpts.plugins,
+    tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.y + '%' } } },
+    scales: { ...baseOpts.scales,
+      y: { ...baseOpts.scales.y, min: 0, max: 100,
+            ticks: { ...baseOpts.scales.y.ticks, callback: v => v + '%' } } } }
+});
+
+// Category doughnut
+new Chart(document.getElementById('promptDonut'), {
+  type: 'doughnut',
+  data: {
+    labels: DONUT_LABELS,
+    datasets: [{ data: DONUT_VALUES, backgroundColor: DONUT_COLORS,
+      borderWidth: 2, borderColor: '#1e2330' }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { position: 'right', labels: { color: TEXT, boxWidth: 12, font: { size: 11 } } }
+    }
+  }
+});
+
+// Category stacked per day
+new Chart(document.getElementById('promptStack'), {
+  type: 'bar',
+  data: {
+    labels: PROMPT_DATES,
+    datasets: PROMPT_CAT_DATASETS
+  },
+  options: { ...baseOpts,
+    scales: {
+      x: { ...baseOpts.scales.x, stacked: true },
+      y: { ...baseOpts.scales.y, stacked: true }
+    }
+  }
+});
+</script>
+</body>
+</html>

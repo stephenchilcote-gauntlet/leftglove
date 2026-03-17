@@ -1,0 +1,24 @@
+# Project Manifest — LeftGlove
+
+[project]
+name = "LeftGlove"
+description = "MCP server wrapping ShiftLefter — agent and human interface for exploration, cataloging, and testing web applications"
+prefix = "lg"
+glance_hue = 300
+
+[roles]
+tower = true
+trench = true
+herald = true
+warden = true
+
+[build]
+stack = "clojure"
+workflow = "beads"
+
+[beads]
+command = "br"
+sync_command = "br sync --flush-only"
+
+[herald]
+voice = "sardonic-technical"
