@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toddler Loop — Pass 1</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* --- Toolbar --- */
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #16213e;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+  }
+
+  #url-input {
+    flex: 1;
+    padding: 6px 10px;
+    background: #0f3460;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #e0e0e0;
+    font-size: 14px;
+    font-family: monospace;
+  }
+
+  #url-input:focus { outline: none; border-color: #22d3ee; }
+
+  .btn {
+    padding: 6px 14px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: #0f3460;
+    color: #e0e0e0;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: #1a4a7a; }
+  .btn:active { background: #0a2a4a; }
+
+  .btn-primary {
+    background: #0e4d6e;
+    border-color: #22d3ee;
+    color: #22d3ee;
+    font-weight: 600;
+  }
+
+  .btn-primary:hover { background: #126a8a; }
+
+  #status-indicator {
+    font-size: 12px;
+    color: #888;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  /* --- Screenshot area --- */
+  #viewport {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    background: #111;
+  }
+
+  #screenshot-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  #screenshot-img {
+    display: block;
+    image-rendering: auto;
+  }
+
+  #overlay-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  #overlay-svg rect { cursor: pointer; pointer-events: visibleStroke; }
+
+  #empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #555;
+    font-size: 16px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  #empty-state kbd {
+    padding: 2px 6px;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 13px;
+  }
+
+  /* --- Bottom panel --- */
+  #panel {
+    display: flex;
+    height: 220px;
+    flex-shrink: 0;
+    background: #16213e;
+    border-top: 2px solid #333;
+  }
+
+  #panel-info {
+    flex: 1;
+    padding: 14px 16px;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    border-right: 1px solid #333;
+  }
+
+  #panel-info .field-label {
+    color: #888;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  #panel-info .field-value {
+    color: #e0e0e0;
+    font-family: monospace;
+    font-size: 13px;
+  }
+
+  #panel-info .field-value.label-text {
+    color: #fbbf24;
+  }
+
+  #panel-controls {
+    width: 340px;
+    flex-shrink: 0;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Category buttons */
+  .category-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .cat-btn {
+    padding: 8px 0;
+    width: 56px;
+    text-align: center;
+    border: 2px solid;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+    transition: background 0.1s;
+  }
+
+  .cat-btn:hover { filter: brightness(1.3); }
+
+  .cat-btn[data-cat="clickable"]  { border-color: #22c55e; color: #22c55e; }
+  .cat-btn[data-cat="typable"]    { border-color: #3b82f6; color: #3b82f6; }
+  .cat-btn[data-cat="readable"]   { border-color: #eab308; color: #eab308; }
+  .cat-btn[data-cat="chrome"]     { border-color: #6b7280; color: #6b7280; }
+  .cat-btn[data-cat="custom"]     { border-color: #a855f7; color: #a855f7; }
+  .cat-btn[data-cat="split"]      { border-color: #f97316; color: #f97316; }
+  .cat-btn[data-cat="skip"]       { border-color: #525252; color: #525252; }
+
+  .cat-btn[data-cat="clickable"]:hover  { background: rgba(34,197,94,0.15); }
+  .cat-btn[data-cat="typable"]:hover    { background: rgba(59,130,246,0.15); }
+  .cat-btn[data-cat="readable"]:hover   { background: rgba(234,179,8,0.15); }
+  .cat-btn[data-cat="chrome"]:hover     { background: rgba(107,114,128,0.15); }
+  .cat-btn[data-cat="custom"]:hover     { background: rgba(168,85,247,0.15); }
+  .cat-btn[data-cat="split"]:hover      { background: rgba(249,115,22,0.15); }
+  .cat-btn[data-cat="skip"]:hover       { background: rgba(82,82,82,0.15); }
+
+  /* Nav row */
+  .nav-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: auto;
+  }
+
+  .nav-btn {
+    padding: 6px 12px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: #0f3460;
+    color: #e0e0e0;
+    cursor: pointer;
+    font-size: 16px;
+  }
+
+  .nav-btn:hover { background: #1a4a7a; }
+
+  #progress {
+    font-size: 14px;
+    font-family: monospace;
+    color: #aaa;
+  }
+
+  #classified-count {
+    font-size: 12px;
+    color: #666;
+  }
+
+  /* Summary panel */
+  #summary {
+    display: none;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  #summary .summary-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #summary .summary-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* Error toast */
+  #toast {
+    position: fixed;
+    top: 60px;
+    right: 16px;
+    padding: 10px 16px;
+    background: #7f1d1d;
+    border: 1px solid #dc2626;
+    border-radius: 6px;
+    color: #fca5a5;
+    font-size: 13px;
+    z-index: 100;
+    display: none;
+    max-width: 400px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <input type="text" id="url-input" placeholder="Enter URL and press Navigate...">
+  <button class="btn" id="btn-navigate">Navigate</button>
+  <button class="btn btn-primary" id="btn-sieve">Sieve</button>
+  <button class="btn" id="btn-export">Export</button>
+  <span id="status-indicator">Ready</span>
+</div>
+
+<!-- Screenshot viewport -->
+<div id="viewport">
+  <div id="empty-state">
+    <div>Click <kbd>Sieve</kbd> to capture the current page</div>
+    <div>or enter a URL and click <kbd>Navigate</kbd></div>
+  </div>
+  <div id="screenshot-container" style="display:none;">
+    <img id="screenshot-img" alt="Page screenshot">
+    <svg id="overlay-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+</div>
+
+<!-- Bottom panel -->
+<div id="panel">
+  <div id="panel-info">
+    <div id="element-detail">
+      <div style="color:#555;">No elements loaded. Click Sieve to start.</div>
+    </div>
+    <div id="summary"></div>
+  </div>
+  <div id="panel-controls">
+    <div class="category-row">
+      <button class="cat-btn" data-cat="clickable" onclick="classify('clickable')"><u>c</u>lick</button>
+      <button class="cat-btn" data-cat="typable" onclick="classify('typable')"><u>t</u>ype</button>
+      <button class="cat-btn" data-cat="readable" onclick="classify('readable')"><u>r</u>ead</button>
+      <button class="cat-btn" data-cat="chrome" onclick="classify('chrome')">chr(<u>x</u>)</button>
+      <button class="cat-btn" data-cat="custom" onclick="classify('custom')">c<u>u</u>stom</button>
+    </div>
+    <div class="category-row">
+      <button class="cat-btn" data-cat="split" onclick="classify('split')"><u>/</u> split</button>
+      <button class="cat-btn" data-cat="skip" onclick="classify('skip')"><u>.</u> skip</button>
+    </div>
+    <div class="nav-row">
+      <button class="nav-btn" onclick="navigate(-1)" title="Previous element">&larr;</button>
+      <button class="nav-btn" onclick="navigate(1)" title="Next element">&rarr;</button>
+      <span id="progress">—</span>
+      <span id="classified-count"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Error toast -->
+<div id="toast"></div>
+
+<script>
+const API = 'http://localhost:3333';
+const STORAGE_KEY = 'toddler-loop-state';
+
+const CATEGORY_COLORS = {
+  clickable: '#22c55e',
+  typable:   '#3b82f6',
+  readable:  '#eab308',
+  chrome:    '#6b7280',
+  custom:    '#a855f7',
+  split:     '#f97316',
+  skip:      'transparent',
+};
+
+// ---- State ----
+let state = {
+  inventory: null,
+  screenshotUrl: null,
+  currentIndex: 0,
+  classifications: {},
+  screenshotDims: { w: 0, h: 0 },
+  pageUrl: null,
+};
+
+// ---- Persistence ----
+function saveState() {
+  const toSave = {
+    currentIndex: state.currentIndex,
+    classifications: state.classifications,
+    pageUrl: state.pageUrl,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      state.currentIndex = saved.currentIndex || 0;
+      state.classifications = saved.classifications || {};
+      state.pageUrl = saved.pageUrl || null;
+    }
+  } catch (e) { /* ignore corrupt storage */ }
+}
+
+// ---- Toast ----
+function showToast(msg, duration) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.display = 'none'; }, duration || 4000);
+}
+
+// ---- API calls ----
+async function fetchSieve() {
+  const res = await fetch(API + '/sieve', { method: 'POST' });
+  if (!res.ok) throw new Error('Sieve request failed: ' + res.status);
+  return res.json();
+}
+
+async function fetchScreenshot() {
+  const res = await fetch(API + '/screenshot');
+  if (!res.ok) throw new Error('Screenshot request failed: ' + res.status);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+async function fetchNavigate(url) {
+  const res = await fetch(API + '/navigate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) throw new Error('Navigate request failed: ' + res.status);
+  return res.json();
+}
+
+async function fetchStatus() {
+  const res = await fetch(API + '/status');
+  if (!res.ok) throw new Error('Status request failed: ' + res.status);
+  return res.json();
+}
+
+// ---- Core actions ----
+async function doSieve() {
+  const statusEl = document.getElementById('status-indicator');
+  statusEl.textContent = 'Sieving...';
+  try {
+    const [inventory, screenshotUrl] = await Promise.all([
+      fetchSieve(),
+      fetchScreenshot(),
+    ]);
+
+    // Revoke old screenshot URL
+    if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
+
+    state.inventory = inventory;
+    state.screenshotUrl = screenshotUrl;
+    state.pageUrl = inventory.url?.raw || inventory.url || null;
+
+    // Reset classifications for new sieve
+    state.classifications = {};
+    state.currentIndex = 0;
+
+    await renderScreenshot();
+    renderOverlay();
+    renderPanel();
+    saveState();
+
+    statusEl.textContent = inventory.elements?.length + ' elements';
+  } catch (e) {
+    statusEl.textContent = 'Error';
+    showToast('Failed to sieve: ' + e.message, 6000);
+  }
+}
+
+async function doNavigate() {
+  const url = document.getElementById('url-input').value.trim();
+  if (!url) return;
+  const statusEl = document.getElementById('status-indicator');
+  statusEl.textContent = 'Navigating...';
+  try {
+    await fetchNavigate(url);
+    await doSieve();
+  } catch (e) {
+    statusEl.textContent = 'Error';
+    showToast('Failed to navigate: ' + e.message, 6000);
+  }
+}
+
+// ---- Rendering ----
+function renderScreenshot() {
+  return new Promise((resolve) => {
+    const container = document.getElementById('screenshot-container');
+    const img = document.getElementById('screenshot-img');
+    const emptyState = document.getElementById('empty-state');
+
+    img.onload = function () {
+      state.screenshotDims = { w: img.naturalWidth, h: img.naturalHeight };
+      img.style.width = img.naturalWidth + 'px';
+      img.style.height = img.naturalHeight + 'px';
+      container.style.display = 'inline-block';
+      emptyState.style.display = 'none';
+      resolve();
+    };
+    img.src = state.screenshotUrl;
+  });
+}
+
+function renderOverlay() {
+  const svg = document.getElementById('overlay-svg');
+  const elements = state.inventory?.elements;
+  if (!elements) return;
+
+  const dims = state.screenshotDims;
+  svg.setAttribute('width', dims.w);
+  svg.setAttribute('height', dims.h);
+  svg.setAttribute('viewBox', '0 0 ' + dims.w + ' ' + dims.h);
+
+  let html = '';
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements[i];
+    const rect = el.rect;
+    if (!rect) continue;
+
+    const isCurrent = i === state.currentIndex;
+    const classification = state.classifications[i];
+
+    let stroke, strokeWidth, strokeDash, fill;
+
+    if (isCurrent) {
+      stroke = '#22d3ee';
+      strokeWidth = 3;
+      strokeDash = '';
+      fill = 'rgba(34,211,238,0.1)';
+    } else if (classification) {
+      stroke = CATEGORY_COLORS[classification] || '#666';
+      strokeWidth = classification === 'chrome' ? 1 : 2;
+      strokeDash = '';
+      fill = 'none';
+      if (classification === 'skip') continue; // hide skipped
+    } else {
+      stroke = '#666';
+      strokeWidth = 1;
+      strokeDash = '4,3';
+      fill = 'none';
+    }
+
+    html += '<rect'
+      + ' x="' + rect.x + '"'
+      + ' y="' + rect.y + '"'
+      + ' width="' + (rect.w || rect.width) + '"'
+      + ' height="' + (rect.h || rect.height) + '"'
+      + ' fill="' + fill + '"'
+      + ' stroke="' + stroke + '"'
+      + ' stroke-width="' + strokeWidth + '"'
+      + (strokeDash ? ' stroke-dasharray="' + strokeDash + '"' : '')
+      + ' data-index="' + i + '"'
+      + ' onclick="jumpTo(' + i + ')"'
+      + '/>';
+
+    // Label for current element
+    if (isCurrent) {
+      const labelText = el.label || el.tag || '?';
+      const textY = rect.y - 4;
+      html += '<text'
+        + ' x="' + rect.x + '"'
+        + ' y="' + (textY > 12 ? textY : rect.y + 14) + '"'
+        + ' fill="#22d3ee"'
+        + ' font-size="12"'
+        + ' font-family="sans-serif"'
+        + ' font-weight="600"'
+        + '>' + escapeHtml(labelText) + '</text>';
+    }
+  }
+
+  svg.innerHTML = html;
+}
+
+function renderPanel() {
+  const elements = state.inventory?.elements;
+  if (!elements || elements.length === 0) return;
+
+  const el = elements[state.currentIndex];
+  const detail = document.getElementById('element-detail');
+  const summary = document.getElementById('summary');
+  const classification = state.classifications[state.currentIndex];
+
+  // Count classified
+  const total = elements.length;
+  const classifiedCount = Object.keys(state.classifications).length;
+
+  // Element info
+  if (el) {
+    let locatorStr = '';
+    if (el.locators) {
+      locatorStr = Object.entries(el.locators)
+        .filter(([, v]) => v)
+        .map(([k, v]) => k + '=' + v)
+        .join(', ');
+    }
+
+    detail.innerHTML =
+      '<div><span class="field-label">tag</span> '
+        + '<span class="field-value">' + escapeHtml(el.tag || '—') + '</span>'
+        + (el['element-type'] || el.elementType
+          ? ' <span class="field-value" style="color:#888">type=' + escapeHtml(el['element-type'] || el.elementType) + '</span>'
+          : '')
+        + '</div>'
+      + '<div><span class="field-label">label</span> '
+        + '<span class="field-value label-text">"' + escapeHtml(el.label || '—') + '"</span></div>'
+      + '<div><span class="field-label">region</span> '
+        + '<span class="field-value">' + escapeHtml(el.region || '—') + '</span></div>'
+      + (locatorStr
+        ? '<div><span class="field-label">locators</span> '
+          + '<span class="field-value">' + escapeHtml(locatorStr) + '</span></div>'
+        : '')
+      + '<div><span class="field-label">sieve category</span> '
+        + '<span class="field-value">' + escapeHtml(String(el.category || '—').replace(/^:/, '')) + '</span></div>'
+      + (classification
+        ? '<div><span class="field-label">your classification</span> '
+          + '<span class="field-value" style="color:' + (CATEGORY_COLORS[classification] || '#fff')
+          + '">' + classification + '</span></div>'
+        : '');
+  }
+
+  // Progress
+  document.getElementById('progress').textContent =
+    '#' + (state.currentIndex + 1) + ' / ' + total;
+  document.getElementById('classified-count').textContent =
+    classifiedCount + ' classified';
+
+  // If all classified, show summary
+  if (classifiedCount >= total) {
+    showSummary();
+  } else {
+    summary.style.display = 'none';
+  }
+}
+
+function showSummary() {
+  const elements = state.inventory?.elements;
+  if (!elements) return;
+
+  const counts = {};
+  for (const cat of Object.values(state.classifications)) {
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+
+  const summary = document.getElementById('summary');
+  let html = '<div style="margin-bottom:6px;font-weight:600;color:#22d3ee;">'
+    + 'Classification complete: ' + elements.length + ' elements</div>';
+
+  for (const [cat, color] of Object.entries(CATEGORY_COLORS)) {
+    if (cat === 'skip' && !counts[cat]) continue;
+    if (counts[cat]) {
+      html += '<div class="summary-row">'
+        + '<span class="summary-dot" style="background:' + color + '"></span>'
+        + '<span>' + counts[cat] + ' ' + cat + '</span>'
+        + '</div>';
+    }
+  }
+
+  summary.innerHTML = html;
+  summary.style.display = 'block';
+}
+
+// ---- Classification ----
+function classify(category) {
+  if (!state.inventory?.elements?.length) return;
+  state.classifications[state.currentIndex] = category;
+  saveState();
+
+  // Advance to next unclassified, or next in line
+  const total = state.inventory.elements.length;
+  let next = state.currentIndex + 1;
+
+  // Try to find next unclassified
+  for (let i = 0; i < total; i++) {
+    const idx = (state.currentIndex + 1 + i) % total;
+    if (!(idx in state.classifications)) {
+      next = idx;
+      break;
+    }
+  }
+
+  // If all classified, stay at current
+  if (Object.keys(state.classifications).length >= total) {
+    next = state.currentIndex;
+  }
+
+  state.currentIndex = Math.min(next, total - 1);
+  renderOverlay();
+  renderPanel();
+  scrollToCurrentElement();
+}
+
+function navigate(delta) {
+  if (!state.inventory?.elements?.length) return;
+  const total = state.inventory.elements.length;
+  state.currentIndex = Math.max(0, Math.min(total - 1, state.currentIndex + delta));
+  saveState();
+  renderOverlay();
+  renderPanel();
+  scrollToCurrentElement();
+}
+
+function jumpTo(index) {
+  if (!state.inventory?.elements?.length) return;
+  state.currentIndex = index;
+  saveState();
+  renderOverlay();
+  renderPanel();
+}
+
+function scrollToCurrentElement() {
+  const el = state.inventory?.elements?.[state.currentIndex];
+  if (!el?.rect) return;
+
+  const viewport = document.getElementById('viewport');
+  const rect = el.rect;
+
+  // Scroll to center the element in the viewport
+  const targetY = rect.y - viewport.clientHeight / 3;
+  const targetX = rect.x - viewport.clientWidth / 3;
+  viewport.scrollTo({
+    top: Math.max(0, targetY),
+    left: Math.max(0, targetX),
+    behavior: 'smooth',
+  });
+}
+
+// ---- Export ----
+function doExport() {
+  if (!state.inventory?.elements) {
+    showToast('Nothing to export — run Sieve first.');
+    return;
+  }
+
+  const elements = state.inventory.elements.map((el, i) => ({
+    index: i,
+    tag: el.tag,
+    elementType: el['element-type'] || el.elementType || null,
+    label: el.label,
+    category: String(el.category || '').replace(/^:/, ''),
+    classification: state.classifications[i] || null,
+    region: el.region,
+    locators: el.locators,
+    rect: el.rect,
+  }));
+
+  const exportData = {
+    url: state.pageUrl,
+    timestamp: new Date().toISOString(),
+    totalElements: elements.length,
+    classified: Object.keys(state.classifications).length,
+    elements,
+  };
+
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'toddler-classifications-' + Date.now() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---- Keyboard ----
+const KEY_MAP = {
+  c: 'clickable',
+  t: 'typable',
+  r: 'readable',
+  x: 'chrome',
+  u: 'custom',
+  '/': 'split',
+  '.': 'skip',
+};
+
+document.addEventListener('keydown', function (e) {
+  // Don't capture when typing in the URL input
+  if (document.activeElement === document.getElementById('url-input')) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      doNavigate();
+    }
+    return;
+  }
+
+  if (KEY_MAP[e.key]) {
+    e.preventDefault();
+    classify(KEY_MAP[e.key]);
+    return;
+  }
+
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    navigate(-1);
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    navigate(1);
+  }
+});
+
+// ---- Util ----
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---- Init ----
+document.getElementById('btn-sieve').addEventListener('click', doSieve);
+document.getElementById('btn-navigate').addEventListener('click', doNavigate);
+document.getElementById('btn-export').addEventListener('click', doExport);
+
+// Restore state on load
+loadState();
+
+// Try to get status on load
+fetchStatus()
+  .then(function (s) {
+    if (s.url) document.getElementById('url-input').value = s.url;
+    document.getElementById('status-indicator').textContent = 'Connected';
+  })
+  .catch(function () {
+    document.getElementById('status-indicator').textContent = 'SL not connected';
+  });
+</script>
+</body>
+</html>
