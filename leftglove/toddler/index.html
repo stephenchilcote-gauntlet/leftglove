@@ -443,8 +443,10 @@ async function doSieve() {
 }
 
 async function doNavigate() {
-  const url = document.getElementById('url-input').value.trim();
+  let url = document.getElementById('url-input').value.trim();
   if (!url) return;
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  document.getElementById('url-input').value = url;
   const statusEl = document.getElementById('status-indicator');
   statusEl.textContent = 'Navigating...';
   try {
