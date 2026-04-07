@@ -343,19 +343,27 @@ tests are mechanical from the diff — "guest navigates to /dashboard → should
 see login form." This is the heckling concept: run admin paths as guest, verify
 they fail.
 
-**The logout problem:** The toddler crawling as `:admin` must not click logout.
-Credential tuples need exit gates alongside entry gates:
+**The logout problem:** The toddler crawling as `:admin` will eventually click
+logout. Rather than requiring the human to configure exit gates ("don't click
+this element"), the toddler discovers the boundary itself via cookie/storage
+monitoring: before each action, snapshot cookie keys. After re-sieve, compare.
+If the session cookie disappeared, the last action was a role exit — record it,
+stop crawling as this role.
 
 ```
 {:role    :admin
  :enter   {:intent "Login" :credentials {:email "admin" :password "123456"}}
- :exit    ["Nav.logout"]     ;; never click these while crawling as this role
- :verify  {:cookie "session_id"}}  ;; safety net: detect if session died
+ :verify  {:cookie "session_id"}}  ;; monitor: if this disappears, role lost
 ```
 
-The toddler skips exit gate elements. The verify check is a safety net — after
-each action, check if session cookie still exists. If it vanished (timeout, JS,
-accidental navigation), crawl-as-this-role stops.
+The system discovers exit gates instead of being told them. Optional: power
+users can still provide explicit exit gates to prevent the toddler from even
+attempting logout (avoids the wasted click + re-login cost).
+
+**Post-demo fallbacks:** Some apps don't delete cookies on logout (server-side
+invalidation → redirect). Some SPAs clear localStorage instead. Those need
+fallback detection (login form re-appeared, URL changed to /login). Cookie
+disappearance covers the 80% case.
 
 **Gate pairs ARE fixture contracts.** "Login with creds = enter role" is the
 fixture precondition. "Logout = exit role" is the teardown. Discovering these
