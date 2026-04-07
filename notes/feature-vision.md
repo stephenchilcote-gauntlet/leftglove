@@ -304,7 +304,8 @@ Bottom panel shows transition info in path mode, element info in state mode.
 ```
 
 This IS the graph, serialized. Graduates to SL as IR transition definitions
-(EP-035, designed but not built):
+(EP-035 — SL's planned intent region completion: arrival points, transitions
+between regions, and contracts. Designed but not built):
 
 ```clojure
 {:intent "Login"
