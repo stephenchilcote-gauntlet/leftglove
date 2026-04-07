@@ -252,6 +252,48 @@
     display: inline-block;
   }
 
+  /* --- Metadata strip --- */
+  #metadata-strip {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 6px 12px;
+    background: #111827;
+    border-bottom: 1px solid #333;
+    font-size: 12px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  #metadata-strip .meta-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  #metadata-strip .meta-label {
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 10px;
+  }
+
+  #metadata-strip .meta-pill {
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #d1d5db;
+    font-family: monospace;
+    font-size: 11px;
+  }
+
+  #metadata-strip .meta-pill.cookies { border-color: #f59e0b; color: #fbbf24; }
+  #metadata-strip .meta-pill.local-storage { border-color: #10b981; color: #34d399; }
+  #metadata-strip .meta-pill.session-storage { border-color: #8b5cf6; color: #a78bfa; }
+  #metadata-strip .meta-pill.tabs { border-color: #3b82f6; color: #60a5fa; }
+
   /* Error toast */
   #toast {
     position: fixed;
@@ -279,6 +321,9 @@
   <button class="btn" id="btn-export">Export</button>
   <span id="status-indicator">Ready</span>
 </div>
+
+<!-- Metadata strip -->
+<div id="metadata-strip"></div>
 
 <!-- Screenshot viewport -->
 <div id="viewport">
@@ -433,6 +478,7 @@ async function doSieve() {
     await renderScreenshot();
     renderOverlay();
     renderPanel();
+    renderMetadata();
     saveState();
 
     statusEl.textContent = inventory.elements?.length + ' elements';
@@ -778,6 +824,55 @@ document.addEventListener('keydown', function (e) {
     navigate(1);
   }
 });
+
+// ---- Metadata strip ----
+function renderMetadata() {
+  const strip = document.getElementById('metadata-strip');
+  const inv = state.inventory;
+  if (!inv) { strip.innerHTML = ''; return; }
+
+  let html = '';
+
+  // Cookies
+  const cookies = inv.cookies || [];
+  if (cookies.length) {
+    html += '<div class="meta-group"><span class="meta-label">Cookies</span>';
+    for (const c of cookies) {
+      html += '<span class="meta-pill cookies">' + escapeHtml(c) + '</span>';
+    }
+    html += '</div>';
+  }
+
+  // localStorage
+  const ls = inv.storage?.localStorage || [];
+  if (ls.length) {
+    html += '<div class="meta-group"><span class="meta-label">localStorage</span>';
+    for (const k of ls) {
+      html += '<span class="meta-pill local-storage">' + escapeHtml(k) + '</span>';
+    }
+    html += '</div>';
+  }
+
+  // sessionStorage
+  const ss = inv.storage?.sessionStorage || [];
+  if (ss.length) {
+    html += '<div class="meta-group"><span class="meta-label">sessionStorage</span>';
+    for (const k of ss) {
+      html += '<span class="meta-pill session-storage">' + escapeHtml(k) + '</span>';
+    }
+    html += '</div>';
+  }
+
+  // Tabs
+  const tabs = inv.tabs;
+  if (tabs != null) {
+    html += '<div class="meta-group"><span class="meta-label">Tabs</span>';
+    html += '<span class="meta-pill tabs">' + tabs + '</span>';
+    html += '</div>';
+  }
+
+  strip.innerHTML = html;
+}
 
 // ---- Util ----
 function escapeHtml(str) {
