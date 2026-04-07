@@ -13,7 +13,7 @@ agents can use to interact with applications through validated references.
 | Path | What |
 |---|---|
 | `leftglove/demo-app/` | [Target web app](leftglove/demo-app/README.md) for sieve testing and demos |
-| `leftglove/toddler/` | Toddler loop UI — human classification interface |
+| `leftglove/toddler/` | Toddler loop UI — human classification interface (includes sieve metadata display: cookies, storage, tabs) |
 | `ARCHITECTURE.md` | System design, data model, integration points |
 | `VISION.md` | Project vision and design philosophy |
 | `CONTEXT.md` | Project constraints and roles |

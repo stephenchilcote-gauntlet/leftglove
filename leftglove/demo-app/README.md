@@ -28,6 +28,8 @@ get independent sessions (multi-user works automatically).
 
 - **`/login`** — The primary demo page. 10 sieveable elements.
 - **`/dashboard`** — Post-login landing. Shows logged-in user name and email.
+  Sets `theme` and `lastLogin` in localStorage (exercises sieve storage metadata).
+  Footer has a `target="_blank"` help link (exercises sieve tab count).
 - **`/logout`** — Clears session, redirects to login.
 - **`/`** — Redirects to `/dashboard` if logged in, `/login` if not.
 
