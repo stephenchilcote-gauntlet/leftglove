@@ -357,6 +357,64 @@ role-gated content). Even manual version is a killer demo moment.
 
 ---
 
+## N. Crawl Path Review
+
+The toddler crawling produces a graph: observations (page states) as nodes,
+actions (clicks, submissions) as edges. The human needs to review not just
+individual pages but the **topology** — how pages connect, what transitions
+exist, what the toddler found but couldn't understand.
+
+**Review tasks:**
+
+- Confirm/correct transitions ("clicking X on page A leads to page B")
+- Explain unknowns ("this form submission did something I can't interpret")
+- Identify cross-page element identity ("these pages share the same nav")
+- Recognize structure ("this is a dead end / this loops back")
+- Name subgraphs as domain flows ("these transitions = the login flow")
+
+**TL UI: tree sidebar mode.** Collapsible tree of discovered pages. Click a
+node → see screenshot + elements. Click an edge → see transition details.
+Bottom panel shows transition info in path mode, element info in page mode.
+
+**Intermediate format expands** from per-page to per-session:
+
+```json
+{
+  "session": {"role": "admin", "startUrl": "/login"},
+  "observations": [
+    {"id": "obs-001", "url": "/login", "inventory": {}, "screenshot": "obs-001.png"},
+    {"id": "obs-002", "url": "/dashboard", "inventory": {}, "screenshot": "obs-002.png"}
+  ],
+  "transitions": [
+    {"from": "obs-001", "to": "obs-002", "action": "click",
+     "element": "Login.submit", "outcome": "navigation"}
+  ]
+}
+```
+
+This IS the graph, serialized. Graduates to SL as IR transition definitions
+(EP-035, designed but not built):
+
+```clojure
+{:intent "Login"
+ :transitions
+ {:submit-success {:target "Dashboard" :via "Login.submit"}
+  :forgot-password {:target "ForgotPassword" :via "Login.forgot-password"}}}
+```
+
+The crawl data populates EP-035. Toddler discovers transitions empirically.
+Human confirms which matter. SL enforces going forward.
+
+**Unsketched problems:**
+
+- Graph storage during crawling (in-memory? files? SQLite?)
+- Crawl strategy (breadth-first per page, depth-first across pages?)
+- Cycle detection ("I've been here before" via element identity)
+- Review UX for large graphs (50+ pages needs filtering/search)
+- Agent review of crawl paths (MCP graph queries — out of scope)
+
+---
+
 ## Priority Order
 
 1. **Persistence + auto-save** — make working state real
