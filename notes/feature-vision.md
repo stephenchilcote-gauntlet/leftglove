@@ -299,6 +299,41 @@ confirms the region grouping.
 
 ---
 
+## M. Subject/Role Discovery via Credential-Gated Crawling
+
+**Core insight:** The diff between surfaces reachable by different credentials
+IS the permission model. Nobody documents it — the system derives it.
+
+**Human provides:** "This form is authentication" + credential tuples:
+
+```
+(nil,              :guest)    — no login, crawl what's reachable
+(user/123456,      :user)     — log in with these, crawl
+(admin/123456,     :admin)    — log in with these, crawl
+```
+
+**System derives:**
+
+```
+Guest surface:  {/login, /about, /public}
+User surface:   {/login, /about, /public, /dashboard, /profile}
+Admin surface:  {all of the above + /admin, /settings}
+```
+
+**Output:** Auto-generated subject definitions with reachability. Permission
+tests are mechanical from the diff — "guest navigates to /dashboard → should
+see login form." This is the heckling concept from VISION.md: run admin paths
+as guest, verify they fail.
+
+**Dependencies:** Autonomous crawling + auth form identification + multi-session
+comparison + surface diff. SL already handles multi-actor with separate browser
+sessions. The crawling and diff are the new parts.
+
+**Demo potential:** Design the demo app to support this (3-4 pages, login form,
+role-gated content). Even manual version is a killer demo moment.
+
+---
+
 ## Priority Order
 
 1. **Persistence + auto-save** — make working state real
