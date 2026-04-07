@@ -455,6 +455,84 @@ This is SL-side sieve work — expand the sieve JS return value.
 
 ---
 
+### Multi-User Graph Model (was Q)
+
+**The question:** SL's Cucumber tests can show multi-user interaction —
+`:user/alice` sends a message, `:user/bob` sees it arrive. And we've said
+that tests are essentially subgraphs of the full behavioral space. But how
+do you show multi-user interactions in a visual graph? Is it different colored
+subgraphs that interact? Is the "graph" even mathematically accurate here?
+
+The intuition is that the full behavioral space of the application could still
+be a graph, but it's unbelievably huge — each active user is essentially their
+own copy of the graph, and a multi-user test shows two of those single-user
+graphs interacting, intersecting in a subset of the truer, bigger graph. Hard
+to visualize.
+
+**The answer:** The intuition is correct, and the graph model is
+mathematically accurate — it's just not a single unified graph.
+
+**The product space problem:** The full behavioral space of a multi-user app
+is the Cartesian product of each user's state space × the shared backend
+state. Two users with 50 observable states each = 2,500 combined states. Most
+are boring (Alice on the About page while Bob is on the Dashboard — nothing
+interesting happening). The product space is real but nobody needs to see it.
+
+**Our graph isn't the product space.** Our graph is per-actor. The sieve
+captures what ONE user sees. An observation is always from one actor's
+perspective — we sieve Alice's browser and Bob's browser separately. SL
+already manages per-actor browser sessions. So we have:
+
+- **Alice's observation graph** — her sequence of states and actions
+- **Bob's observation graph** — his sequence of states and actions
+- **Causal cross-edges** — where Alice's action changed what Bob sees
+
+The cross-edges are the multi-user part:
+
+```
+Alice:  Login → Dashboard → Send Message ──→ See confirmation
+                                   │
+                                   │ (causes)
+                                   ↓
+Bob:    Login → Dashboard → Refresh ──→ See "Hello from Alice"
+```
+
+This is a **distributed trace** — separate actor timelines with causal arrows
+between them. It's the same structure as UML sequence diagrams, Lamport
+diagrams in distributed systems, and how every APM tool visualizes
+microservice calls. Familiar pattern for most programmers.
+
+**"Different colored subgraphs that interact" is exactly right.** Each actor
+gets their own color/timeline. Interactions are the cross-edges. A multi-user
+test is two (or more) timelines shown side by side with the causal arrows
+highlighted.
+
+**The single-app graph still exists** — it's the union of all actor graphs
+with their cross-edges. But you never visualize the full product space. You
+visualize actor timelines and zoom into the interactions. The interesting
+subset (where actors affect each other) is tiny compared to the full product.
+
+**What this means for the system:**
+
+- Observations are already tagged with their actor (SL's `:subject` field)
+- SL already manages per-actor browser sessions with separate cookies/state
+- The graph stores per-actor observation sequences naturally
+- Multi-user tests are paths that alternate between actors with causal edges
+- Visualization: parallel timelines, sequence-diagram style — no product-space explosion
+
+**Where interactions surface:**
+
+- Alice sends message → re-sieve Bob's browser → his inbox now shows it
+- Alice locks an account → Bob gets redirected to login on next action
+- Alice and Bob both edit the same document → conflict resolution behavior
+- Alice is admin, Bob is guest → same page, different elements visible
+
+Each of these is a causal cross-edge: one actor's action, another actor's
+state change. The sieve diff on Bob's browser after Alice's action tells you
+exactly what the interaction did.
+
+---
+
 ### Visualization
 
 Seeing the whole picture.
