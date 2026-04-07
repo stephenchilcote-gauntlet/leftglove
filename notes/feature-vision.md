@@ -325,9 +325,32 @@ tests are mechanical from the diff — "guest navigates to /dashboard → should
 see login form." This is the heckling concept from VISION.md: run admin paths
 as guest, verify they fail.
 
+**The logout problem:** The toddler crawling as `:admin` must not click logout.
+Credential tuples need exit gates alongside entry gates:
+
+```
+{:role    :admin
+ :enter   {:intent "Login" :credentials {:email "admin" :password "123456"}}
+ :exit    ["Nav.logout"]     ;; never click these while crawling as this role
+ :verify  {:cookie "session_id"}}  ;; safety net: detect if session died
+```
+
+The toddler skips exit gate elements. The verify check is a safety net — after
+each action, check if session cookie still exists. If it vanished (timeout, JS,
+accidental navigation), crawl-as-this-role stops.
+
+**Gate pairs ARE fixture contracts.** "Login with creds = enter role" is the
+fixture precondition. "Logout = exit role" is the teardown. Discovering these
+empirically via crawling is discovering the fixture contracts that SL will
+enforce. This connects directly to SL's fixture macro system.
+
+SL's `subjects.edn` doesn't change (who + desc + instances). Gate info lives
+in the fixture/intent layer — how to become/stop being a subject. Different
+artifact from the subject definition itself.
+
 **Dependencies:** Autonomous crawling + auth form identification + multi-session
-comparison + surface diff. SL already handles multi-actor with separate browser
-sessions. The crawling and diff are the new parts.
+comparison + surface diff + gate exclusion. SL already handles multi-actor with
+separate browser sessions. The crawling, gates, and diff are the new parts.
 
 **Demo potential:** Design the demo app to support this (3-4 pages, login form,
 role-gated content). Even manual version is a killer demo moment.
