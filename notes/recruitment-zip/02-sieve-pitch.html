@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Sieve — Capstone Pitch</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #0b0e14;
+    --bg-card: #131720;
+    --bg-card-alt: #1a1f2e;
+    --text: #c8cdd5;
+    --text-bright: #e8ecf1;
+    --text-dim: #6b7280;
+    --accent: #22d3ee;
+    --accent2: #f472b6;
+    --accent3: #a78bfa;
+    --accent4: #34d399;
+    --warn: #fb923c;
+    --red: #f87171;
+    --border: #1e2533;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .deck {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  .slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 5vh 8vw;
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    pointer-events: none;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .slide.exit-left {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: clamp(1.8rem, 3.5vw, 3rem);
+    color: var(--text-bright);
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  h1 .accent { color: var(--accent); }
+  h1 .accent2 { color: var(--accent2); }
+  h1 .accent3 { color: var(--accent3); }
+
+  h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: clamp(1rem, 1.6vw, 1.3rem);
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .content {
+    display: flex;
+    gap: 4vw;
+    align-items: flex-start;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .content.centered {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .content.stacked {
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .col {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .diagram {
+    flex: 1.2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .diagram svg {
+    width: 100%;
+    height: auto;
+    max-height: 55vh;
+  }
+
+  .point {
+    margin-bottom: 1.2rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--border);
+    line-height: 1.6;
+    font-size: clamp(0.9rem, 1.3vw, 1.15rem);
+  }
+
+  .point strong {
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+
+  .point.glow-cyan { border-left-color: var(--accent); }
+  .point.glow-pink { border-left-color: var(--accent2); }
+  .point.glow-purple { border-left-color: var(--accent3); }
+  .point.glow-green { border-left-color: var(--accent4); }
+  .point.glow-orange { border-left-color: var(--warn); }
+  .point.glow-red { border-left-color: var(--red); }
+
+  .tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    margin-right: 0.3rem;
+    font-weight: 500;
+  }
+
+  .tag.cyan { background: rgba(34,211,238,0.12); color: var(--accent); }
+  .tag.pink { background: rgba(244,114,182,0.12); color: var(--accent2); }
+  .tag.purple { background: rgba(167,139,250,0.12); color: var(--accent3); }
+  .tag.green { background: rgba(52,211,153,0.12); color: var(--accent4); }
+  .tag.orange { background: rgba(251,146,60,0.12); color: var(--warn); }
+
+  .nav {
+    position: fixed;
+    bottom: 2vh;
+    right: 3vw;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .nav-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 2rem;
+    height: 2rem;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .nav-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Slide-specific layouts */
+  .tools-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .tool-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.2rem;
+    font-size: clamp(0.85rem, 1.1vw, 1rem);
+    line-height: 1.5;
+  }
+
+  .tool-card .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    color: var(--text-bright);
+    font-size: 0.85rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .tool-card .desc {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+
+  .recruit-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    flex: 1;
+  }
+
+  .recruit-box h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+  }
+
+  .recruit-box p {
+    font-size: clamp(0.85rem, 1.1vw, 1rem);
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  .title-slide {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .title-slide h1 {
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    margin-bottom: 0.5rem;
+  }
+
+  .title-slide .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    font-size: clamp(0.9rem, 1.4vw, 1.2rem);
+    letter-spacing: 0.06em;
+  }
+
+  .bg-glow {
+    position: absolute;
+    width: 40vw;
+    height: 40vw;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.07;
+    pointer-events: none;
+  }
+
+  .glow-1 { background: var(--accent); top: -10vw; right: -5vw; }
+  .glow-2 { background: var(--accent2); bottom: -10vw; left: -5vw; }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="bg-glow glow-1"></div>
+  <div class="bg-glow glow-2"></div>
+
+  <!-- SLIDE 1: The Problem -->
+  <div class="slide active" data-slide="0">
+    <h2>The Problem</h2>
+    <h1>Agents are <span class="accent">fast</span>,<br>but <span class="accent2">blind</span></h1>
+    <div class="content">
+      <div class="col">
+        <div class="point glow-cyan">
+          <strong>Agents build fast</strong> — parallel, insightful, tireless
+        </div>
+        <div class="point glow-pink">
+          <strong>But context-free</strong> — no persistent model of what the app <em>is</em> from the user's side
+        </div>
+        <div class="point glow-purple">
+          <strong>Screenshots &amp; scraping exist</strong> — but they're fuzzy, token-expensive, and have no memory of what <em>should</em> be there
+        </div>
+        <div class="point glow-orange">
+          <strong>The real goal:</strong> keep agents on the rails of designer intent and actual user value
+        </div>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg">
+          <!-- Agent circle -->
+          <circle cx="200" cy="80" r="50" fill="none" stroke="#22d3ee" stroke-width="2"/>
+          <text x="200" y="75" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">AGENT</text>
+          <text x="200" y="92" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="9">fast, parallel</text>
+
+          <!-- App box -->
+          <rect x="115" y="210" width="170" height="80" rx="6" fill="none" stroke="#f472b6" stroke-width="2"/>
+          <text x="200" y="245" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">YOUR APP</text>
+          <text x="200" y="263" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="9">buttons, fields, pages</text>
+          <text x="200" y="278" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="9">user flows, states</text>
+
+          <!-- Disconnected arrow -->
+          <line x1="200" y1="132" x2="200" y2="170" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="4,4"/>
+          <text x="200" y="192" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, monospace" font-size="10" font-weight="500">??? no map ???</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: Current Tools Fail -->
+  <div class="slide" data-slide="1">
+    <h2>Current State of the Art</h2>
+    <h1>E2E testing <span class="accent2">doesn't solve this</span></h1>
+    <div class="content">
+      <div class="col">
+        <div class="tools-grid">
+          <div class="tool-card">
+            <div class="label">Playwright</div>
+            <div class="desc">Browser automation — manual locators, manual maintenance</div>
+          </div>
+          <div class="tool-card">
+            <div class="label">Appium</div>
+            <div class="desc">Mobile automation — same problems, different platform</div>
+          </div>
+          <div class="tool-card">
+            <div class="label">Cypress</div>
+            <div class="desc">Browser testing — tightly coupled to DOM structure</div>
+          </div>
+          <div class="tool-card">
+            <div class="label">Postman</div>
+            <div class="desc">API testing — disconnected from what users see</div>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="padding-top: 0.5rem;">
+        <div class="point glow-red">
+          <strong>No real inventory</strong> — no shared map of what's actually on each screen
+        </div>
+        <div class="point glow-red">
+          <strong>Phantom users</strong> — tests don't distinguish guest from admin from power user
+        </div>
+        <div class="point glow-red">
+          <strong>Wrong verb level</strong> — "user logs in" instead of "user clicks submit-button"
+        </div>
+        <div class="point glow-red">
+          <strong>Manual &amp; tightly coupled</strong> — page objects break every time the frontend changes
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: ShiftLefter -->
+  <div class="slide" data-slide="2">
+    <h2>What Exists Today</h2>
+    <h1><span class="accent">ShiftLefter</span> — vocabulary enforcer</h1>
+    <div class="content">
+      <div class="col">
+        <div class="point glow-cyan">
+          <strong>Every subject defined</strong> — guest, admin, power-user, test-harness — no phantom users
+        </div>
+        <div class="point glow-cyan">
+          <strong>Every object defined</strong> — username-field, submit-button, cart-icon — bound to stable locators
+        </div>
+        <div class="point glow-cyan">
+          <strong>Verbs bound to interface level</strong> — clicks, types-into, reads — not domain abstractions
+        </div>
+        <div class="point glow-green">
+          <strong>DDD ubiquitous language, enforced</strong> — the whole team, code included, uses the same terms
+        </div>
+        <div class="point glow-pink">
+          <strong>Reference something that isn't in the glossary?</strong> Test fails. Drift is impossible.
+        </div>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 380 340" xmlns="http://www.w3.org/2000/svg">
+          <!-- Glossary box -->
+          <rect x="20" y="20" width="340" height="120" rx="6" fill="#131720" stroke="#22d3ee" stroke-width="1.5"/>
+          <text x="40" y="48" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700">GLOSSARY</text>
+          <text x="40" y="70" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="9">subjects: guest, admin, power-user</text>
+          <text x="40" y="87" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="9">objects:  username-field, submit-btn</text>
+          <text x="40" y="104" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="9">verbs:   clicks, types-into, reads</text>
+          <text x="40" y="127" fill="#34d399" font-family="JetBrains Mono, monospace" font-size="8">← ubiquitous language</text>
+
+          <!-- Test box - valid -->
+          <rect x="20" y="170" width="155" height="70" rx="6" fill="#131720" stroke="#34d399" stroke-width="1.5"/>
+          <text x="35" y="195" fill="#34d399" font-family="JetBrains Mono, monospace" font-size="9" font-weight="500">✓ VALID TEST</text>
+          <text x="35" y="215" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">guest clicks</text>
+          <text x="35" y="228" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">  submit-btn</text>
+
+          <!-- Test box - invalid -->
+          <rect x="205" y="170" width="155" height="70" rx="6" fill="#131720" stroke="#f87171" stroke-width="1.5"/>
+          <text x="220" y="195" fill="#f87171" font-family="JetBrains Mono, monospace" font-size="9" font-weight="500">✗ FAILS</text>
+          <text x="220" y="215" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">user clicks</text>
+          <text x="220" y="228" fill="#f87171" font-family="JetBrains Mono, monospace" font-size="8">  login-btn ← ???</text>
+
+          <!-- Arrows -->
+          <line x1="97" y1="142" x2="97" y2="168" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+          <line x1="282" y1="142" x2="282" y2="168" stroke="#f87171" stroke-width="1.5" marker-end="url(#arrowRed)"/>
+
+          <!-- But building it sucks -->
+          <rect x="20" y="270" width="340" height="50" rx="6" fill="none" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="6,3"/>
+          <text x="190" y="300" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">building this glossary by hand still sucks</text>
+
+          <defs>
+            <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#34d399"/></marker>
+            <marker id="arrowRed" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f87171"/></marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: The Sieve -->
+  <div class="slide" data-slide="3">
+    <h2>The Capstone</h2>
+    <h1>The <span class="accent">Sieve</span></h1>
+    <div class="content">
+      <div class="col">
+        <div class="point glow-cyan">
+          <strong>Point it at a running app</strong> — reads a page, classifies every element
+        </div>
+        <div class="point glow-cyan">
+          <strong>Walks the application</strong> — expands widgets, follows links, starts over on the next page
+        </div>
+        <div class="point glow-green">
+          <strong>Classifies automatically</strong> — input, clickable, readable, static text, chrome
+        </div>
+        <div class="point glow-purple">
+          <strong>Interface-agnostic architecture</strong> — web browser first, but the same pattern works for mobile, REST, GraphQL, SMS
+        </div>
+        <div class="point glow-orange">
+          <strong>Output:</strong> structured inventory with stable locators → ShiftLefter glossary
+        </div>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg">
+          <!-- Running app -->
+          <rect x="10" y="30" width="120" height="260" rx="6" fill="#1a1f2e" stroke="#6b7280" stroke-width="1"/>
+          <text x="70" y="22" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="9">RUNNING APP</text>
+          <!-- elements inside -->
+          <rect x="22" y="50" width="96" height="16" rx="3" fill="none" stroke="#6b7280" stroke-width="0.7"/>
+          <text x="70" y="62" text-anchor="middle" fill="#4b5563" font-family="DM Sans" font-size="7">nav bar</text>
+          <rect x="22" y="80" width="96" height="22" rx="3" fill="none" stroke="#6b7280" stroke-width="0.7"/>
+          <text x="70" y="95" text-anchor="middle" fill="#4b5563" font-family="DM Sans" font-size="7">search field</text>
+          <rect x="22" y="115" width="45" height="50" rx="3" fill="none" stroke="#6b7280" stroke-width="0.7"/>
+          <rect x="73" y="115" width="45" height="50" rx="3" fill="none" stroke="#6b7280" stroke-width="0.7"/>
+          <text x="45" y="143" text-anchor="middle" fill="#4b5563" font-family="DM Sans" font-size="6">card</text>
+          <text x="96" y="143" text-anchor="middle" fill="#4b5563" font-family="DM Sans" font-size="6">card</text>
+          <rect x="22" y="178" width="96" height="18" rx="3" fill="none" stroke="#6b7280" stroke-width="0.7"/>
+          <text x="70" y="191" text-anchor="middle" fill="#4b5563" font-family="DM Sans" font-size="7">button</text>
+          <rect x="22" y="210" width="96" height="30" rx="3" fill="none" stroke="#6b7280" stroke-width="0.7"/>
+          <text x="70" y="228" text-anchor="middle" fill="#4b5563" font-family="DM Sans" font-size="6">text block</text>
+          <rect x="22" y="254" width="96" height="16" rx="3" fill="none" stroke="#6b7280" stroke-width="0.7"/>
+          <text x="70" y="266" text-anchor="middle" fill="#4b5563" font-family="DM Sans" font-size="7">footer</text>
+
+          <!-- Sieve arrow -->
+          <polygon points="150,160 180,140 180,150 230,150 230,170 180,170 180,180" fill="#22d3ee" opacity="0.8"/>
+          <text x="190" y="145" fill="#0b0e14" font-family="JetBrains Mono, monospace" font-size="8" font-weight="700">SIEVE</text>
+
+          <!-- Classified output -->
+          <rect x="250" y="30" width="160" height="260" rx="6" fill="#131720" stroke="#22d3ee" stroke-width="1.5"/>
+          <text x="330" y="22" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="9">INVENTORY</text>
+
+          <circle cx="270" cy="58" r="5" fill="#6b7280" opacity="0.4"/>
+          <text x="282" y="62" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">nav-bar</text>
+          <text x="378" y="62" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="7" text-anchor="end">chrome</text>
+
+          <circle cx="270" cy="88" r="5" fill="#22d3ee"/>
+          <text x="282" y="92" fill="#e8ecf1" font-family="JetBrains Mono, monospace" font-size="8">search-field</text>
+          <text x="378" y="92" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="7" text-anchor="end">input</text>
+
+          <circle cx="270" cy="118" r="5" fill="#a78bfa"/>
+          <text x="282" y="122" fill="#e8ecf1" font-family="JetBrains Mono, monospace" font-size="8">product-card</text>
+          <text x="378" y="122" fill="#a78bfa" font-family="JetBrains Mono, monospace" font-size="7" text-anchor="end">clickable</text>
+
+          <circle cx="270" cy="148" r="5" fill="#a78bfa"/>
+          <text x="282" y="152" fill="#e8ecf1" font-family="JetBrains Mono, monospace" font-size="8">product-card</text>
+          <text x="378" y="152" fill="#a78bfa" font-family="JetBrains Mono, monospace" font-size="7" text-anchor="end">clickable</text>
+
+          <circle cx="270" cy="178" r="5" fill="#f472b6"/>
+          <text x="282" y="182" fill="#e8ecf1" font-family="JetBrains Mono, monospace" font-size="8">add-to-cart</text>
+          <text x="378" y="182" fill="#f472b6" font-family="JetBrains Mono, monospace" font-size="7" text-anchor="end">clickable</text>
+
+          <circle cx="270" cy="208" r="5" fill="#34d399"/>
+          <text x="282" y="212" fill="#e8ecf1" font-family="JetBrains Mono, monospace" font-size="8">description</text>
+          <text x="378" y="212" fill="#34d399" font-family="JetBrains Mono, monospace" font-size="7" text-anchor="end">readable</text>
+
+          <circle cx="270" cy="238" r="5" fill="#6b7280" opacity="0.4"/>
+          <text x="282" y="242" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">footer</text>
+          <text x="378" y="242" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="7" text-anchor="end">chrome</text>
+
+          <rect x="260" y="262" width="140" height="20" rx="3" fill="none" stroke="#fb923c" stroke-width="1" stroke-dasharray="3,2"/>
+          <text x="330" y="276" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, monospace" font-size="7">+ stable locators</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: Toddler Loop -->
+  <div class="slide" data-slide="4">
+    <h2>Disambiguation</h2>
+    <h1>The <span class="accent3">Toddler Loop</span></h1>
+    <div class="content">
+      <div class="col">
+        <div class="point glow-purple">
+          <strong>LLM reviews uncertain elements</strong> — "What's this? What does it do? What do you call it?"
+        </div>
+        <div class="point glow-purple">
+          <strong>You answer in your language</strong> — your team's terms, your domain's vocabulary
+        </div>
+        <div class="point glow-green">
+          <strong>Community detection</strong> — elements that always appear and act together cluster into groups. "These five elements are your login form." Confirm or correct.
+        </div>
+        <div class="point glow-cyan">
+          <strong>Minutes instead of days</strong> — complete, labeled, validated glossary
+        </div>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg">
+          <!-- Cycle: Sieve → uncertain → LLM asks → human answers → glossary -->
+          <!-- Uncertain items -->
+          <rect x="130" y="10" width="140" height="55" rx="6" fill="#1a1f2e" stroke="#fb923c" stroke-width="1.5"/>
+          <text x="200" y="32" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, monospace" font-size="9" font-weight="500">UNCERTAIN</text>
+          <text x="200" y="50" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">div? button? container?</text>
+
+          <!-- Arrow down to LLM -->
+          <line x1="200" y1="67" x2="200" y2="95" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+          <!-- LLM asks -->
+          <rect x="100" y="97" width="200" height="55" rx="6" fill="#1a1f2e" stroke="#a78bfa" stroke-width="1.5"/>
+          <text x="200" y="120" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, monospace" font-size="10" font-weight="500">🤖 "What's this?"</text>
+          <text x="200" y="140" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">"What does it do?"</text>
+
+          <!-- Arrow down to human -->
+          <line x1="200" y1="154" x2="200" y2="182" stroke="#e8ecf1" stroke-width="1.5" marker-end="url(#arrowWhite)"/>
+
+          <!-- Human answers -->
+          <rect x="100" y="184" width="200" height="50" rx="6" fill="#1a1f2e" stroke="#e8ecf1" stroke-width="1.5"/>
+          <text x="200" y="207" text-anchor="middle" fill="#e8ecf1" font-family="JetBrains Mono, monospace" font-size="10" font-weight="500">👤 "That's the cart icon"</text>
+          <text x="200" y="224" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">"It opens the shopping cart"</text>
+
+          <!-- Arrow down to glossary -->
+          <line x1="200" y1="236" x2="200" y2="264" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowGreen2)"/>
+
+          <!-- Glossary entry -->
+          <rect x="80" y="266" width="240" height="45" rx="6" fill="#131720" stroke="#34d399" stroke-width="1.5"/>
+          <text x="200" y="287" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono, monospace" font-size="9" font-weight="500">✓ cart-icon → clickable</text>
+          <text x="200" y="303" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">added to glossary</text>
+
+          <!-- Looping arrow back to top -->
+          <path d="M322,290 Q370,290 370,37 Q370,10 340,10 L272,10" fill="none" stroke="#6b7280" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrowGray)"/>
+          <text x="380" y="160" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="7" transform="rotate(90, 380, 160)">next element</text>
+
+          <defs>
+            <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#a78bfa"/></marker>
+            <marker id="arrowWhite" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#e8ecf1"/></marker>
+            <marker id="arrowGreen2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#34d399"/></marker>
+            <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#6b7280"/></marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: What This Gets You -->
+  <div class="slide" data-slide="5">
+    <h2>Immediate Value</h2>
+    <h1>What the Sieve <span class="accent4">gets you</span></h1>
+    <div class="content">
+      <div class="col">
+        <div class="point glow-cyan">
+          <strong>Re-sieve after every change</strong> — element disappeared? contract flags it. New element? Toddler Loop asks about it. Locator broke? You know immediately.
+        </div>
+        <div class="point glow-green">
+          <strong>Test generation</strong> — the inventory defines what actions are possible. Inputs mean typing. Buttons mean clicking. Tests fall out of the vocabulary.
+        </div>
+        <div class="point glow-pink">
+          <strong>Agent guardrails</strong> — Claude gets a machine-readable map of what users actually see and do, not just what the code says should happen
+        </div>
+        <div class="point glow-purple">
+          <strong>Claude can drive your app</strong> — with stable locators and a classified inventory, an agent can actually navigate and verify
+        </div>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg">
+          <!-- Cycle diagram: code change → re-sieve → diff → catch problems -->
+          <circle cx="200" cy="160" r="100" fill="none" stroke="#1e2533" stroke-width="1.5"/>
+
+          <!-- Top: Code Change -->
+          <rect x="150" y="32" width="100" height="36" rx="6" fill="#1a1f2e" stroke="#a78bfa" stroke-width="1.5"/>
+          <text x="200" y="55" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, monospace" font-size="9" font-weight="500">code change</text>
+
+          <!-- Right: Re-Sieve -->
+          <rect x="278" y="140" width="100" height="36" rx="6" fill="#1a1f2e" stroke="#22d3ee" stroke-width="1.5"/>
+          <text x="328" y="163" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="9" font-weight="500">re-sieve</text>
+
+          <!-- Bottom: Diff -->
+          <rect x="150" y="250" width="100" height="36" rx="6" fill="#1a1f2e" stroke="#fb923c" stroke-width="1.5"/>
+          <text x="200" y="273" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, monospace" font-size="9" font-weight="500">diff inventory</text>
+
+          <!-- Left: Act -->
+          <rect x="22" y="140" width="100" height="36" rx="6" fill="#1a1f2e" stroke="#34d399" stroke-width="1.5"/>
+          <text x="72" y="157" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono, monospace" font-size="8" font-weight="500">update glossary</text>
+          <text x="72" y="170" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono, monospace" font-size="8" font-weight="500">+ gen tests</text>
+
+          <!-- Arrows along circle -->
+          <path d="M252,55 Q300,70 310,138" fill="none" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrowGray2)"/>
+          <path d="M330,178 Q310,240 252,265" fill="none" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrowGray2)"/>
+          <path d="M148,265 Q95,240 90,178" fill="none" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrowGray2)"/>
+          <path d="M70,138 Q80,70 148,55" fill="none" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrowGray2)"/>
+
+          <!-- Center label -->
+          <text x="200" y="155" text-anchor="middle" fill="#e8ecf1" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700">CONTINUOUS</text>
+          <text x="200" y="172" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="9">contract</text>
+
+          <defs>
+            <marker id="arrowGray2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#6b7280"/></marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: The Graph / Bigger Picture -->
+  <div class="slide" data-slide="6">
+    <h2>Where This Goes</h2>
+    <h1>The <span class="accent2">graph</span> of user intent</h1>
+    <div class="content">
+      <div class="col">
+        <div class="point glow-cyan">
+          <strong>Connect inventories across pages</strong> — a graph of every path a user can take
+        </div>
+        <div class="point glow-green">
+          <strong>Derive use cases from paths</strong> — sequences of actions contract into domain verbs: "logs in," "checks out"
+        </div>
+        <div class="point glow-purple">
+          <strong>Use cases bridge platforms</strong> — web and mobile have different interfaces, but equivalent use cases means feature parity
+        </div>
+        <div class="point glow-pink">
+          <strong>Role mutation</strong> — swap admin's graph to guest, verify every path is blocked
+        </div>
+        <div class="point glow-orange" style="margin-top: 1rem; border-left-width: 3px;">
+          <strong>The real goal:</strong> a deterministic graph of your app's surface — user intent pinned down precisely — so agents can be freed to do what they're best at
+        </div>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 420 340" xmlns="http://www.w3.org/2000/svg">
+          <!-- Bottom layer: interface graph -->
+          <text x="30" y="295" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">INTERFACE ACTIONS</text>
+
+          <rect x="30" y="300" width="70" height="24" rx="4" fill="#1a1f2e" stroke="#22d3ee" stroke-width="1"/>
+          <text x="65" y="316" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="7">types user</text>
+
+          <rect x="115" y="300" width="70" height="24" rx="4" fill="#1a1f2e" stroke="#22d3ee" stroke-width="1"/>
+          <text x="150" y="316" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="7">types pass</text>
+
+          <rect x="200" y="300" width="70" height="24" rx="4" fill="#1a1f2e" stroke="#22d3ee" stroke-width="1"/>
+          <text x="235" y="316" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="7">clicks submit</text>
+
+          <line x1="100" y1="312" x2="115" y2="312" stroke="#22d3ee" stroke-width="1" marker-end="url(#arrowCyan)"/>
+          <line x1="185" y1="312" x2="200" y2="312" stroke="#22d3ee" stroke-width="1" marker-end="url(#arrowCyan)"/>
+
+          <!-- Contraction arrow -->
+          <path d="M150,298 Q150,260 210,240" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arrowPurple2)"/>
+
+          <!-- Middle layer: use case graph (page nodes + domain verb edges) -->
+          <text x="30" y="175" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">USE CASES</text>
+
+          <!-- Page nodes -->
+          <circle cx="80" cy="215" r="28" fill="#1a1f2e" stroke="#f472b6" stroke-width="1.5"/>
+          <text x="80" y="212" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, monospace" font-size="7" font-weight="500">login</text>
+          <text x="80" y="224" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, monospace" font-size="7" font-weight="500">page</text>
+
+          <circle cx="210" cy="215" r="28" fill="#1a1f2e" stroke="#34d399" stroke-width="1.5"/>
+          <text x="210" y="212" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono, monospace" font-size="7" font-weight="500">dash-</text>
+          <text x="210" y="224" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono, monospace" font-size="7" font-weight="500">board</text>
+
+          <circle cx="340" cy="215" r="28" fill="#1a1f2e" stroke="#fb923c" stroke-width="1.5"/>
+          <text x="340" y="212" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, monospace" font-size="7" font-weight="500">product</text>
+          <text x="340" y="224" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono, monospace" font-size="7" font-weight="500">listing</text>
+
+          <!-- Domain verb edges -->
+          <path d="M108,210 L182,210" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple2)"/>
+          <text x="145" y="204" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, monospace" font-size="7">logs in</text>
+
+          <path d="M238,210 L312,210" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple2)"/>
+          <text x="275" y="204" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono, monospace" font-size="7">browses</text>
+
+          <!-- Self-loop on product listing -->
+          <path d="M355,190 Q390,170 365,195" fill="none" stroke="#a78bfa" stroke-width="1" marker-end="url(#arrowPurple2)"/>
+          <text x="390" y="175" fill="#a78bfa" font-family="JetBrains Mono, monospace" font-size="6">adds to cart</text>
+
+          <!-- Top layer: cross-platform -->
+          <text x="30" y="50" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="8">CROSS-PLATFORM</text>
+
+          <rect x="50" y="62" width="80" height="30" rx="4" fill="#1a1f2e" stroke="#e8ecf1" stroke-width="1"/>
+          <text x="90" y="82" text-anchor="middle" fill="#e8ecf1" font-family="JetBrains Mono, monospace" font-size="8">web</text>
+
+          <rect x="160" y="62" width="80" height="30" rx="4" fill="#1a1f2e" stroke="#e8ecf1" stroke-width="1"/>
+          <text x="200" y="82" text-anchor="middle" fill="#e8ecf1" font-family="JetBrains Mono, monospace" font-size="8">mobile</text>
+
+          <rect x="270" y="62" width="80" height="30" rx="4" fill="#1a1f2e" stroke="#e8ecf1" stroke-width="1"/>
+          <text x="310" y="82" text-anchor="middle" fill="#e8ecf1" font-family="JetBrains Mono, monospace" font-size="8">API</text>
+
+          <!-- Lines down to use case layer -->
+          <line x1="90" y1="92" x2="90" y2="140" stroke="#6b7280" stroke-width="1" stroke-dasharray="3,2"/>
+          <line x1="200" y1="92" x2="200" y2="140" stroke="#6b7280" stroke-width="1" stroke-dasharray="3,2"/>
+          <line x1="310" y1="92" x2="310" y2="140" stroke="#6b7280" stroke-width="1" stroke-dasharray="3,2"/>
+
+          <!-- Equivalence label -->
+          <rect x="90" y="130" width="180" height="24" rx="4" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="4,2"/>
+          <text x="180" y="146" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono, monospace" font-size="8">same use cases = feature parity</text>
+
+          <defs>
+            <marker id="arrowCyan" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#22d3ee"/></marker>
+            <marker id="arrowPurple2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#a78bfa"/></marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 8: What I'm Looking For -->
+  <div class="slide" data-slide="7">
+    <h2>Join Me</h2>
+    <h1>What I'm <span class="accent">looking for</span></h1>
+    <div class="content" style="flex-direction: row; gap: 2rem; align-items: stretch;">
+      <div class="recruit-box" style="border-color: var(--accent);">
+        <h3 style="color: var(--accent);">The Expanders</h3>
+        <p style="margin-bottom: 0.8rem;">
+          You heard <strong>"machine-readable map of any interface"</strong> and your brain went somewhere I didn't describe.
+        </p>
+        <p style="color: var(--text-dim); font-size: 0.85rem; line-height: 1.6;">
+          Accessibility auditing. D3 visualization of the graph. Sieving a REST API, a phone IVR, an SMS bot. A diff tool that shows what changed between deploys. A UI that makes the Toddler Loop beautiful.
+        </p>
+        <p style="margin-top: 0.8rem;">
+          The Sieve is a <strong>substrate</strong>. Bring your own project.
+        </p>
+      </div>
+      <div class="recruit-box" style="border-color: var(--accent3);">
+        <h3 style="color: var(--accent3);">The Graph Thinkers</h3>
+        <p style="margin-bottom: 0.8rem;">
+          The graph part sounded interesting and your first thought was <strong>"how do you handle state?"</strong>
+        </p>
+        <p style="color: var(--text-dim); font-size: 0.85rem; line-height: 1.6;">
+          Equivalence partitioning. Community detection. Cross-platform graph comparison. Formal verification of navigation topology. Making use-case derivation actually work.
+        </p>
+        <p style="margin-top: 0.8rem;">
+          This is the <strong>hard problem</strong>. Come help formalize it.
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+  <button class="nav-btn" onclick="prev()" aria-label="Previous">←</button>
+  <span id="counter">1 / 8</span>
+  <button class="nav-btn" onclick="next()" aria-label="Next">→</button>
+</div>
+
+<script>
+  let current = 0;
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  const counter = document.getElementById('counter');
+
+  function show(n, direction) {
+    if (n < 0 || n >= total) return;
+    const old = slides[current];
+    const next = slides[n];
+
+    old.classList.remove('active');
+    if (direction === 'forward') {
+      old.classList.add('exit-left');
+    }
+    setTimeout(() => old.classList.remove('exit-left'), 400);
+
+    next.classList.add('active');
+    current = n;
+    counter.textContent = (current + 1) + ' / ' + total;
+  }
+
+  function next() { show(current + 1, 'forward'); }
+  function prev() { show(current - 1, 'back'); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LeftGlove + ShiftLefter — Capstone Roadmap</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <style>
+    body { background: #1a1a2e; color: #e0e0e0; font-family: system-ui; padding: 2rem; }
+    h1 { color: #e0e0e0; text-align: center; }
+    h2 { color: #aaa; text-align: center; font-weight: normal; margin-top: -0.5rem; }
+    .mermaid { background: #16213e; padding: 2rem; border-radius: 8px; }
+    .legend { display: flex; gap: 2rem; justify-content: center; margin: 1rem 0; font-size: 0.9rem; }
+    .legend-item { display: flex; align-items: center; gap: 0.5rem; }
+    .swatch { width: 16px; height: 16px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>Capstone Roadmap — Trunk + Branch Roads</h1>
+  <h2>Updated 2026-04-01 — verified against code</h2>
+  <div class="legend">
+    <div class="legend-item"><div class="swatch" style="background:#2d6a4f"></div> Trunk (LG core)</div>
+    <div class="legend-item"><div class="swatch" style="background:#1a5276"></div> SL work</div>
+    <div class="legend-item"><div class="swatch" style="background:#3a0ca3"></div> Branch roads (menu)</div>
+    <div class="legend-item"><div class="swatch" style="background:#9d4800"></div> Capstone deliverable</div>
+  </div>
+  <div class="mermaid">
+graph TD
+    %% === THE TRUNK (LG core — Chair's lane) ===
+    subgraph TRUNK["THE TRUNK — LG core, progressive passes"]
+        direction TB
+        S["Sieve protocol + web impl<br/><i>Hardest, most useful. JS.</i><br/><i>Protocol supports multi-interface</i>"]
+        MCP["MCP server<br/><i>JSON-RPC over stdio</i><br/><i>Small, well-defined</i>"]
+        BR["Bridge<br/><i>Connect SL ↔ LG</i><br/><i>Config, browsers, steps</i>"]
+        TL["Toddler loop v1<br/><i>observe → guess → ask → record</i><br/><i>Flat storage first, graph later</i><br/><i>Glossary building = primary use case</i>"]
+        GR["Graph persistence<br/><i>Asami plumbing exists in SL</i><br/><i>Schema is the hard part — iterative</i>"]
+        SVOI["SVOI vocabulary projection<br/><i>SL glossaries → MCP tools</i>"]
+
+        S --> BR
+        MCP --> BR
+        BR --> TL
+        TL --> GR
+        GR --> SVOI
+    end
+
+    %% === SL PREREQUISITES ===
+    subgraph SL["SL WORK — modernize + finish"]
+        direction TB
+        SL1["Verify fixture server works<br/><i>Exists in /test/, needs confirmation</i>"]
+        SL2["Apply GitLab patches to GitHub<br/><i>Small delta, enables teammates</i>"]
+        SL3["sl agent-prompt GP.005<br/><i>Not started. Makes SL agent-friendly</i>"]
+        SL4["Intent regions — finish EP-035<br/><i>Flat done. Need: arrival, transitions,</i><br/><i>verification, contracts. Note blockers.</i>"]
+    end
+
+    %% === BRANCHES ===
+    subgraph BA["A: Graph Depth"]
+        direction TB
+        BA1["Iterative schema rework"]
+        BA2["Cross-plane query design"]
+        BA3["Use case derivation"]
+        BA1 --> BA2 --> BA3
+    end
+
+    subgraph BB["B: Non-Web Sieves"]
+        direction TB
+        BB1["Android accessibility tree"]
+        BB2["iOS sieve"]
+        BB3["API sieve"]
+        BB4["SMS / IVR sieve"]
+    end
+
+    subgraph BC["C: Ecosystem Projects"]
+        direction TB
+        BC1["Demo videos from specs<br/><i>Any language</i>"]
+        BC2["Use case ↔ feature mapping<br/><i>Any language</i>"]
+        BC3["SVOI observability stubs<br/><i>Any language</i>"]
+        BC4["Cross-interface compatibility matrix<br/><i>Falls out of BC2</i>"]
+        BC2 --> BC4
+    end
+
+    subgraph BD["D: SL Enhancements"]
+        direction TB
+        BD1["Raw SVOI execution path"]
+        BD2["Public vocabulary API"]
+        BD3["sl agent-prompt — GP.005"]
+    end
+
+    subgraph BF["F: sl compile + Graph Viz"]
+        direction TB
+        BF1["Compile orchestrator<br/><i>Read glossaries/stepdefs → Asami</i><br/><i>Greenfield — spike only in docs</i>"]
+        BF2["SQLite export"]
+        BF3["Dashboard / visualization<br/><i>Any language reads SQLite</i>"]
+        BF1 --> BF2 --> BF3
+    end
+
+    subgraph BG["G: Dual-Browser Demo"]
+        direction TB
+        BG1["Isolated step registry<br/><i>with-registry dynamic var</i><br/><i>Pre-req, Clojure</i>"]
+        BG2["Parallel execution<br/><i>Playwright + WebDriver simultaneous</i>"]
+        BG1 --> BG2
+    end
+
+    subgraph BI["I: Demo App Expansion"]
+        direction TB
+        BI1["Expand fixture server<br/><i>More pages, CRUD, permissions</i><br/><i>Any language</i>"]
+    end
+
+    subgraph BE["E: Capstone Deliverable"]
+        direction TB
+        BE1["Philosophy / narrative<br/><i>Four planes, SVOI thesis,</i><br/><i>screenplay critique</i>"]
+        BE2["Demo script + recording"]
+        BE3["Presentation deck"]
+        BE1 --> BE2 --> BE3
+    end
+
+    %% === CONNECTIONS ===
+    SL -->|"SL ready"| BR
+    GR -->|"schema stabilizes"| BA
+    S -->|"sieve protocol defined"| BB
+    SVOI -->|"vocabulary accessible"| BC
+    BR -->|"SL callable"| BD
+    GR -->|"Asami plumbing"| BF
+    SL -->|"both adapters work"| BG
+    SL1 -->|"fixture exists"| BI
+    SVOI -->|"system working"| BE
+
+    %% === STYLING ===
+    style TRUNK fill:#1b4332,stroke:#52b788,color:#e0e0e0
+    style SL fill:#1a5276,stroke:#2e86c1,color:#e0e0e0
+    style BA fill:#3a0ca3,stroke:#7209b7,color:#e0e0e0
+    style BB fill:#3a0ca3,stroke:#7209b7,color:#e0e0e0
+    style BC fill:#3a0ca3,stroke:#7209b7,color:#e0e0e0
+    style BD fill:#3a0ca3,stroke:#7209b7,color:#e0e0e0
+    style BF fill:#3a0ca3,stroke:#7209b7,color:#e0e0e0
+    style BG fill:#3a0ca3,stroke:#7209b7,color:#e0e0e0
+    style BI fill:#3a0ca3,stroke:#7209b7,color:#e0e0e0
+    style BE fill:#9d4800,stroke:#e07000,color:#e0e0e0
+
+    style S fill:#2d6a4f,stroke:#52b788,color:#e0e0e0
+    style MCP fill:#2d6a4f,stroke:#52b788,color:#e0e0e0
+    style BR fill:#2d6a4f,stroke:#52b788,color:#e0e0e0
+    style TL fill:#2d6a4f,stroke:#52b788,color:#e0e0e0
+    style GR fill:#2d6a4f,stroke:#52b788,color:#e0e0e0
+    style SVOI fill:#2d6a4f,stroke:#52b788,color:#e0e0e0
+
+    style SL1 fill:#1a5276,stroke:#2e86c1,color:#e0e0e0
+    style SL2 fill:#1a5276,stroke:#2e86c1,color:#e0e0e0
+    style SL3 fill:#1a5276,stroke:#2e86c1,color:#e0e0e0
+    style SL4 fill:#1a5276,stroke:#2e86c1,color:#e0e0e0
+  </div>
+  <script>mermaid.initialize({theme: 'dark', securityLevel: 'loose'});</script>
+</body>
+</html>

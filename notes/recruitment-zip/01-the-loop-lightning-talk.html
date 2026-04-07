@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Loop — Lightning Talk</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #0b0e14;
+    --bg-card: #131720;
+    --bg-card-alt: #1a1f2e;
+    --text: #c8cdd5;
+    --text-bright: #e8ecf1;
+    --text-dim: #6b7280;
+    --accent: #22d3ee;
+    --accent2: #f472b6;
+    --accent3: #a78bfa;
+    --accent4: #34d399;
+    --warn: #fb923c;
+    --red: #f87171;
+    --border: #1e2533;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .deck {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  .slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 5vh 8vw;
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    pointer-events: none;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .slide.exit-left {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  .title-slide {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .title-slide h1 {
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    margin-bottom: 0.5rem;
+  }
+
+  .title-slide .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    font-size: clamp(0.9rem, 1.4vw, 1.2rem);
+    letter-spacing: 0.06em;
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: clamp(1.8rem, 3.5vw, 3rem);
+    color: var(--text-bright);
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  h1 .accent { color: var(--accent); }
+  h1 .accent2 { color: var(--accent2); }
+  h1 .accent3 { color: var(--accent3); }
+  h1 .green { color: var(--accent4); }
+  h1 .warn { color: var(--warn); }
+
+  h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: clamp(1rem, 1.6vw, 1.3rem);
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .content {
+    display: flex;
+    gap: 4vw;
+    align-items: flex-start;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .content.centered {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .content.stacked {
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .col {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .diagram {
+    flex: 1.2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .diagram svg {
+    width: 100%;
+    height: auto;
+    max-height: 60vh;
+  }
+
+  .point {
+    margin-bottom: 1.2rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--border);
+    line-height: 1.6;
+    font-size: clamp(0.9rem, 1.3vw, 1.15rem);
+  }
+
+  .point strong {
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+
+  .point.glow-cyan { border-left-color: var(--accent); }
+  .point.glow-pink { border-left-color: var(--accent2); }
+  .point.glow-purple { border-left-color: var(--accent3); }
+  .point.glow-green { border-left-color: var(--accent4); }
+  .point.glow-orange { border-left-color: var(--warn); }
+  .point.glow-red { border-left-color: var(--red); }
+
+  .big-quote {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(1.4rem, 2.5vw, 2.2rem);
+    color: var(--text-bright);
+    line-height: 1.4;
+    max-width: 70vw;
+    font-weight: 400;
+  }
+
+  .big-quote .accent { color: var(--accent); }
+  .big-quote .accent2 { color: var(--accent2); }
+  .big-quote .accent3 { color: var(--accent3); }
+
+  .plane-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .plane-list li {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(1rem, 1.8vw, 1.5rem);
+    color: var(--text-dim);
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+  }
+
+  .plane-list .num {
+    color: var(--accent);
+    font-weight: 700;
+    min-width: 2rem;
+  }
+
+  .plane-list .label {
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+
+  .plane-list .desc {
+    color: var(--text-dim);
+    font-weight: 300;
+  }
+
+  .bug-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+  }
+
+  .bug-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.2rem 1.4rem;
+    line-height: 1.6;
+  }
+
+  .bug-card .bug-plane {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.04em;
+  }
+
+  .bug-card .bug-desc {
+    font-size: clamp(0.85rem, 1.1vw, 1rem);
+    color: var(--text);
+  }
+
+  .bg-glow {
+    position: absolute;
+    width: 40vw;
+    height: 40vw;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.07;
+    pointer-events: none;
+  }
+
+  .glow-1 { background: var(--accent); top: -10vw; right: -5vw; }
+  .glow-2 { background: var(--accent2); bottom: -10vw; left: -5vw; }
+
+  .nav {
+    position: fixed;
+    bottom: 2vh;
+    right: 3vw;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .nav-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 2rem;
+    height: 2rem;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .nav-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .source-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    position: absolute;
+    bottom: 3vh;
+    left: 8vw;
+  }
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <div class="bg-glow glow-1"></div>
+  <div class="bg-glow glow-2"></div>
+
+  <!-- SLIDE 0: Title -->
+  <div class="slide active title-slide" data-slide="0">
+    <h1>The <span class="accent">Loop</span></h1>
+    <div class="subtitle">a model of systems &amp; their bugs</div>
+  </div>
+
+  <!-- SLIDE 1: Opener -->
+  <div class="slide" data-slide="1">
+    <h2>Context</h2>
+    <h1>Thousands of bugs.<br>One <span class="accent">model</span>.</h1>
+    <div class="content" style="align-items: center;">
+      <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+        <img src="notsof-cover.png" alt="Notes on the Synthesis of Form" style="max-height: 45vh; border-radius: 4px; border: 1px solid var(--border);">
+      </div>
+      <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem;">
+        <img src="6dominoes.png" alt="Re-frame 6 Dominoes" style="max-height: 40vh; border-radius: 4px; border: 1px solid var(--border);">
+        <a href="https://day8.github.io/re-frame/re-frame/" target="_blank" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-dim); text-decoration: none; border-bottom: 1px solid var(--border);">day8.github.io/re-frame</a>
+      </div>
+    </div>
+    <div class="source-tag">Christopher Alexander, 1964</div>
+  </div>
+
+  <!-- SLIDE 2: Planes Overview -->
+  <div class="slide" data-slide="2">
+    <h2>The Planes</h2>
+    <h1>Five layers of <span class="accent">any</span> system</h1>
+    <div class="content centered">
+      <ul class="plane-list">
+        <li><span class="num">0</span> <span class="label">Reality</span> <span class="desc">— the world</span></li>
+        <li><span class="num">1</span> <span class="label">Observation</span> <span class="desc">— what we know</span></li>
+        <li><span class="num">2</span> <span class="label">Orientation</span> <span class="desc">— what we care about</span></li>
+        <li><span class="num">3</span> <span class="label">Design</span> <span class="desc">— how we'll fix it</span></li>
+        <li><span class="num">4</span> <span class="label">Artifact</span> <span class="desc">— the thing itself</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: Plane 0 -->
+  <div class="slide" data-slide="3">
+    <h2>Plane 0</h2>
+    <h1><span class="accent">Reality</span> is indirect</h1>
+    <div class="content centered">
+      <div class="big-quote">
+        You cannot directly mutate Plane 0.<br><br>
+        You pick up a stone, learn to throw it, aim, chuck it, and see what happens.<br><br>
+        All your interactions with the world are <span class="accent">experiments</span>.<br><br>
+        <span style="color: var(--text-dim); font-size: 0.8em;">It's a credit to our built models that we so easily forget that.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: Plane 1 -->
+  <div class="slide" data-slide="4">
+    <h2>Plane 1</h2>
+    <h1>The plane of <span class="accent3">infinite</span> facts</h1>
+    <div class="content">
+      <div class="col">
+        <div class="point glow-purple">
+          <strong>Inexhaustible</strong> — literally infinite. No point in even trying to catalogue it all.
+        </div>
+        <div class="point glow-purple">
+          <strong>Provenance</strong> — every fact has a source, a scope, and a duration.
+        </div>
+        <div class="point glow-purple">
+          <strong>Superseded</strong> — facts expire. Later observations replace earlier ones.
+        </div>
+        <div class="point glow-purple">
+          <strong>Incomplete</strong> — anything you know is represented here, and it's always partial.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: Users, Misfit, System -->
+  <div class="slide" data-slide="5">
+    <h2>The Core</h2>
+    <h1>Users. <span class="accent2">Misfit</span>. Systems.</h1>
+    <div class="content">
+      <div class="col">
+        <div class="point glow-cyan">
+          <strong>Users</strong> — something that has goals. People, organizations, other systems. We call them users when they're at the boundary of a system.
+        </div>
+        <div class="point glow-pink">
+          <strong>Misfit</strong> — the gap between what a user wants and what the world provides. The world pushes back.
+        </div>
+        <div class="point glow-green">
+          <strong>System</strong> — a set of forms and processes that bridge that misfit. That is their entire purpose.
+        </div>
+        <div class="point" style="border-left-color: var(--text-dim);">
+          <strong>Stakeholders</strong> — not everyone is a user. Stakeholders care about the system's outcomes but don't interact at the boundary. Regulators, executives, the dev team itself.
+          <span style="display: block; margin-top: 0.5rem; color: var(--text-bright); font-size: 0.85em;">A system that serves stakeholders <strong style="color: var(--red);">over</strong> users is a <strong style="color: var(--red);">perverted</strong> system.</span>
+        </div>
+        <div class="point glow-orange">
+          <strong>Composes</strong> — a microservice is a system. A Kubernetes cluster is a system. Netflix is a system. The boundary moves; the definition holds.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: Plane 2 — The Only Thing -->
+  <div class="slide" data-slide="6">
+    <h2>Plane 2 — Orientation</h2>
+    <h1>The <span class="accent2">only thing</span> you care about</h1>
+    <div class="content centered">
+      <div class="big-quote">
+        Which misfits, for which users, will we solve?<br>
+        <span style="color: var(--text-dim); font-size: 0.75em;">We might be wrong on any of these. But this is our working hypothesis.</span><br><br>
+        <span class="accent2">This is it.</span> Everything else — every metric, every process, every tool — is derivative of this.<br><br>
+        If you can't at least budge this, your system is a <span class="warn">ghost town</span>. No one cares.
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: Planes 3 & 4 -->
+  <div class="slide" data-slide="7">
+    <h2>Planes 3 &amp; 4</h2>
+    <h1><span class="accent4">Design</span> → <span class="accent">Artifact</span></h1>
+    <div class="content">
+      <div class="col">
+        <div class="point glow-green">
+          <strong>Plane 3 — Design</strong> — the blueprint. Architecture, data model, user flows on a whiteboard. An experimental design. Not the experiment itself — you're deciding what to build, and in what shape.
+        </div>
+        <div class="point glow-cyan">
+          <strong>Plane 4 — Artifact</strong> — the built thing. Code on a server, an app in someone's hand. Where most people think the work happens — but it's the narrowest kind. The kind an LLM does more of every week. The interesting decisions were made above.
+        </div>
+        <div class="point glow-orange" style="margin-top: 2rem; border-left-width: 3px;">
+          <strong>Not always top-down.</strong> You often start at Plane 4 and backfill upward — looking for gaps, contradictions, redundancies. This isn't just a build sequence. It's a diagnostic tool.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 8: The Loop Diagram -->
+  <div class="slide" data-slide="8">
+    <h2>The Loop</h2>
+    <h1><span class="accent">Synthesis</span> ↓ &nbsp; <span class="accent2">Verification</span> ↑</h1>
+    <div class="content centered">
+      <div class="diagram">
+        <svg viewBox="0 0 700 500" xmlns="http://www.w3.org/2000/svg">
+          <!-- Circle -->
+          <ellipse cx="300" cy="250" rx="180" ry="190" fill="none" stroke="#1e2533" stroke-width="1.5"/>
+
+          <!-- OODA / Scientific Method reference -->
+          <text x="540" y="30" fill="#4b5563" font-family="JetBrains Mono, monospace" font-size="9" font-weight="500">cf. OODA Loop</text>
+          <text x="540" y="44" fill="#4b5563" font-family="JetBrains Mono, monospace" font-size="9" font-weight="500">cf. Scientific Method</text>
+
+          <!-- Plane labels right side -->
+          <text x="540" y="78" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="11">Plane 1</text>
+          <text x="540" y="97" fill="#c8cdd5" font-family="DM Sans, sans-serif" font-size="14" font-weight="500">Observation</text>
+
+          <text x="540" y="198" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="11">Plane 2</text>
+          <text x="540" y="217" fill="#c8cdd5" font-family="DM Sans, sans-serif" font-size="14" font-weight="500">Orientation / Hypothesis</text>
+
+          <text x="540" y="328" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="11">Plane 3</text>
+          <text x="540" y="347" fill="#c8cdd5" font-family="DM Sans, sans-serif" font-size="14" font-weight="500">Design / Decide</text>
+
+          <text x="540" y="444" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="11">Plane 4</text>
+          <text x="540" y="463" fill="#c8cdd5" font-family="DM Sans, sans-serif" font-size="14" font-weight="500">Action / Experiment</text>
+
+          <!-- Horizontal plane lines -->
+          <line x1="160" y1="85" x2="520" y2="85" stroke="#1e2533" stroke-width="1" stroke-dasharray="4,4"/>
+          <line x1="130" y1="205" x2="520" y2="205" stroke="#1e2533" stroke-width="1" stroke-dasharray="4,4"/>
+          <line x1="130" y1="335" x2="520" y2="335" stroke="#1e2533" stroke-width="1" stroke-dasharray="4,4"/>
+          <line x1="160" y1="445" x2="520" y2="445" stroke="#1e2533" stroke-width="1" stroke-dasharray="4,4"/>
+
+          <!-- Synthesis label left -->
+          <text x="55" y="220" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="10" font-weight="500" transform="rotate(-90 55 220)" text-anchor="middle">SYNTHESIS ↓</text>
+
+          <!-- Verification label right -->
+          <text x="510" y="280" fill="#f472b6" font-family="JetBrains Mono, monospace" font-size="10" font-weight="500" transform="rotate(90 510 280)" text-anchor="middle">VERIFICATION ↑</text>
+
+          <!-- Station nodes - Synthesis (left, descending) -->
+          <!-- Station 1 - Plane 1 -->
+          <circle cx="175" cy="85" r="22" fill="var(--bg-card)" stroke="#22d3ee" stroke-width="2"/>
+          <text x="175" y="90" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">1</text>
+
+          <!-- Station 2 - Plane 2 -->
+          <circle cx="135" cy="205" r="22" fill="var(--bg-card)" stroke="#22d3ee" stroke-width="2"/>
+          <text x="135" y="210" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">2</text>
+
+          <!-- Station 3 - Plane 3 -->
+          <circle cx="135" cy="335" r="22" fill="var(--bg-card)" stroke="#22d3ee" stroke-width="2"/>
+          <text x="135" y="340" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">3</text>
+
+          <!-- Station 4 - Plane 4 -->
+          <circle cx="175" cy="445" r="22" fill="var(--bg-card)" stroke="#22d3ee" stroke-width="2"/>
+          <text x="175" y="450" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">4</text>
+
+          <!-- Station nodes - Verification (right, ascending) -->
+          <!-- Station 5 - Plane 4 -->
+          <circle cx="425" cy="445" r="22" fill="var(--bg-card)" stroke="#f472b6" stroke-width="2"/>
+          <text x="425" y="450" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">5</text>
+
+          <!-- Station 6 - Plane 3 -->
+          <circle cx="465" cy="335" r="22" fill="var(--bg-card)" stroke="#f472b6" stroke-width="2"/>
+          <text x="465" y="340" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">6</text>
+
+          <!-- Station 7 - Plane 2 -->
+          <circle cx="465" cy="205" r="22" fill="var(--bg-card)" stroke="#f472b6" stroke-width="2"/>
+          <text x="465" y="210" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">7</text>
+
+          <!-- Station 8 - Plane 1 -->
+          <circle cx="425" cy="85" r="22" fill="var(--bg-card)" stroke="#f472b6" stroke-width="2"/>
+          <text x="425" y="90" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">8</text>
+
+          <!-- Arc arrows - synthesis side -->
+          <path d="M190,105 Q160,150 148,183" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowCyan)"/>
+          <path d="M140,227 Q135,275 138,313" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowCyan)"/>
+          <path d="M148,357 Q160,395 175,423" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowCyan)"/>
+
+          <!-- Arc arrows - verification side -->
+          <path d="M438,425 Q455,390 462,357" fill="none" stroke="#f472b6" stroke-width="1.5" marker-end="url(#arrowPink)"/>
+          <path d="M468,313 Q468,265 465,227" fill="none" stroke="#f472b6" stroke-width="1.5" marker-end="url(#arrowPink)"/>
+          <path d="M458,183 Q445,140 430,107" fill="none" stroke="#f472b6" stroke-width="1.5" marker-end="url(#arrowPink)"/>
+
+          <!-- Top arc (8 back to 1) -->
+          <path d="M405,68 Q300,15 195,68" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+          <!-- Bottom connection (4 to 5) -->
+          <path d="M197,448 Q300,485 403,448" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+
+          <!-- Plane 0 label at bottom -->
+          <text x="300" y="498" text-anchor="middle" fill="#6b7280" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="0.15em">P L A N E  0  —  R E A L I T Y</text>
+
+          <!-- Reality "ground" -->
+          <ellipse cx="300" cy="475" rx="120" ry="8" fill="none" stroke="#1e2533" stroke-width="1" stroke-dasharray="4,3"/>
+
+          <defs>
+            <marker id="arrowCyan" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#22d3ee"/></marker>
+            <marker id="arrowPink" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f472b6"/></marker>
+            <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#a78bfa"/></marker>
+            <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#6b7280"/></marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 9: Bugs by Plane -->
+  <div class="slide" data-slide="9">
+    <h2>Bugs Have Planes Too</h2>
+    <h1>Where does the <span class="accent2">bug</span> actually live?</h1>
+    <div class="content">
+      <div class="bug-grid">
+        <div class="bug-card">
+          <div class="bug-plane" style="color: var(--accent);">Plane 4 — It doesn't work</div>
+          <div class="bug-desc">Good idea. I want to use it. But I physically can't. The thing is <strong>broken</strong>.</div>
+        </div>
+        <div class="bug-card">
+          <div class="bug-plane" style="color: var(--accent4);">Plane 3 — It's stupid</div>
+          <div class="bug-desc">It works. But it makes you jump through hoops. The workflow is <strong>dumb</strong>. People make <strong>desire paths</strong> through your software because the paved ones don't go where they need.</div>
+        </div>
+        <div class="bug-card">
+          <div class="bug-plane" style="color: var(--accent2);">Plane 2 — Nobody cares</div>
+          <div class="bug-desc">It works fine. Nobody wants it. Big feature, big fanfare, <strong>no adoption</strong>.</div>
+        </div>
+        <div class="bug-card">
+          <div class="bug-plane" style="color: var(--accent3);">Plane 1 — Wrong from the start</div>
+          <div class="bug-desc">Shows up as a 2, 3, or 4 bug. The observations were <strong>wrong</strong>. Everything downstream inherited it.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 10: Not a V -->
+  <div class="slide" data-slide="10">
+    <h2>The Loop, Not the V</h2>
+    <h1>A <span class="accent4">greenhouse</span>, not a factory</h1>
+    <div class="content centered">
+      <div class="big-quote">
+        A factory ships and moves on.<br><br>
+        A greenhouse watches real users do the thing — sees what changed in the world since the last deployment — and <span class="accent4">iterates</span>.<br><br>
+        You're not just verifying the old build. You're <span class="accent">feeding the next one</span>.
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 11: The Reality -->
+  <div class="slide" data-slide="11">
+    <h2>In Practice</h2>
+    <h1>Most orgs <span class="warn">mash</span> the planes together</h1>
+    <div class="content centered">
+      <div class="big-quote">
+        Even the best teams squish Planes 1, 2, and 3 into a single PRD.<br><br>
+        Some bigger orgs can verify Plane 2 and 3 assumptions. But it's rarely <span class="warn">regular</span> or properly <span class="warn">segregated</span>.
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 12: The Close -->
+  <div class="slide" data-slide="12">
+    <h2>The Opportunity</h2>
+    <h1>An <span class="accent">agent</span> at every <span class="accent2">station</span></h1>
+    <div class="content">
+      <div class="col">
+        <div class="point glow-cyan" style="font-size: clamp(1rem, 1.5vw, 1.3rem);">
+          <strong>Separate the planes.</strong> Make the implicit explicit.
+        </div>
+        <div class="point glow-pink" style="font-size: clamp(1rem, 1.5vw, 1.3rem);">
+          <strong>Purpose-built agents</strong> at and between every node in the circle.
+        </div>
+        <div class="point glow-green" style="font-size: clamp(1rem, 1.5vw, 1.3rem); margin-top: 2rem; border-left-width: 3px;">
+          Self-correcting. Continually improving. Dynamically built software.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 13: Exhortation -->
+  <div class="slide title-slide" data-slide="13">
+    <h1 style="font-size: clamp(1.5rem, 2.8vw, 2.4rem); line-height: 1.5;">
+      Root cause your shit.<br>
+      <span class="accent2">Disambiguate your flows.</span><br>
+      Verify your assumptions — then <span class="accent">update them</span>.<br><br>
+      <span style="color: var(--text-dim); font-size: 0.8em;">Gauntlet keeps telling us to stop being software developers<br>and be agentic software engineers.</span><br><br>
+      Push that agency all the way up the stack.<br>
+      <span class="green">Become product engineers.</span>
+    </h1>
+  </div>
+
+  <!-- SLIDE 14: Invitation -->
+  <div class="slide title-slide" data-slide="14">
+    <h1>This is the philosophy underlying<br>my <span class="accent">capstone</span>.</h1>
+    <div class="subtitle" style="margin-top: 1rem;">If it's interesting, come talk to me.</div>
+  </div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+  <button class="nav-btn" onclick="prev()" aria-label="Previous">←</button>
+  <span id="counter">1 / 15</span>
+  <button class="nav-btn" onclick="next()" aria-label="Next">→</button>
+</div>
+
+<script>
+  let current = 0;
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  const counter = document.getElementById('counter');
+
+  function show(n, direction) {
+    if (n < 0 || n >= total) return;
+    const old = slides[current];
+    const next = slides[n];
+
+    old.classList.remove('active');
+    if (direction === 'forward') {
+      old.classList.add('exit-left');
+    }
+    setTimeout(() => old.classList.remove('exit-left'), 400);
+
+    next.classList.add('active');
+    current = n;
+    counter.textContent = (current + 1) + ' / ' + total;
+  }
+
+  function next() { show(current + 1, 'forward'); }
+  function prev() { show(current - 1, 'back'); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  });
+</script>
+
+</body>
+</html>

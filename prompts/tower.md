@@ -324,6 +324,11 @@ Every session, before doing anything else:
 
 Chair calls you mid-sprint with current state. Your job:
 
+0. **Mini-clarify** (only if Chair brings changed scope). Before replanning, surface
+   2-3 questions max about the new scope. Use recommend-don't-ask format: state the
+   question, provide your recommended answer with reasoning, let Chair accept or
+   override. After each answer, atomically update REQUIREMENTS.md. Skip this step
+   if scope is unchanged.
 1. **Update progress tracker** (SCOREBOARD.md, rubric-tree, or equivalent) with
    current estimated status per section/milestone.
 2. **Identify highest-ROI tasks** for the next deadline. Points per effort drives priority.
@@ -376,11 +381,54 @@ Never use a shared beads database across projects.
 Read the project brief, requirements, or assignment. Produce:
 
 **a) Requirements extraction** — Identify:
+
 - **Hard gates** — pass/fail deadlines or requirements
 - **Deliverables** — what must be produced and when
 - **Success criteria** — what "good" looks like
 
 **── STOP. Chair verifies requirements are correct and complete. ──**
+
+### Step 1b: Clarify
+
+Scan requirements against these 8 categories. Mark each Clear / Partial / Missing:
+
+| # | Category | What to check |
+|---|----------|---------------|
+| 1 | **Functional Scope & Behavior** | Core user goals, success criteria, explicit out-of-scope |
+| 2 | **Domain & Data Model** | Entities, identity/uniqueness rules, state transitions, scale assumptions |
+| 3 | **Interaction & UX Flow** | Critical user journeys, error/empty/loading states |
+| 4 | **Non-Functional Quality** | Performance, reliability, observability, security/privacy |
+| 5 | **Integration & External Dependencies** | External APIs, failure modes, protocol/versioning |
+| 6 | **Edge Cases & Failure Handling** | Negative scenarios, conflicts, rate limits/throttling |
+| 7 | **Constraints & Tradeoffs** | Tech constraints, rejected alternatives, hard limits |
+| 8 | **Completion Signals** | Testable acceptance criteria, measurable done indicators |
+
+**If all 8 categories are Clear, skip to Step 2.**
+
+Otherwise, generate up to 5 questions, prioritized by **Impact × Uncertainty**.
+Present them **one at a time** using recommend-don't-ask format:
+
+1. State the question
+2. Provide your **recommended answer** with brief reasoning
+3. Chair accepts ("yes") or provides their own answer
+
+After each answer, **atomically update REQUIREMENTS.md** — place the clarification
+in the appropriate section (functional → Functional Requirements, data shape → Data
+Model, etc.). If a clarification invalidates earlier text, replace it — don't duplicate.
+
+**Stop when:** all critical ambiguities resolved, Chair says "done", or 5 questions reached.
+
+Output a coverage summary table:
+
+| Category | Status |
+|----------|--------|
+| Functional Scope | Clear |
+| Domain & Data Model | Resolved |
+| ... | ... |
+
+Status values: **Clear** (already sufficient), **Resolved** (was Partial/Missing, now
+addressed), **Deferred** (exceeds question quota or better decided during architecture),
+**Outstanding** (still Partial/Missing, low impact).
 
 ### Step 2: Architecture
 
