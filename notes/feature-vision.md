@@ -179,8 +179,9 @@ user sees on the page) vs "email" (what the developer references in tests).
 The transformation is where judgment lives.
 
 **The tension:** When the sieve is right, you want one-click accept. When it's
-wrong, one-click accept produces trash names. You can't know which case you're
-in beforehand.
+wrong, one-click accept produces trash names — think `mat-form-field-28`,
+`ng-c3847`, or `div_wrapper_inner_2`. You can't know which case you're in
+beforehand.
 
 **Approach: propose a transformed name, not the raw label.**
 
