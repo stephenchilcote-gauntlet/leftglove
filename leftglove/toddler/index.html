@@ -466,9 +466,16 @@ function renderScreenshot() {
     const emptyState = document.getElementById('empty-state');
 
     img.onload = function () {
-      state.screenshotDims = { w: img.naturalWidth, h: img.naturalHeight };
-      img.style.width = img.naturalWidth + 'px';
-      img.style.height = img.naturalHeight + 'px';
+      // Use viewport dims from sieve (CSS pixels) if available,
+      // otherwise fall back to natural image dims.
+      // Screenshot is captured at device pixel ratio (e.g. 2x on Retina)
+      // but sieve rects are in CSS pixels — must match coordinate spaces.
+      const vp = state.inventory?.viewport;
+      const w = vp?.w || img.naturalWidth;
+      const h = vp?.h || img.naturalHeight;
+      state.screenshotDims = { w: w, h: h };
+      img.style.width = w + 'px';
+      img.style.height = h + 'px';
       container.style.display = 'inline-block';
       emptyState.style.display = 'none';
       resolve();
