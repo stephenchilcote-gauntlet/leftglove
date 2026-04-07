@@ -4,3 +4,4 @@
 .DS_Store
 .beads/.br_history/
 .claude/tracking/
+node_modules/
