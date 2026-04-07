@@ -38,7 +38,8 @@ build a map of the whole thing.
 
 | Term | What it is |
 |------|-----------|
-| **Sieve** | Deterministic JS function that inventories a web page — filters ~90% of DOM noise, returns structured data on the ~10% that matters (elements with types, labels, locators, positions). Zero tokens, no LLM. Runs in SL's browser, consumed by LG over HTTP. |
+| **Web sieve** | Deterministic JS function that inventories a web page — filters ~90% of DOM noise, returns structured data on the ~10% that matters (elements with types, labels, locators, positions). Zero tokens, no LLM. Runs in SL's browser, consumed by LG over HTTP. |
+| **Sieve** | A sieve is an interface-specific inventory function. The web sieve is the first implementation, but sieves can be written for any interface SL exposes — Android (accessibility tree), iOS, SMS, email, API/GraphQL. SL ships default sieves per interface; users can provide custom ones. A sieve extracts objects and meaningful structural data from its interface to feed the toddler loop. Sieves don't extract verbs — those come from SL's glossary. |
 | **Toddler loop** | Human-in-the-loop pipeline: observe → classify → name → record → graduate to SL artifact. Pass 1 is rapid-fire classification (clickable/typable/readable/chrome/custom). Pass 2 is naming elements for the glossary. |
 | **Observation** | A timestamped sieve snapshot — everything visible at a moment in time. Graph nodes are observations. Not "pages" — SPAs change content without changing URLs. |
 | **Intent region** | A named cluster of related elements that form a semantic unit (e.g., "Login" contains email, password, submit). Cross-interface — same intent, different bindings per platform. |
