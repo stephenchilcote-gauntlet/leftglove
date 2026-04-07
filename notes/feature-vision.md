@@ -359,24 +359,39 @@ role-gated content). Even manual version is a killer demo moment.
 
 ## N. Crawl Path Review
 
-The toddler crawling produces a graph: observations (page states) as nodes,
-actions (clicks, submissions) as edges. The human needs to review not just
-individual pages but the **topology** — how pages connect, what transitions
-exist, what the toddler found but couldn't understand.
+The toddler crawling produces a graph: observations (application states) as
+nodes, actions (clicks, submissions) as edges. The human needs to review not
+just individual states but the **topology** — how states connect, what
+transitions exist, what the toddler found but couldn't understand.
+
+**Important: "state" not "page."** SPAs change content without changing URLs.
+Widget expand/collapse changes the observable surface without navigation. The
+graph nodes are sieve observations — snapshots of what's visible — not pages.
+Two kinds of edges:
+
+- **Navigation transitions:** you're in a different intent area (Login →
+  Dashboard). URL may or may not change (SPA route vs full navigation).
+- **State mutations:** same intent area, different state (accordion expanded,
+  modal opened, dropdown revealed, widget collapsed). Not a transition — a
+  modification of the current observation.
+
+Both are edges in the graph, both need human review, but they mean different
+things. "Where can you GO" vs "what can you REVEAL here."
 
 **Review tasks:**
 
-- Confirm/correct transitions ("clicking X on page A leads to page B")
+- Confirm/correct transitions ("clicking X in state A leads to state B")
 - Explain unknowns ("this form submission did something I can't interpret")
-- Identify cross-page element identity ("these pages share the same nav")
+- Identify cross-state element identity ("these states share the same nav")
 - Recognize structure ("this is a dead end / this loops back")
 - Name subgraphs as domain flows ("these transitions = the login flow")
+- Distinguish navigation from state mutation ("this opened a widget, not a page")
 
-**TL UI: tree sidebar mode.** Collapsible tree of discovered pages. Click a
+**TL UI: tree sidebar mode.** Collapsible tree of discovered states. Click a
 node → see screenshot + elements. Click an edge → see transition details.
-Bottom panel shows transition info in path mode, element info in page mode.
+Bottom panel shows transition info in path mode, element info in state mode.
 
-**Intermediate format expands** from per-page to per-session:
+**Intermediate format expands** from per-observation to per-session:
 
 ```json
 {
@@ -388,6 +403,11 @@ Bottom panel shows transition info in path mode, element info in page mode.
   "transitions": [
     {"from": "obs-001", "to": "obs-002", "action": "click",
      "element": "Login.submit", "outcome": "navigation"}
+  ],
+  "mutations": [
+    {"observation": "obs-002", "action": "click",
+     "element": "Dashboard.reviews-toggle", "outcome": "reveal",
+     "elementsAdded": 5, "elementsRemoved": 0}
   ]
 }
 ```
@@ -405,13 +425,83 @@ This IS the graph, serialized. Graduates to SL as IR transition definitions
 The crawl data populates EP-035. Toddler discovers transitions empirically.
 Human confirms which matter. SL enforces going forward.
 
+---
+
+## O. Application Visualization
+
+Graph visualization is bigger than crawl path review — it's the visual
+interface to the entire application model. Even a 3-page app benefits from
+seeing the topology.
+
+**What to visualize:**
+
+- States as nodes, transitions as edges (the application graph)
+- Intent regions as labeled clusters (Login cluster, Dashboard cluster)
+- Domain verbs as subgraph highlights ("this is the login flow")
+- Entry and exit points per role (guest sees these nodes, admin sees all)
+- Scattered functionality ("account management touches 6 different areas")
+- Coverage: which states/transitions have been explored vs unvisited
+
+**Depends on:** the graph existing. But visualization and graph construction
+will likely co-evolve — you want to SEE what you're building as you build it.
+
+**Ideal owner:** A frontend-oriented person. Self-contained, visual, uses
+standard graph viz libraries (d3-force, cytoscape.js, elk). May not get a
+third teammate, but this is a natural standalone workstream if we do.
+
+---
+
+## P. Sieve Metadata Expansion
+
+The sieve should capture ambient state that helps detect action side-effects:
+
+**Tab/window count:**
+
+```clojure
+:tabs 2    ;; did the last action open a new tab?
+```
+
+Detect: "clicking that link opened a new tab instead of navigating." The
+toddler needs to know whether the current context changed or a new one spawned.
+
+**Cookie keys (not values):**
+
+```clojure
+:cookies ["session_id" "csrf_token" "_ga"]  ;; top-level keys only
+```
+
+Detect: session appeared (login worked), session disappeared (logout or
+timeout), tracking cookies present. Values excluded — could contain tokens/PII.
+
+**localStorage/sessionStorage keys:**
+
+```clojure
+:storage {:localStorage ["cart" "user_prefs" "theme"]
+          :sessionStorage ["auth_token"]}
+```
+
+Detect: what the app persists client-side. Useful for knowing if state
+survives page refresh. Key names only, not content.
+
+**Why capture preemptively:** We will almost always start with clean sessions
+(no cookies, no localStorage). So any cookies/storage that appear were SET by
+the app during the session. This is free metadata that enables:
+
+- Session verification for role-gated crawling (verify check)
+- Detecting state that persists vs state that doesn't
+- Knowing when an action had invisible side-effects (cookie set, storage written)
+
+This is SL-side sieve work — expand the sieve JS return value.
+
 **Unsketched problems:**
 
 - Graph storage during crawling (in-memory? files? SQLite?)
-- Crawl strategy (breadth-first per page, depth-first across pages?)
+- Crawl strategy (breadth-first per state, depth-first across states?)
 - Cycle detection ("I've been here before" via element identity)
-- Review UX for large graphs (50+ pages needs filtering/search)
-- Agent review of crawl paths (MCP graph queries — out of scope)
+- Review UX for large graphs (50+ states needs filtering/search) — ties into
+  application visualization (section O)
+- Agent review of crawl paths (MCP graph queries — gets really interesting
+  but out of scope for capstone)
 
 ---
 
