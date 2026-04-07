@@ -94,22 +94,25 @@ These must exist for anything else to work.
 #### Persistence (was F)
 
 - Current: localStorage + manual JSON download
-- Need: auto-save to known location (where SL/LG launched from)
+- Need: auto-save the **intermediate file** (toddler loop working state —
+  classifications, names, screenshots) to a known location
 - Naming convention for multiple sieve dumps
 - Multiple people working on same app need to share state
 - The export JSON is close to the intermediate format already
 
-**Revised model:** The intermediate format (toddler loop state) is working
-state / scratch paper. The glossary files in git are the source of truth. The
-intermediate format doesn't need to be a permanent artifact — it's useful
-during a classification session but the output that matters is the glossary.
+**Revised model:** The intermediate format is working state / scratch paper.
+The glossary files in git are the source of truth. The intermediate format
+doesn't need to be a permanent artifact — it's useful during a classification
+session but the output that matters is the glossary.
 
 #### Graduation — PR-Based Glossary Merging (was G)
 
 **Kill the "graduation ceremony" as a separate concept.** The flow is:
 
 1. Sieve → classify → name (in toddler loop, on a branch)
-2. Export writes directly to glossary EDN files in the repo
+2. Human clicks "Export" in TL UI → TL sends named elements to SL via
+   `POST /glossary/intents` → SL writes the glossary EDN files (SL knows
+   where they live, handles EDN serialization and merge logic)
 3. `git diff main -- glossary/` IS the proposal
 4. Human reviews the diff, merges or adjusts
 5. The glossary in git is the source of truth
