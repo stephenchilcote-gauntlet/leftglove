@@ -30,7 +30,12 @@
 
   <footer>
     <p>&copy; 2026 DemoApp. All rights reserved.</p>
+    <a href="/help" target="_blank" data-testid="help-link">Open Help in New Tab</a>
   </footer>
 
+  <script>
+    localStorage.setItem('theme', 'light');
+    localStorage.setItem('lastLogin', new Date().toISOString());
+  </script>
 </body>
 </html>
