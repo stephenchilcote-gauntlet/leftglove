@@ -6,7 +6,9 @@ Feature: Navigate to target app
     Given :test opens the browser to 'http://localhost:8080?api=http://localhost:3333'
 
   Scenario: Enter URL and navigate
-    When :test fills ToddlerLoop.url-input with 'http://localhost:3000/login'
+    When :test clears ToddlerLoop.url-input
+    And :test fills ToddlerLoop.url-input with 'http://localhost:3000/login'
     And :test clicks ToddlerLoop.navigate
+    And pause for 5 seconds
     And :test should see ToddlerLoop.status with text 'elements'
     Then :test should see ToddlerLoop.screenshot

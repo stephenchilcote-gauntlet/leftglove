@@ -4,8 +4,10 @@ Feature: Classify elements
 
   Background:
     Given :test opens the browser to 'http://localhost:8080?api=http://localhost:3333'
+    And :test clears ToddlerLoop.url-input
     And :test fills ToddlerLoop.url-input with 'http://localhost:3000/login'
     And :test clicks ToddlerLoop.navigate
+    And pause for 5 seconds
     And :test should see ToddlerLoop.status with text 'elements'
 
   Scenario: Classify via keyboard shortcut
