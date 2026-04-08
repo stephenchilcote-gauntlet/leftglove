@@ -2,7 +2,7 @@
 
 ## Progress
 
-- [ ] **b6d-a** — Intermediate format definition
+- [x] **b6d-a** — Intermediate format definition
 - [ ] **r1x** — Pass 2 naming mode
 - [ ] **4j8** — Load pre-labeled state
 - [ ] **h34** — MCP vocabulary projection
