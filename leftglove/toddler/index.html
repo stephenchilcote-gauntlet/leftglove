@@ -82,6 +82,27 @@
   #mode-indicator.pass2 { background: #1e3f1e; color: #4ade80; }
   #mode-indicator.review { background: #3f1e3f; color: #c084fc; }
 
+  .pass2-controls { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .pass2-controls label { font-size: 11px; color: #888; margin-bottom: -4px; }
+  .pass2-controls input, .pass2-controls textarea {
+    padding: 5px 8px;
+    background: #0f3460;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #e0e0e0;
+    font-family: monospace;
+    font-size: 13px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .pass2-controls input:focus, .pass2-controls textarea:focus {
+    border-color: #22d3ee;
+    outline: none;
+  }
+  .pass2-controls textarea { resize: vertical; min-height: 32px; max-height: 60px; }
+  .pass2-btn-row { display: flex; gap: 6px; align-items: center; }
+  .pass2-btn-row .btn { flex: 1; }
+
   /* --- Screenshot area --- */
   #viewport {
     flex: 1;
@@ -575,6 +596,9 @@ function renderOverlay() {
   svg.setAttribute('height', dims.h);
   svg.setAttribute('viewBox', '0 0 ' + dims.w + ' ' + dims.h);
 
+  const inPass2 = state.mode === 'pass2' || state.mode === 'review';
+  const pass2Set = inPass2 ? new Set(state.pass2Order) : null;
+
   let html = '';
   for (let i = 0; i < elements.length; i++) {
     const el = elements[i];
@@ -583,25 +607,52 @@ function renderOverlay() {
 
     const isCurrent = i === state.currentIndex;
     const classification = state.classifications[i];
+    const glossary = state.glossaryNames[i];
 
     let stroke, strokeWidth, strokeDash, fill;
 
-    if (isCurrent) {
-      stroke = '#22d3ee';
-      strokeWidth = 3;
-      strokeDash = '';
-      fill = 'rgba(34,211,238,0.1)';
-    } else if (classification) {
-      stroke = CATEGORY_COLORS[classification] || '#666';
-      strokeWidth = classification === 'chrome' ? 1 : 2;
-      strokeDash = '';
-      fill = 'none';
-      if (classification === 'skip') continue; // hide skipped
+    if (inPass2) {
+      // Pass 2 / Review overlay
+      if (isCurrent) {
+        stroke = '#22d3ee';
+        strokeWidth = 3;
+        strokeDash = '';
+        fill = 'rgba(34,211,238,0.1)';
+      } else if (glossary) {
+        stroke = '#22c55e'; // green — named
+        strokeWidth = 2;
+        strokeDash = '';
+        fill = 'none';
+      } else if (pass2Set.has(i)) {
+        stroke = '#eab308'; // yellow — unnamed, in pass2
+        strokeWidth = 1;
+        strokeDash = '4,3';
+        fill = 'none';
+      } else {
+        stroke = '#333'; // faded — chrome/skip/excluded
+        strokeWidth = 1;
+        strokeDash = '4,3';
+        fill = 'none';
+      }
     } else {
-      stroke = '#666';
-      strokeWidth = 1;
-      strokeDash = '4,3';
-      fill = 'none';
+      // Pass 1 overlay (original logic)
+      if (isCurrent) {
+        stroke = '#22d3ee';
+        strokeWidth = 3;
+        strokeDash = '';
+        fill = 'rgba(34,211,238,0.1)';
+      } else if (classification) {
+        stroke = CATEGORY_COLORS[classification] || '#666';
+        strokeWidth = classification === 'chrome' ? 1 : 2;
+        strokeDash = '';
+        fill = 'none';
+        if (classification === 'skip') continue; // hide skipped
+      } else {
+        stroke = '#666';
+        strokeWidth = 1;
+        strokeDash = '4,3';
+        fill = 'none';
+      }
     }
 
     html += '<rect'
@@ -617,7 +668,7 @@ function renderOverlay() {
       + ' onclick="jumpTo(' + i + ')"'
       + '/>';
 
-    // Label for current element
+    // Label: current element or named element in pass2
     if (isCurrent) {
       const labelText = el.label || el.tag || '?';
       const textY = rect.y - 4;
@@ -629,6 +680,17 @@ function renderOverlay() {
         + ' font-family="sans-serif"'
         + ' font-weight="600"'
         + '>' + escapeHtml(labelText) + '</text>';
+    } else if (inPass2 && glossary) {
+      const gLabel = (glossary.intent ? glossary.intent + '.' : '') + glossary.name;
+      const textY = rect.y - 4;
+      html += '<text'
+        + ' x="' + rect.x + '"'
+        + ' y="' + (textY > 12 ? textY : rect.y + 14) + '"'
+        + ' fill="#4ade80"'
+        + ' font-size="11"'
+        + ' font-family="sans-serif"'
+        + ' font-weight="500"'
+        + '>' + escapeHtml(gLabel.slice(0, 25)) + '</text>';
     }
   }
 
@@ -643,8 +705,102 @@ function updateModeIndicator() {
   mi.className = state.mode;
 }
 
+var _lastPass2Rendered = -1;
+
+function renderPass2Panel() {
+  var elements = state.inventory?.elements;
+  if (!elements) return;
+
+  var el = elements[state.currentIndex];
+  var detail = document.getElementById('element-detail');
+  var controls = document.getElementById('panel-controls');
+  var summary = document.getElementById('summary');
+  summary.style.display = 'none';
+
+  // Element info (left side) — always update
+  if (el) {
+    var locatorStr = '';
+    if (el.locators) {
+      locatorStr = Object.entries(el.locators)
+        .filter(function (kv) { return kv[1]; })
+        .map(function (kv) { return kv[0] + '=' + kv[1]; })
+        .join(', ');
+    }
+    var glossary = state.glossaryNames[state.currentIndex];
+    var nameDisplay = glossary
+      ? '<div><span class="field-label">glossary name</span> '
+        + '<span class="field-value" style="color:#4ade80">'
+        + escapeHtml((glossary.intent ? glossary.intent + '.' : '') + glossary.name)
+        + '</span></div>'
+      : '';
+
+    detail.innerHTML =
+      '<div><span class="field-label">tag</span> '
+        + '<span class="field-value">' + escapeHtml(el.tag || '—') + '</span></div>'
+      + '<div><span class="field-label">label</span> '
+        + '<span class="field-value label-text">"' + escapeHtml(el.label || '—') + '"</span></div>'
+      + '<div><span class="field-label">region</span> '
+        + '<span class="field-value">' + escapeHtml(el.region || '—') + '</span></div>'
+      + (locatorStr
+        ? '<div><span class="field-label">locators</span> '
+          + '<span class="field-value">' + escapeHtml(locatorStr) + '</span></div>'
+        : '')
+      + '<div><span class="field-label">classification</span> '
+        + '<span class="field-value" style="color:' + (CATEGORY_COLORS[state.classifications[state.currentIndex]] || '#fff')
+        + '">' + (state.classifications[state.currentIndex] || '—') + '</span></div>'
+      + nameDisplay;
+  }
+
+  // Controls (right side) — only rebuild when element changes to avoid clobbering input
+  if (_lastPass2Rendered !== state.currentIndex) {
+    _lastPass2Rendered = state.currentIndex;
+
+    var existing = state.glossaryNames[state.currentIndex];
+    var nameVal = existing ? existing.name : proposeName(el);
+    var intentVal = existing ? existing.intent : deriveIntentName(el?.region);
+    var notesVal = existing ? existing.notes : '';
+
+    var namedCount = Object.keys(state.glossaryNames).length;
+    var totalPass2 = state.pass2Order.length;
+
+    controls.innerHTML =
+      '<div class="pass2-controls">'
+      + '<label>Intent</label>'
+      + '<input id="intent-input" data-testid="intent-input" value="' + escapeHtml(intentVal) + '" placeholder="e.g. Login">'
+      + '<label>Name</label>'
+      + '<input id="name-input" data-testid="name-input" value="' + escapeHtml(nameVal) + '" placeholder="e.g. email">'
+      + '<label>Notes</label>'
+      + '<textarea id="notes-input" placeholder="optional">' + escapeHtml(notesVal) + '</textarea>'
+      + '<div class="pass2-btn-row">'
+      + '<button class="btn btn-primary" data-testid="btn-accept-name" onclick="acceptName()">Accept (Enter)</button>'
+      + '<button class="btn" data-testid="btn-skip-name" onclick="skipName()">Skip (Tab)</button>'
+      + '</div>'
+      + '<div class="pass2-btn-row">'
+      + '<button class="nav-btn" data-testid="nav-prev" onclick="navigate(-1)">&larr;</button>'
+      + '<button class="nav-btn" data-testid="nav-next" onclick="navigate(1)">&rarr;</button>'
+      + '<span data-testid="pass2-progress" style="font-size:12px;color:#888;">'
+      + namedCount + ' of ' + totalPass2 + ' named</span>'
+      + '</div>'
+      + '</div>';
+
+    // Auto-focus name input
+    var nameInput = document.getElementById('name-input');
+    if (nameInput) nameInput.focus();
+  } else {
+    // Just update progress count without rebuilding inputs
+    var prog = controls.querySelector('[data-testid="pass2-progress"]');
+    if (prog) {
+      prog.textContent = Object.keys(state.glossaryNames).length + ' of ' + state.pass2Order.length + ' named';
+    }
+  }
+}
+
 function renderPanel() {
   updateModeIndicator();
+  if (state.mode === 'pass2' || state.mode === 'review') {
+    renderPass2Panel();
+    return;
+  }
   const elements = state.inventory?.elements;
   if (!elements || elements.length === 0) return;
 
