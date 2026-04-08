@@ -4,7 +4,7 @@
 
 - [x] **b6d-a** — Intermediate format definition
 - [x] **r1x** — Pass 2 naming mode
-- [ ] **4j8** — Load pre-labeled state
+- [x] **4j8** — Load pre-labeled state
 - [ ] **h34** — MCP vocabulary projection
 - [ ] **qo2** — Element identity across observations
 - [ ] **cuo** — Sieve diff display
