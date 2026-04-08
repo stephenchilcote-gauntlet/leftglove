@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# Dogfood test runner — stands up services, runs SL against the TL UI
+#
+# Usage:
+#   bin/dogfood-test              # uses default ports
+#   bin/dogfood-test --use-dev    # skips service startup, assumes dev is running
+#
+# Ports (override via env vars):
+#   SIEVE_PORT  — SL sieve server  (default: 3333)
+#   DEMO_PORT   — Demo app         (default: 3000)
+#   TL_PORT     — Toddler loop UI  (default: 8080)
+#
+# Prerequisites:
+#   - SL repo at $SL_DIR (default: ../shiftlefter)
+#   - Node.js for demo app
+#   - Python3 for TL UI server
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LG_DIR="$(dirname "$SCRIPT_DIR")"
+SL_DIR="${SL_DIR:-$(dirname "$LG_DIR")/shiftlefter}"
+
+SIEVE_PORT="${SIEVE_PORT:-3333}"
+DEMO_PORT="${DEMO_PORT:-3000}"
+TL_PORT="${TL_PORT:-8080}"
+
+USE_DEV=false
+if [[ "${1:-}" == "--use-dev" ]]; then
+  USE_DEV=true
+fi
+
+# Track PIDs for cleanup
+PIDS=()
+cleanup() {
+  echo ""
+  echo "[dogfood] Cleaning up..."
+  if [[ ${#PIDS[@]} -gt 0 ]]; then
+    for pid in "${PIDS[@]}"; do
+      kill "$pid" 2>/dev/null && wait "$pid" 2>/dev/null || true
+    done
+  fi
+  echo "[dogfood] Done."
+}
+trap cleanup EXIT
+
+# --- Health check helper ---
+wait_for() {
+  local name="$1" url="$2" max_wait="${3:-30}"
+  local waited=0
+  echo -n "[dogfood] Waiting for $name at $url "
+  while ! curl -so /dev/null -w '%{http_code}' "$url" 2>/dev/null | grep -q '^[23]'; do
+    sleep 1
+    waited=$((waited + 1))
+    echo -n "."
+    if [[ $waited -ge $max_wait ]]; then
+      echo " TIMEOUT"
+      echo "[dogfood] ERROR: $name did not start within ${max_wait}s"
+      exit 1
+    fi
+  done
+  echo " OK"
+}
+
+if [[ "$USE_DEV" == "true" ]]; then
+  echo "[dogfood] --use-dev: assuming services already running on default ports"
+else
+  # --- Start demo app ---
+  echo "[dogfood] Starting demo app on port $DEMO_PORT..."
+  cd "$LG_DIR/leftglove/demo-app"
+  PORT="$DEMO_PORT" node server.js &
+  PIDS+=($!)
+  cd "$LG_DIR"
+
+  # --- Start TL UI server ---
+  echo "[dogfood] Starting TL UI server on port $TL_PORT..."
+  python3 -m http.server "$TL_PORT" -d "$LG_DIR/leftglove/toddler" &
+  PIDS+=($!)
+
+  # --- Start SL sieve server via nREPL ---
+  if [[ -f "$SL_DIR/.nrepl-port" ]]; then
+    echo "[dogfood] Starting sieve server on port $SIEVE_PORT via nREPL..."
+    NREPL_PORT=$(cat "$SL_DIR/.nrepl-port")
+    "$SL_DIR/bin/repl-eval" -p "$NREPL_PORT" \
+      "(require '[shiftlefter.sieve.server :as ss]) (ss/start! {:port $SIEVE_PORT})" \
+      2>/dev/null || {
+        echo "[dogfood] WARNING: Could not start sieve via nREPL. Is SL REPL running?"
+        echo "[dogfood] Start it with: cd $SL_DIR && clj -M:dev"
+        exit 1
+      }
+  else
+    echo "[dogfood] ERROR: No SL nREPL found at $SL_DIR/.nrepl-port"
+    echo "[dogfood] Start the SL REPL first: cd $SL_DIR && clj -M:dev"
+    exit 1
+  fi
+fi
+
+# --- Wait for services ---
+wait_for "sieve server" "http://localhost:$SIEVE_PORT/status"
+wait_for "demo app"     "http://localhost:$DEMO_PORT/login"
+wait_for "TL UI"        "http://localhost:$TL_PORT/"
+
+echo "[dogfood] All services healthy."
+echo ""
+echo "  Sieve:    http://localhost:$SIEVE_PORT"
+echo "  Demo app: http://localhost:$DEMO_PORT"
+echo "  TL UI:    http://localhost:$TL_PORT?api=http://localhost:$SIEVE_PORT"
+echo ""
+
+# --- Run tests ---
+# TODO: replace with actual sl run once dogfood features exist
+echo "[dogfood] Ready for tests."
+echo "[dogfood] Manual: open http://localhost:$TL_PORT?api=http://localhost:$SIEVE_PORT"
+echo ""
+echo "[dogfood] Keeping services alive. Ctrl-C to stop."
+wait
