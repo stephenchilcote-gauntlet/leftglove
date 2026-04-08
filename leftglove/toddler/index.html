@@ -393,6 +393,10 @@ let state = {
   classifications: {},
   screenshotDims: { w: 0, h: 0 },
   pageUrl: null,
+  mode: 'pass1',          // 'pass1' | 'pass2' | 'review'
+  glossaryNames: {},       // { [inventoryIndex]: { name, intent, source, notes } }
+  pass2Order: [],          // filtered+sorted inventory indices for Pass 2 traversal
+  pass2Cursor: 0,          // position within pass2Order
 };
 
 // ---- Persistence ----
@@ -401,6 +405,9 @@ function saveState() {
     currentIndex: state.currentIndex,
     classifications: state.classifications,
     pageUrl: state.pageUrl,
+    mode: state.mode,
+    glossaryNames: state.glossaryNames,
+    pass2Cursor: state.pass2Cursor,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
 }
@@ -413,6 +420,9 @@ function loadState() {
       state.currentIndex = saved.currentIndex || 0;
       state.classifications = saved.classifications || {};
       state.pageUrl = saved.pageUrl || null;
+      state.mode = saved.mode || 'pass1';
+      state.glossaryNames = saved.glossaryNames || {};
+      state.pass2Cursor = saved.pass2Cursor || 0;
     }
   } catch (e) { /* ignore corrupt storage */ }
 }
@@ -729,6 +739,69 @@ function classify(category) {
   renderOverlay();
   renderPanel();
   scrollToCurrentElement();
+}
+
+// ---- Pass 2 Helpers ----
+function buildPass2Order() {
+  var elements = state.inventory?.elements;
+  if (!elements) { state.pass2Order = []; return; }
+
+  // Collect non-chrome, non-skip indices
+  var included = [];
+  for (var i = 0; i < elements.length; i++) {
+    var cat = state.classifications[i];
+    if (cat === 'chrome' || cat === 'skip') continue;
+    included.push(i);
+  }
+
+  // Group by region
+  var groups = {};
+  var order = [];
+  for (var j = 0; j < included.length; j++) {
+    var idx = included[j];
+    var region = elements[idx].region || '__none__';
+    if (!groups[region]) { groups[region] = []; order.push(region); }
+    groups[region].push(idx);
+  }
+
+  // Within each region: interactables (clickable, typable) first, then others
+  var interactable = { clickable: true, typable: true };
+  var result = [];
+  for (var k = 0; k < order.length; k++) {
+    var g = groups[order[k]];
+    var ia = [], rest = [];
+    for (var m = 0; m < g.length; m++) {
+      if (interactable[state.classifications[g[m]]]) ia.push(g[m]);
+      else rest.push(g[m]);
+    }
+    result = result.concat(ia, rest);
+  }
+
+  state.pass2Order = result;
+  state.pass2Cursor = 0;
+}
+
+function proposeName(el) {
+  var raw = (el.locators?.testid)
+    || (el.locators?.id)
+    || (el.locators?.name)
+    || (el.label)
+    || (el.tag);
+  if (!raw) return '';
+  // kebab-case: lowercase, replace non-alphanumeric runs with hyphens, trim hyphens
+  var name = raw.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return name.slice(0, 30);
+}
+
+function deriveIntentName(region) {
+  if (!region) return '';
+  // Last segment of region path, title-cased
+  var parts = region.split('>');
+  var last = parts[parts.length - 1].trim();
+  // Title-case: "login-form" -> "Login Form"
+  return last.replace(/[-_]/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }
 
 function navigate(delta) {
