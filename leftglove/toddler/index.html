@@ -71,6 +71,17 @@
     white-space: nowrap;
   }
 
+  #mode-indicator {
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 8px;
+  }
+  #mode-indicator.pass1 { background: #1e3a5f; color: #22d3ee; }
+  #mode-indicator.pass2 { background: #1e3f1e; color: #4ade80; }
+  #mode-indicator.review { background: #3f1e3f; color: #c084fc; }
+
   /* --- Screenshot area --- */
   #viewport {
     flex: 1;
@@ -320,6 +331,7 @@
   <button class="btn btn-primary" id="btn-sieve" data-testid="btn-sieve">Sieve</button>
   <button class="btn" id="btn-export" data-testid="btn-export">Export</button>
   <span id="status-indicator" data-testid="status-indicator">Ready</span>
+  <span id="mode-indicator" data-testid="mode-indicator"></span>
 </div>
 
 <!-- Metadata strip -->
@@ -623,7 +635,16 @@ function renderOverlay() {
   svg.innerHTML = html;
 }
 
+function updateModeIndicator() {
+  var mi = document.getElementById('mode-indicator');
+  if (!mi) return;
+  var labels = { pass1: 'Pass 1: Classify', pass2: 'Pass 2: Name', review: 'Review' };
+  mi.textContent = labels[state.mode] || '';
+  mi.className = state.mode;
+}
+
 function renderPanel() {
+  updateModeIndicator();
   const elements = state.inventory?.elements;
   if (!elements || elements.length === 0) return;
 
@@ -707,8 +728,25 @@ function showSummary() {
     }
   }
 
+  if (state.mode === 'pass1') {
+    html += '<button class="btn btn-primary" data-testid="btn-start-pass2" onclick="startPass2()" '
+      + 'style="margin-top:8px;padding:6px 16px;">Start Pass 2 &rarr;</button>';
+  }
+
   summary.innerHTML = html;
   summary.style.display = 'block';
+}
+
+function startPass2() {
+  state.mode = 'pass2';
+  buildPass2Order();
+  if (state.pass2Order.length > 0) {
+    state.currentIndex = state.pass2Order[0];
+  }
+  saveState();
+  renderOverlay();
+  renderPanel();
+  scrollToCurrentElement();
 }
 
 // ---- Classification ----
