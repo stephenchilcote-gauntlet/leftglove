@@ -1,12 +1,8 @@
 ;; Intent region: ToddlerLoop
 ;; The classification interface — toolbar, viewport, controls, metadata.
 ;;
-;; NOTE: Intent region files are forward-looking. SL doesn't consume
-;; this format yet. This establishes the shape we want for glossary
-;; graduation from the toddler loop.
-;;
-;; Canonical locator: data-testid. Elements with existing IDs use
-;; the ID value as testid (they're the same string).
+;; Bindings use :testid (first-class SL selector, leftglove-w2b).
+;; SL resolves ToddlerLoop.sieve → {:css "[data-testid='btn-sieve']"}.
 
 {:intent "ToddlerLoop"
  :description "Pass 1 classification interface for sieve output"
