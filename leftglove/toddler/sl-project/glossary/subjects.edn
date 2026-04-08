@@ -1,0 +1,15 @@
+;; Subject glossary — actors who interact with the toddler loop UI
+;;
+;; :test       — system verification, automated checks
+;; :developer  — builds features, writes code
+;; :qa         — reviews classifications and glossary output
+;; :brownfield — onboards an existing application through the TL
+
+{:subjects
+ {:test       {:desc "System verification actor"}
+  :developer  {:desc "Builds features and writes code"
+               :instances [:alice]}
+  :qa         {:desc "Reviews classifications and glossary output"
+               :instances [:travis]}
+  :brownfield {:desc "Onboards an existing application"
+               :instances [:bob]}}}
