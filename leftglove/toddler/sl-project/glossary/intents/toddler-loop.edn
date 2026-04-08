@@ -3,62 +3,87 @@
 ;;
 ;; Bindings use :testid (first-class SL selector, leftglove-w2b).
 ;; SL resolves ToddlerLoop.sieve → {:css "[data-testid='btn-sieve']"}.
+;;
+;; :type drives verb projection in MCP vocabulary (h34):
+;;   :clickable → click   :typable → fill + see   :readable → see   :chrome → none
 
 {:intent "ToddlerLoop"
  :description "Pass 1 classification interface for sieve output"
  :elements
  {;; Toolbar
   :url-input        {:desc "URL address bar"
+                     :type :typable
                      :bindings {:web {:testid "url-input"}}}
   :navigate         {:desc "Navigate to URL button"
+                     :type :clickable
                      :bindings {:web {:testid "btn-navigate"}}}
   :sieve            {:desc "Run sieve on current page"
+                     :type :clickable
                      :bindings {:web {:testid "btn-sieve"}}}
   :export           {:desc "Export classifications as JSON"
+                     :type :clickable
                      :bindings {:web {:testid "btn-export"}}}
   :status           {:desc "Connection/sieve status indicator"
+                     :type :readable
                      :bindings {:web {:testid "status-indicator"}}}
 
   ;; Classification buttons
   :cat-clickable    {:desc "Classify as clickable"
+                     :type :clickable
                      :bindings {:web {:testid "cat-clickable"}}}
   :cat-typable      {:desc "Classify as typable"
+                     :type :clickable
                      :bindings {:web {:testid "cat-typable"}}}
   :cat-readable     {:desc "Classify as readable"
+                     :type :clickable
                      :bindings {:web {:testid "cat-readable"}}}
   :cat-chrome       {:desc "Classify as chrome"
+                     :type :clickable
                      :bindings {:web {:testid "cat-chrome"}}}
   :cat-custom       {:desc "Classify as custom"
+                     :type :clickable
                      :bindings {:web {:testid "cat-custom"}}}
   :cat-split        {:desc "Classify as split"
+                     :type :clickable
                      :bindings {:web {:testid "cat-split"}}}
   :cat-skip         {:desc "Skip element"
+                     :type :clickable
                      :bindings {:web {:testid "cat-skip"}}}
 
   ;; Navigation
   :nav-prev         {:desc "Previous element arrow"
+                     :type :clickable
                      :bindings {:web {:testid "nav-prev"}}}
   :nav-next         {:desc "Next element arrow"
+                     :type :clickable
                      :bindings {:web {:testid "nav-next"}}}
   :progress         {:desc "Element position counter (#N / total)"
+                     :type :readable
                      :bindings {:web {:testid "progress"}}}
   :classified-count {:desc "Number of classified elements"
+                     :type :readable
                      :bindings {:web {:testid "classified-count"}}}
 
   ;; Viewport
   :screenshot       {:desc "Page screenshot image"
+                     :type :readable
                      :bindings {:web {:testid "screenshot-img"}}}
   :overlay          {:desc "SVG overlay with element bounding boxes"
+                     :type :chrome
                      :bindings {:web {:testid "overlay-svg"}}}
 
   ;; Panels
   :element-detail   {:desc "Current element info display"
+                     :type :readable
                      :bindings {:web {:testid "element-detail"}}}
   :summary          {:desc "Classification summary (shown when complete)"
+                     :type :readable
                      :bindings {:web {:testid "summary"}}}
   :metadata-strip   {:desc "Ambient browser state display (cookies, storage, tabs)"
+                     :type :readable
                      :bindings {:web {:testid "metadata-strip"}}}
 
   ;; Feedback
   :toast            {:desc "Error/notification toast"
+                     :type :readable
                      :bindings {:web {:testid "toast"}}}}}

@@ -10,7 +10,7 @@ const server = new McpServer({
   version: config.serverVersion,
 });
 
-registerAllTools(server, config);
+await registerAllTools(server, config);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
