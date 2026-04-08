@@ -1,68 +1,64 @@
 ;; Intent region: ToddlerLoop
 ;; The classification interface — toolbar, viewport, controls, metadata.
 ;;
-;; NOTE: Intent region files are forward-looking. SL doesn't consume
-;; this format yet. This establishes the shape we want for glossary
-;; graduation from the toddler loop.
-;;
-;; Canonical locator: data-testid. Elements with existing IDs use
-;; the ID value as testid (they're the same string).
+;; Bindings use CSS attribute selectors targeting data-testid (canonical
+;; locator convention). SL resolves ToddlerLoop.sieve → {:css "[data-testid='btn-sieve']"}.
 
 {:intent "ToddlerLoop"
  :description "Pass 1 classification interface for sieve output"
  :elements
  {;; Toolbar
   :url-input        {:desc "URL address bar"
-                     :bindings {:web {:testid "url-input"}}}
+                     :bindings {:web {:css "[data-testid='url-input']"}}}
   :navigate         {:desc "Navigate to URL button"
-                     :bindings {:web {:testid "btn-navigate"}}}
+                     :bindings {:web {:css "[data-testid='btn-navigate']"}}}
   :sieve            {:desc "Run sieve on current page"
-                     :bindings {:web {:testid "btn-sieve"}}}
+                     :bindings {:web {:css "[data-testid='btn-sieve']"}}}
   :export           {:desc "Export classifications as JSON"
-                     :bindings {:web {:testid "btn-export"}}}
+                     :bindings {:web {:css "[data-testid='btn-export']"}}}
   :status           {:desc "Connection/sieve status indicator"
-                     :bindings {:web {:testid "status-indicator"}}}
+                     :bindings {:web {:css "[data-testid='status-indicator']"}}}
 
   ;; Classification buttons
   :cat-clickable    {:desc "Classify as clickable"
-                     :bindings {:web {:testid "cat-clickable"}}}
+                     :bindings {:web {:css "[data-testid='cat-clickable']"}}}
   :cat-typable      {:desc "Classify as typable"
-                     :bindings {:web {:testid "cat-typable"}}}
+                     :bindings {:web {:css "[data-testid='cat-typable']"}}}
   :cat-readable     {:desc "Classify as readable"
-                     :bindings {:web {:testid "cat-readable"}}}
+                     :bindings {:web {:css "[data-testid='cat-readable']"}}}
   :cat-chrome       {:desc "Classify as chrome"
-                     :bindings {:web {:testid "cat-chrome"}}}
+                     :bindings {:web {:css "[data-testid='cat-chrome']"}}}
   :cat-custom       {:desc "Classify as custom"
-                     :bindings {:web {:testid "cat-custom"}}}
+                     :bindings {:web {:css "[data-testid='cat-custom']"}}}
   :cat-split        {:desc "Classify as split"
-                     :bindings {:web {:testid "cat-split"}}}
+                     :bindings {:web {:css "[data-testid='cat-split']"}}}
   :cat-skip         {:desc "Skip element"
-                     :bindings {:web {:testid "cat-skip"}}}
+                     :bindings {:web {:css "[data-testid='cat-skip']"}}}
 
   ;; Navigation
   :nav-prev         {:desc "Previous element arrow"
-                     :bindings {:web {:testid "nav-prev"}}}
+                     :bindings {:web {:css "[data-testid='nav-prev']"}}}
   :nav-next         {:desc "Next element arrow"
-                     :bindings {:web {:testid "nav-next"}}}
+                     :bindings {:web {:css "[data-testid='nav-next']"}}}
   :progress         {:desc "Element position counter (#N / total)"
-                     :bindings {:web {:testid "progress"}}}
+                     :bindings {:web {:css "[data-testid='progress']"}}}
   :classified-count {:desc "Number of classified elements"
-                     :bindings {:web {:testid "classified-count"}}}
+                     :bindings {:web {:css "[data-testid='classified-count']"}}}
 
   ;; Viewport
   :screenshot       {:desc "Page screenshot image"
-                     :bindings {:web {:testid "screenshot-img"}}}
+                     :bindings {:web {:css "[data-testid='screenshot-img']"}}}
   :overlay          {:desc "SVG overlay with element bounding boxes"
-                     :bindings {:web {:testid "overlay-svg"}}}
+                     :bindings {:web {:css "[data-testid='overlay-svg']"}}}
 
   ;; Panels
   :element-detail   {:desc "Current element info display"
-                     :bindings {:web {:testid "element-detail"}}}
+                     :bindings {:web {:css "[data-testid='element-detail']"}}}
   :summary          {:desc "Classification summary (shown when complete)"
-                     :bindings {:web {:testid "summary"}}}
+                     :bindings {:web {:css "[data-testid='summary']"}}}
   :metadata-strip   {:desc "Ambient browser state display (cookies, storage, tabs)"
-                     :bindings {:web {:testid "metadata-strip"}}}
+                     :bindings {:web {:css "[data-testid='metadata-strip']"}}}
 
   ;; Feedback
   :toast            {:desc "Error/notification toast"
-                     :bindings {:web {:testid "toast"}}}}}
+                     :bindings {:web {:css "[data-testid='toast']"}}}}}
