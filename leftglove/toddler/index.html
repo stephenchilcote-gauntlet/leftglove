@@ -351,6 +351,8 @@
   <button class="btn" id="btn-navigate" data-testid="btn-navigate">Navigate</button>
   <button class="btn btn-primary" id="btn-sieve" data-testid="btn-sieve">Sieve</button>
   <button class="btn" id="btn-export" data-testid="btn-export">Export</button>
+  <button class="btn" id="btn-load" data-testid="btn-load">Load</button>
+  <input type="file" id="file-input" accept=".json" style="display:none">
   <span id="status-indicator" data-testid="status-indicator">Ready</span>
   <span id="mode-indicator" data-testid="mode-indicator"></span>
 </div>
@@ -1295,6 +1297,42 @@ function doExport() {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// ---- Load ----
+document.getElementById('btn-load').addEventListener('click', function () {
+  document.getElementById('file-input').click();
+});
+
+document.getElementById('file-input').addEventListener('change', async function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';  // reset so same file can be re-loaded
+  const reader = new FileReader();
+  reader.onload = async function () {
+    let data;
+    try {
+      data = JSON.parse(reader.result);
+    } catch (err) {
+      showToast('Invalid JSON: ' + err.message);
+      return;
+    }
+    const errors = fromIntermediate(data);
+    if (errors.length) {
+      showToast('Load failed: ' + errors.join('; '));
+      return;
+    }
+    const n = state.inventory ? state.inventory.elements.length : 0;
+    document.getElementById('status-indicator').textContent =
+      n + ' element' + (n !== 1 ? 's' : '') + ' (loaded)';
+    await renderScreenshot();
+    renderOverlay();
+    renderPanel();
+    renderMetadata();
+    saveState();
+    showToast('Loaded ' + n + ' elements.', 3000);
+  };
+  reader.readAsText(file);
+});
 
 // ---- Keyboard ----
 const KEY_MAP = {

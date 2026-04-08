@@ -11,10 +11,12 @@ Run with:
   python3 leftglove/toddler/e2e_test.py
 """
 
+import os
 import sys
 import time
 import json
 import subprocess
+import tempfile
 import urllib.request
 
 from selenium import webdriver
@@ -288,6 +290,108 @@ def test_pass2_naming_flow(driver):
     assert "1 of" in progress, f"Expected '1 of N' in progress, got: {progress!r}"
 
 # ---------------------------------------------------------------------------
+# Load tests
+# ---------------------------------------------------------------------------
+
+FIXTURE_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "fixtures", "demo-login-labeled.json")
+)
+
+def _send_fixture(driver, path=FIXTURE_PATH):
+    """Send a file path to the hidden file input, bypassing the native dialog."""
+    file_input = driver.find_element(By.CSS_SELECTOR, '#file-input')
+    file_input.send_keys(path)
+
+def _wait_for_rects(driver, timeout=10):
+    WebDriverWait(driver, timeout).until(
+        lambda d: len(d.find_elements(By.CSS_SELECTOR, '#overlay-svg rect')) > 0
+    )
+
+def test_load_button_present(driver):
+    driver.get(TL_URL)
+    wait_for(driver, "btn-load")
+
+def test_load_valid_fixture(driver):
+    driver.get(TL_URL)
+    wait_for(driver, "btn-load")
+    _send_fixture(driver)
+    _wait_for_rects(driver)
+    rects = driver.find_elements(By.CSS_SELECTOR, '#overlay-svg rect')
+    assert len(rects) > 0, f"Expected SVG rects after load, found {len(rects)}"
+
+def test_load_screenshot_appears(driver):
+    driver.get(TL_URL)
+    wait_for(driver, "btn-load")
+    _send_fixture(driver)
+    _wait_for_rects(driver)
+    img = driver.find_element(By.CSS_SELECTOR, '[data-testid="screenshot-img"]')
+    src = img.get_attribute("src")
+    assert src and src.startswith("blob:"), f"Expected blob URL for screenshot after load, got: {src!r}"
+
+def test_load_status_shows_count(driver):
+    driver.get(TL_URL)
+    wait_for(driver, "btn-load")
+    _send_fixture(driver)
+    WebDriverWait(driver, 10).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+    )
+    status = get_text(driver, "status-indicator")
+    assert "element" in status.lower(), f"Expected element count in status, got: {status!r}"
+
+def test_load_mode_indicator(driver):
+    """Fixture is pass-1-complete + has glossary names → mode should be pass2 or review."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-load")
+    _send_fixture(driver)
+    _wait_for_rects(driver)
+    mode = get_text(driver, "mode-indicator")
+    assert "Pass 2" in mode or "Review" in mode, \
+        f"Expected pass2/review mode indicator, got: {mode!r}"
+
+def test_load_element_detail_populated(driver):
+    driver.get(TL_URL)
+    wait_for(driver, "btn-load")
+    _send_fixture(driver)
+    _wait_for_rects(driver)
+    time.sleep(0.3)  # let renderPanel() settle
+    detail = driver.find_element(By.CSS_SELECTOR, '[data-testid="element-detail"]')
+    assert detail.text.strip() != "", "Element detail panel should be populated after load"
+
+def test_load_invalid_json_shows_toast(driver):
+    driver.get(TL_URL)
+    wait_for(driver, "btn-load")
+    with tempfile.NamedTemporaryFile(suffix='.json', delete=False, mode='w') as f:
+        f.write("this is not json {{{")
+        bad_path = os.path.abspath(f.name)
+    try:
+        _send_fixture(driver, bad_path)
+        toast = WebDriverWait(driver, 5).until(
+            EC.visibility_of_element_located((By.ID, 'toast'))
+        )
+        assert "invalid" in toast.text.lower() or "json" in toast.text.lower(), \
+            f"Expected JSON error toast, got: {toast.text!r}"
+    finally:
+        os.unlink(bad_path)
+
+def test_load_invalid_intermediate_shows_toast(driver):
+    driver.get(TL_URL)
+    wait_for(driver, "btn-load")
+    bad_data = {"sieve-version": "9.9", "elements": []}
+    with tempfile.NamedTemporaryFile(suffix='.json', delete=False, mode='w') as f:
+        json.dump(bad_data, f)
+        bad_path = os.path.abspath(f.name)
+    try:
+        _send_fixture(driver, bad_path)
+        toast = WebDriverWait(driver, 5).until(
+            EC.visibility_of_element_located((By.ID, 'toast'))
+        )
+        assert toast.text.strip() != "", "Expected non-empty error toast for invalid intermediate"
+    finally:
+        os.unlink(bad_path)
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -301,6 +405,14 @@ TESTS = [
     ("Classify element", test_classify_element),
     ("Pass 1 complete shows Start Pass 2", test_pass1_complete_shows_start_pass2),
     ("Pass 2 naming flow", test_pass2_naming_flow),
+    ("Load button present", test_load_button_present),
+    ("Load valid fixture — overlay appears", test_load_valid_fixture),
+    ("Load fixture — screenshot blob URL", test_load_screenshot_appears),
+    ("Load fixture — status shows count", test_load_status_shows_count),
+    ("Load fixture — mode indicator", test_load_mode_indicator),
+    ("Load fixture — element detail populated", test_load_element_detail_populated),
+    ("Load invalid JSON — shows toast", test_load_invalid_json_shows_toast),
+    ("Load invalid intermediate — shows toast", test_load_invalid_intermediate_shows_toast),
 ]
 
 if __name__ == "__main__":
