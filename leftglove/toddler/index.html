@@ -388,6 +388,7 @@ const CATEGORY_COLORS = {
 let state = {
   inventory: null,
   screenshotUrl: null,
+  screenshotDataUrl: null,
   currentIndex: 0,
   classifications: {},
   screenshotDims: { w: 0, h: 0 },
@@ -436,7 +437,18 @@ async function fetchScreenshot() {
   const res = await fetch(API + '/screenshot');
   if (!res.ok) throw new Error('Screenshot request failed: ' + res.status);
   const blob = await res.blob();
+  // Capture base64 for intermediate format persistence
+  state.screenshotDataUrl = await blobToDataUrl(blob);
   return URL.createObjectURL(blob);
+}
+
+function blobToDataUrl(blob) {
+  return new Promise(function (resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function () { resolve(reader.result); };
+    reader.onerror = function () { reject(reader.error); };
+    reader.readAsDataURL(blob);
+  });
 }
 
 async function fetchNavigate(url) {
@@ -754,38 +766,158 @@ function scrollToCurrentElement() {
   });
 }
 
+// ---- Intermediate Format ----
+function toIntermediate(st) {
+  const inv = st.inventory;
+  if (!inv?.elements) return null;
+
+  const elements = inv.elements.map(function (el, i) {
+    const cat = String(el.category || '').replace(/^:/, '');
+    const classification = st.classifications[i] || null;
+    const rect = el.rect || {};
+    return {
+      'sieve-id': 'el-' + String(i + 1).padStart(3, '0'),
+      'category': classification || cat,
+      'category-source': classification ? 'human' : 'sieve',
+      'tag': el.tag || null,
+      'element-type': el['element-type'] || el.elementType || null,
+      'label': el.label || null,
+      'locators': el.locators || {},
+      'state': { 'visible': true, 'disabled': false },
+      'rect': { 'x': rect.x, 'y': rect.y, 'w': rect.w || rect.width, 'h': rect.h || rect.height },
+      'region': el.region || null,
+      'form': el.form || null,
+      'aria-role': el['aria-role'] || el.ariaRole || null,
+      'glossary-name': null,
+      'glossary-source': null,
+      'notes': null,
+    };
+  });
+
+  const vp = inv.viewport || st.screenshotDims;
+  return {
+    'sieve-version': '1.0',
+    'source': {
+      'url': st.pageUrl,
+      'viewport': { 'w': vp.w, 'h': vp.h },
+      'timestamp': new Date().toISOString(),
+      'screenshot': st.screenshotDataUrl || null,
+    },
+    'elements': elements,
+    'metadata': {
+      'cookies': inv.cookies || [],
+      'storage': {
+        'localStorage': inv.storage?.localStorage || [],
+        'sessionStorage': inv.storage?.sessionStorage || [],
+      },
+      'tabs': inv.tabs || 1,
+    },
+    'pass-1-complete': Object.keys(st.classifications).length >= (inv.elements?.length || 0),
+    'pass-2-progress': 0,
+  };
+}
+
+function fromIntermediate(data) {
+  const errors = validateIntermediate(data);
+  if (errors.length) return errors;
+
+  // Rebuild inventory in the shape the UI expects
+  const inventory = {
+    url: { raw: data.source.url },
+    viewport: data.source.viewport,
+    cookies: data.metadata.cookies,
+    storage: data.metadata.storage,
+    tabs: data.metadata.tabs,
+    elements: data.elements.map(function (el) {
+      return {
+        tag: el.tag,
+        'element-type': el['element-type'],
+        label: el.label,
+        category: ':' + el.category,
+        locators: el.locators,
+        rect: el.rect,
+        region: el.region,
+        form: el.form,
+        'aria-role': el['aria-role'],
+      };
+    }),
+  };
+
+  // Rebuild classifications from elements with human-sourced categories
+  const classifications = {};
+  data.elements.forEach(function (el, i) {
+    if (el['category-source'] === 'human') {
+      classifications[i] = el.category;
+    }
+  });
+
+  // Hydrate state
+  state.inventory = inventory;
+  state.classifications = classifications;
+  state.pageUrl = data.source.url;
+  state.currentIndex = 0;
+  state.screenshotDataUrl = data.source.screenshot || null;
+
+  // Restore screenshot
+  if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
+  if (data.source.screenshot) {
+    // Convert data URL back to blob URL for the <img>
+    const parts = data.source.screenshot.match(/^data:([^;]+);base64,(.+)$/);
+    if (parts) {
+      const byteStr = atob(parts[2]);
+      const bytes = new Uint8Array(byteStr.length);
+      for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+      const blob = new Blob([bytes], { type: parts[1] });
+      state.screenshotUrl = URL.createObjectURL(blob);
+    }
+  } else {
+    state.screenshotUrl = null;
+  }
+
+  return [];
+}
+
+function validateIntermediate(data) {
+  const errors = [];
+  if (!data || typeof data !== 'object') { return ['Data must be an object']; }
+  if (data['sieve-version'] !== '1.0') errors.push('Missing or unsupported sieve-version (expected "1.0")');
+  if (!data.source || typeof data.source !== 'object') {
+    errors.push('Missing source object');
+  } else {
+    if (!data.source.url) errors.push('Missing source.url');
+    if (!data.source.viewport || typeof data.source.viewport.w !== 'number' || typeof data.source.viewport.h !== 'number') {
+      errors.push('Missing or invalid source.viewport (need w and h as numbers)');
+    }
+    if (!data.source.timestamp) errors.push('Missing source.timestamp');
+  }
+  if (!Array.isArray(data.elements)) {
+    errors.push('Missing or invalid elements array');
+  } else {
+    data.elements.forEach(function (el, i) {
+      if (!el['sieve-id']) errors.push('Element ' + i + ': missing sieve-id');
+      if (!el.category) errors.push('Element ' + i + ': missing category');
+      if (!el['category-source']) errors.push('Element ' + i + ': missing category-source');
+      if (!el.rect || typeof el.rect.x !== 'number') errors.push('Element ' + i + ': missing or invalid rect');
+    });
+  }
+  if (!data.metadata || typeof data.metadata !== 'object') errors.push('Missing metadata object');
+  if (typeof data['pass-1-complete'] !== 'boolean') errors.push('Missing pass-1-complete flag');
+  return errors;
+}
+
 // ---- Export ----
 function doExport() {
-  if (!state.inventory?.elements) {
+  const data = toIntermediate(state);
+  if (!data) {
     showToast('Nothing to export — run Sieve first.');
     return;
   }
 
-  const elements = state.inventory.elements.map((el, i) => ({
-    index: i,
-    tag: el.tag,
-    elementType: el['element-type'] || el.elementType || null,
-    label: el.label,
-    category: String(el.category || '').replace(/^:/, ''),
-    classification: state.classifications[i] || null,
-    region: el.region,
-    locators: el.locators,
-    rect: el.rect,
-  }));
-
-  const exportData = {
-    url: state.pageUrl,
-    timestamp: new Date().toISOString(),
-    totalElements: elements.length,
-    classified: Object.keys(state.classifications).length,
-    elements,
-  };
-
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'toddler-classifications-' + Date.now() + '.json';
+  a.download = 'toddler-session-' + Date.now() + '.json';
   a.click();
   URL.revokeObjectURL(url);
 }
