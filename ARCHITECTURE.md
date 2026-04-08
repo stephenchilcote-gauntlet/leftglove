@@ -412,6 +412,10 @@ gets its own browser instance via Playwright, keyed by subject name.
   validated SVOI artifacts.
 - **The toddler loop intermediate format is the source of truth.** Glossary and
   graph are derived views.
+- **Canonical locator: `data-testid`.** SL's preferred element selector for
+  glossary bindings. Fallback order: testid > id > name > ARIA. testid exists
+  solely as a test contract — survives CSS refactors, ARIA improvements, and
+  text changes. Elements should always have a `data-testid` for SL-readiness.
 
 ---
 

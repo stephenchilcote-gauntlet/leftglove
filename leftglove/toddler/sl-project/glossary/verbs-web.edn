@@ -1,0 +1,6 @@
+;; Web verbs for TL UI testing
+;; SL defaults (click, fill, see, navigate, submit, etc.) cover all
+;; current needs. No project-specific verbs yet.
+
+{:type :web
+ :verbs {}}

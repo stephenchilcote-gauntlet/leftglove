@@ -1,0 +1,18 @@
+;; ShiftLefter project config — TL UI as app under test
+;; Dogfooding: SL tests the toddler loop classification interface
+
+{:parser {:dialect "en"}
+
+ :runner {:step-paths ["steps/"]
+          :allow-pending? true}
+
+ :glossaries {:subjects "glossary/subjects.edn"
+              :verbs {:web "glossary/verbs-web.edn"}}
+
+ :interfaces {:web {:type :web
+                    :adapter :etaoin
+                    :config {:headless false}}}
+
+ :svo {:unknown-subject :error
+       :unknown-verb :warn
+       :unknown-interface :error}}
