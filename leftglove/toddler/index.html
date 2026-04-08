@@ -527,9 +527,13 @@ async function doSieve() {
     state.screenshotUrl = screenshotUrl;
     state.pageUrl = inventory.url?.raw || inventory.url || null;
 
-    // Reset classifications for new sieve
+    // Reset all working state for new sieve
     state.classifications = {};
     state.currentIndex = 0;
+    state.mode = 'pass1';
+    state.glossaryNames = {};
+    state.pass2Order = [];
+    state.pass2Cursor = 0;
 
     await renderScreenshot();
     renderOverlay();
@@ -897,8 +901,71 @@ function startPass2() {
   state.mode = 'pass2';
   buildPass2Order();
   if (state.pass2Order.length > 0) {
+    state.pass2Cursor = 0;
     state.currentIndex = state.pass2Order[0];
   }
+  saveState();
+  renderOverlay();
+  renderPanel();
+  scrollToCurrentElement();
+}
+
+function acceptName() {
+  if (state.mode !== 'pass2') return;
+  var nameInput = document.getElementById('name-input');
+  var intentInput = document.getElementById('intent-input');
+  var notesInput = document.getElementById('notes-input');
+  if (!nameInput) return;
+
+  var name = nameInput.value.trim();
+  if (!name) { showToast('Name cannot be empty'); return; }
+
+  state.glossaryNames[state.currentIndex] = {
+    name: name,
+    intent: (intentInput?.value || '').trim(),
+    source: 'human',
+    notes: (notesInput?.value || '').trim(),
+  };
+  saveState();
+
+  // Check if all pass2 elements are named
+  var allNamed = true;
+  for (var i = 0; i < state.pass2Order.length; i++) {
+    if (!state.glossaryNames[state.pass2Order[i]]) { allNamed = false; break; }
+  }
+  if (allNamed) {
+    state.mode = 'review';
+    _lastPass2Rendered = -1;
+    saveState();
+    renderOverlay();
+    renderPanel();
+    return;
+  }
+
+  // Advance to next unnamed element
+  var len = state.pass2Order.length;
+  for (var j = 1; j <= len; j++) {
+    var cursor = (state.pass2Cursor + j) % len;
+    if (!state.glossaryNames[state.pass2Order[cursor]]) {
+      state.pass2Cursor = cursor;
+      state.currentIndex = state.pass2Order[cursor];
+      break;
+    }
+  }
+  _lastPass2Rendered = -1;
+  saveState();
+  renderOverlay();
+  renderPanel();
+  scrollToCurrentElement();
+}
+
+function skipName() {
+  if (state.mode !== 'pass2') return;
+  var len = state.pass2Order.length;
+  if (len === 0) return;
+  state.pass2Cursor = (state.pass2Cursor + 1) % len;
+  state.currentIndex = state.pass2Order[state.pass2Cursor];
+  _lastPass2Rendered = -1;
   saveState();
   renderOverlay();
   renderPanel();
@@ -1000,8 +1067,16 @@ function deriveIntentName(region) {
 
 function navigate(delta) {
   if (!state.inventory?.elements?.length) return;
-  const total = state.inventory.elements.length;
-  state.currentIndex = Math.max(0, Math.min(total - 1, state.currentIndex + delta));
+  if (state.mode === 'pass2') {
+    var len = state.pass2Order.length;
+    if (len === 0) return;
+    state.pass2Cursor = Math.max(0, Math.min(len - 1, state.pass2Cursor + delta));
+    state.currentIndex = state.pass2Order[state.pass2Cursor];
+    _lastPass2Rendered = -1;
+  } else {
+    const total = state.inventory.elements.length;
+    state.currentIndex = Math.max(0, Math.min(total - 1, state.currentIndex + delta));
+  }
   saveState();
   renderOverlay();
   renderPanel();
@@ -1011,6 +1086,11 @@ function navigate(delta) {
 function jumpTo(index) {
   if (!state.inventory?.elements?.length) return;
   state.currentIndex = index;
+  if (state.mode === 'pass2') {
+    var pos = state.pass2Order.indexOf(index);
+    if (pos >= 0) state.pass2Cursor = pos;
+    _lastPass2Rendered = -1;
+  }
   saveState();
   renderOverlay();
   renderPanel();
@@ -1055,9 +1135,10 @@ function toIntermediate(st) {
       'region': el.region || null,
       'form': el.form || null,
       'aria-role': el['aria-role'] || el.ariaRole || null,
-      'glossary-name': null,
-      'glossary-source': null,
-      'notes': null,
+      'glossary-name': st.glossaryNames[i]?.name || null,
+      'glossary-intent': st.glossaryNames[i]?.intent || null,
+      'glossary-source': st.glossaryNames[i]?.source || null,
+      'notes': st.glossaryNames[i]?.notes || null,
     };
   });
 
@@ -1080,7 +1161,7 @@ function toIntermediate(st) {
       'tabs': inv.tabs || 1,
     },
     'pass-1-complete': Object.keys(st.classifications).length >= (inv.elements?.length || 0),
-    'pass-2-progress': 0,
+    'pass-2-progress': Object.keys(st.glossaryNames).length,
   };
 }
 
@@ -1118,9 +1199,28 @@ function fromIntermediate(data) {
     }
   });
 
+  // Rebuild glossary names from elements
+  var glossaryNames = {};
+  data.elements.forEach(function (el, i) {
+    if (el['glossary-name'] && el['glossary-source'] === 'human') {
+      glossaryNames[i] = {
+        name: el['glossary-name'],
+        intent: el['glossary-intent'] || '',
+        source: el['glossary-source'],
+        notes: el['notes'] || '',
+      };
+    }
+  });
+
+  // Determine mode from data
+  var pass1Done = data['pass-1-complete'];
+  var hasNames = Object.keys(glossaryNames).length > 0;
+
   // Hydrate state
   state.inventory = inventory;
   state.classifications = classifications;
+  state.glossaryNames = glossaryNames;
+  state.mode = hasNames ? 'pass2' : (pass1Done ? 'pass1' : 'pass1');
   state.pageUrl = data.source.url;
   state.currentIndex = 0;
   state.screenshotDataUrl = data.source.screenshot || null;
@@ -1139,6 +1239,13 @@ function fromIntermediate(data) {
     }
   } else {
     state.screenshotUrl = null;
+  }
+
+  // Rebuild pass2Order if resuming pass2
+  if (state.mode === 'pass2') {
+    buildPass2Order();
+    var pos = state.pass2Order.indexOf(state.currentIndex);
+    state.pass2Cursor = pos >= 0 ? pos : 0;
   }
 
   return [];
@@ -1201,8 +1308,10 @@ const KEY_MAP = {
 };
 
 document.addEventListener('keydown', function (e) {
+  var active = document.activeElement;
+
   // Don't capture when typing in the URL input
-  if (document.activeElement === document.getElementById('url-input')) {
+  if (active === document.getElementById('url-input')) {
     if (e.key === 'Enter') {
       e.preventDefault();
       doNavigate();
@@ -1210,6 +1319,55 @@ document.addEventListener('keydown', function (e) {
     return;
   }
 
+  // Pass 2 / Review keyboard handling
+  if (state.mode === 'pass2' || state.mode === 'review') {
+    var inInput = active && (active.id === 'name-input' || active.id === 'intent-input' || active.id === 'notes-input');
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (state.mode === 'pass2') {
+        state.mode = 'review';
+      } else {
+        state.mode = 'pass2';
+        // Rebuild pass2Order in case classifications changed
+        buildPass2Order();
+        if (state.pass2Order.length > 0) {
+          var pos = state.pass2Order.indexOf(state.currentIndex);
+          state.pass2Cursor = pos >= 0 ? pos : 0;
+          state.currentIndex = state.pass2Order[state.pass2Cursor];
+        }
+      }
+      _lastPass2Rendered = -1;
+      saveState();
+      renderOverlay();
+      renderPanel();
+      return;
+    }
+
+    if (state.mode === 'pass2') {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (inInput) active.blur();
+        acceptName();
+        return;
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        if (inInput) active.blur();
+        skipName();
+        return;
+      }
+    }
+
+    // Arrow navigation (only when not in a text input)
+    if (!inInput) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); navigate(-1); return; }
+      if (e.key === 'ArrowRight') { e.preventDefault(); navigate(1); return; }
+    }
+    return;
+  }
+
+  // Pass 1 keyboard handling
   if (KEY_MAP[e.key]) {
     e.preventDefault();
     classify(KEY_MAP[e.key]);
