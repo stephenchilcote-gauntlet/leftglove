@@ -81,6 +81,7 @@
   #mode-indicator.pass1 { background: #1e3a5f; color: #22d3ee; }
   #mode-indicator.pass2 { background: #1e3f1e; color: #4ade80; }
   #mode-indicator.review { background: #3f1e3f; color: #c084fc; }
+  #mode-indicator.resolve { background: #5f3a1e; color: #fbbf24; }
 
   .pass2-controls { display: flex; flex-direction: column; gap: 6px; width: 100%; }
   .pass2-controls label { font-size: 11px; color: #888; margin-bottom: -4px; }
@@ -326,6 +327,74 @@
   #metadata-strip .meta-pill.session-storage { border-color: #8b5cf6; color: #a78bfa; }
   #metadata-strip .meta-pill.tabs { border-color: #3b82f6; color: #60a5fa; }
 
+  /* --- Resolve mode --- */
+  .resolve-banner {
+    padding: 8px 12px;
+    background: #451a03;
+    border-bottom: 1px solid #92400e;
+    color: #fbbf24;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .resolve-columns {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .resolve-col {
+    flex: 1;
+    padding: 8px 10px;
+    overflow-y: auto;
+    font-size: 12px;
+  }
+
+  .resolve-col:first-child { border-right: 1px solid #333; }
+
+  .resolve-col h4 {
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .resolve-item {
+    padding: 6px 8px;
+    border: 1px solid #333;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .resolve-item:hover { background: rgba(255,255,255,0.05); }
+  .resolve-item.selected { border-color: #22d3ee; background: rgba(34,211,238,0.1); }
+  .resolve-item.paired { border-color: #22c55e; background: rgba(34,197,94,0.1); opacity: 0.6; }
+  .resolve-item.marked { border-color: #525252; background: rgba(82,82,82,0.1); opacity: 0.5; text-decoration: line-through; }
+
+  .resolve-item .ri-tag { color: #888; }
+  .resolve-item .ri-label { color: #fbbf24; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .resolve-item .ri-cat { font-size: 10px; padding: 1px 6px; border-radius: 8px; border: 1px solid; }
+  .resolve-item .ri-name { color: #4ade80; font-size: 11px; }
+
+  .resolve-actions {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid #333;
+    align-items: center;
+  }
+
+  .resolve-actions .btn { font-size: 12px; padding: 4px 10px; }
+
   /* Error toast */
   #toast {
     position: fixed;
@@ -432,6 +501,9 @@ let state = {
   glossaryNames: {},       // { [inventoryIndex]: { name, intent, source, notes } }
   pass2Order: [],          // filtered+sorted inventory indices for Pass 2 traversal
   pass2Cursor: 0,          // position within pass2Order
+  resolveContext: null,    // active resolve session (null when not resolving)
+  _pendingSieve: null,     // pending sieve data during resolve mode
+  _preResolveMode: null,   // mode to restore after resolve completes
 };
 
 // ---- Persistence ----
@@ -522,20 +594,65 @@ async function doSieve() {
       fetchScreenshot(),
     ]);
 
-    // Revoke old screenshot URL
-    if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
+    // If we have a previous inventory, match elements instead of resetting
+    if (state.inventory && state.inventory.elements?.length && inventory.elements?.length) {
+      var oldEls = state.inventory.elements;
+      var newEls = inventory.elements;
+      var matchResult = matchElements(oldEls, newEls);
 
-    state.inventory = inventory;
-    state.screenshotUrl = screenshotUrl;
-    state.pageUrl = inventory.url?.raw || inventory.url || null;
+      if (matchResult.ambiguous.length > 0) {
+        // Ambiguity detected — enter resolve mode (blocking)
+        var pendingSieve = {
+          inventory: inventory,
+          screenshotUrl: screenshotUrl,
+          matchResult: matchResult,
+          oldInventory: state.inventory,
+          oldClassifications: Object.assign({}, state.classifications),
+          oldGlossaryNames: Object.assign({}, state.glossaryNames),
+        };
+        statusEl.textContent = matchResult.ambiguous.length + ' ambiguous — resolve';
+        enterResolveMode(matchResult, pendingSieve);
+        return;
+      }
 
-    // Reset all working state for new sieve
-    state.classifications = {};
-    state.currentIndex = 0;
-    state.mode = 'pass1';
-    state.glossaryNames = {};
-    state.pass2Order = [];
-    state.pass2Cursor = 0;
+      // No ambiguity — propagate automatically
+      var propagated = propagateNames(matchResult, state.classifications, state.glossaryNames);
+
+      // Revoke old screenshot URL
+      if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
+
+      state.inventory = inventory;
+      state.screenshotUrl = screenshotUrl;
+      state.pageUrl = inventory.url?.raw || inventory.url || null;
+      state.classifications = propagated.classifications;
+      state.glossaryNames = propagated.glossaryNames;
+      state.currentIndex = 0;
+      // Keep current mode — don't reset to pass1
+
+      // Rebuild pass2 order if in pass2
+      if (state.mode === 'pass2') {
+        buildPass2Order();
+        state.pass2Cursor = 0;
+        if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[0];
+      }
+
+      showToast(matchResult.matched.length + ' matched, '
+        + matchResult.added.length + ' added, '
+        + matchResult.removed.length + ' removed');
+    } else {
+      // First sieve — fresh state
+      if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
+
+      state.inventory = inventory;
+      state.screenshotUrl = screenshotUrl;
+      state.pageUrl = inventory.url?.raw || inventory.url || null;
+      state.classifications = {};
+      state.currentIndex = 0;
+      state.mode = 'pass1';
+      state.glossaryNames = {};
+      state.pass2Order = [];
+      state.pass2Cursor = 0;
+    }
 
     await renderScreenshot();
     renderOverlay();
@@ -592,8 +709,89 @@ function renderScreenshot() {
   });
 }
 
+function renderResolveOverlay(svg) {
+  var ctx = state.resolveContext;
+  var pending = state._pendingSieve;
+  var group = ctx.allGroups[ctx.currentGroupIdx];
+  if (!group) return;
+
+  // Use the OLD screenshot dims (still displayed)
+  var dims = state.screenshotDims;
+  svg.setAttribute('width', dims.w);
+  svg.setAttribute('height', dims.h);
+  svg.setAttribute('viewBox', '0 0 ' + dims.w + ' ' + dims.h);
+
+  var html = '';
+  var oldEls = pending.oldInventory.elements;
+  var newEls = pending.inventory.elements;
+
+  // Draw old elements (red-ish)
+  for (var i = 0; i < group.oldIdxs.length; i++) {
+    var oi = group.oldIdxs[i];
+    var rect = oldEls[oi]?.rect;
+    if (!rect) continue;
+
+    var isPaired = ctx.pairs.some(function (p) { return p.oldIdx === oi; });
+    var isRemoved = ctx.removedOld.indexOf(oi) >= 0;
+    var isSelected = ctx.selectedOld === oi;
+
+    var stroke = isSelected ? '#f87171' : isPaired ? '#166534' : isRemoved ? '#525252' : '#ef4444';
+    var sw = isSelected ? 3 : 2;
+    var dash = isPaired || isRemoved ? '4,3' : '';
+    var opacity = isPaired || isRemoved ? 0.4 : 1;
+
+    html += '<rect x="' + rect.x + '" y="' + rect.y + '" width="' + (rect.w || rect.width) + '" height="' + (rect.h || rect.height) + '"'
+      + ' fill="none" stroke="' + stroke + '" stroke-width="' + sw + '"'
+      + (dash ? ' stroke-dasharray="' + dash + '"' : '')
+      + ' opacity="' + opacity + '" pointer-events="none"/>';
+
+    // Label
+    var textY = rect.y - 4;
+    html += '<text x="' + rect.x + '" y="' + (textY > 12 ? textY : rect.y + 14) + '"'
+      + ' fill="' + stroke + '" font-size="10" font-family="sans-serif" opacity="' + opacity + '">'
+      + 'OLD#' + oi + ' ' + escapeHtml((oldEls[oi].label || oldEls[oi].tag || '?').slice(0, 20))
+      + '</text>';
+  }
+
+  // Draw new elements (green-ish)
+  for (var j = 0; j < group.newIdxs.length; j++) {
+    var ni = group.newIdxs[j];
+    var rect2 = newEls[ni]?.rect;
+    if (!rect2) continue;
+
+    var isPaired2 = ctx.pairs.some(function (p) { return p.newIdx === ni; });
+    var isAdded = ctx.addedNew.indexOf(ni) >= 0;
+    var isSelected2 = ctx.selectedNew === ni;
+
+    var stroke2 = isSelected2 ? '#4ade80' : isPaired2 ? '#166534' : isAdded ? '#525252' : '#22c55e';
+    var sw2 = isSelected2 ? 3 : 2;
+    var dash2 = isPaired2 || isAdded ? '4,3' : '';
+    var opacity2 = isPaired2 || isAdded ? 0.4 : 1;
+
+    html += '<rect x="' + rect2.x + '" y="' + rect2.y + '" width="' + (rect2.w || rect2.width) + '" height="' + (rect2.h || rect2.height) + '"'
+      + ' fill="none" stroke="' + stroke2 + '" stroke-width="' + sw2 + '"'
+      + (dash2 ? ' stroke-dasharray="' + dash2 + '"' : '')
+      + ' opacity="' + opacity2 + '" pointer-events="none"/>';
+
+    var textY2 = (rect2.y + (rect2.h || rect2.height)) + 12;
+    html += '<text x="' + rect2.x + '" y="' + textY2 + '"'
+      + ' fill="' + stroke2 + '" font-size="10" font-family="sans-serif" opacity="' + opacity2 + '">'
+      + 'NEW#' + ni + ' ' + escapeHtml((newEls[ni].label || newEls[ni].tag || '?').slice(0, 20))
+      + '</text>';
+  }
+
+  svg.innerHTML = html;
+}
+
 function renderOverlay() {
   const svg = document.getElementById('overlay-svg');
+
+  // Resolve mode: show old+new element highlights
+  if (state.mode === 'resolve' && state.resolveContext && state._pendingSieve) {
+    renderResolveOverlay(svg);
+    return;
+  }
+
   const elements = state.inventory?.elements;
   if (!elements) return;
 
@@ -706,7 +904,7 @@ function renderOverlay() {
 function updateModeIndicator() {
   var mi = document.getElementById('mode-indicator');
   if (!mi) return;
-  var labels = { pass1: 'Pass 1: Classify', pass2: 'Pass 2: Name', review: 'Review' };
+  var labels = { pass1: 'Pass 1: Classify', pass2: 'Pass 2: Name', review: 'Review', resolve: 'Resolve Matches' };
   mi.textContent = labels[state.mode] || '';
   mi.className = state.mode;
 }
@@ -803,6 +1001,10 @@ function renderPass2Panel() {
 
 function renderPanel() {
   updateModeIndicator();
+  if (state.mode === 'resolve') {
+    renderResolvePanel();
+    return;
+  }
   if (state.mode === 'pass2' || state.mode === 'review') {
     renderPass2Panel();
     return;
@@ -977,6 +1179,7 @@ function skipName() {
 // ---- Classification ----
 function classify(category) {
   if (!state.inventory?.elements?.length) return;
+  if (state.mode === 'resolve') return; // block during resolve
   state.classifications[state.currentIndex] = category;
   saveState();
 
@@ -1067,8 +1270,451 @@ function deriveIntentName(region) {
   return last.replace(/[-_]/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }
 
+// ---- Element Identity (qo2) ----
+
+function isDynamicId(id) {
+  if (!id || typeof id !== 'string') return false;
+  // UUID pattern
+  if (/[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id)) return true;
+  // Numeric only
+  if (/^\d+$/.test(id)) return true;
+  // Long hex string
+  if (/^[0-9a-f]{9,}$/i.test(id)) return true;
+  // Framework-generated patterns
+  if (/^(ember|react|__next|:r\d|ng-|mat-|cdk-|mui-)/i.test(id)) return true;
+  // Ends with long number suffix
+  if (/-\d{4,}$/.test(id)) return true;
+  return false;
+}
+
+function elementKey(el) {
+  if (el.locators?.testid) return 'testid::' + el.locators.testid;
+  if (el.locators?.id && !isDynamicId(el.locators.id)) return 'id::' + el.locators.id;
+  if (el.locators?.name) return 'name::' + el.locators.name;
+  return 'composite::' + (el.region || '') + '::' + (el.tag || '') + '::' + (el.label || '');
+}
+
+function matchElements(oldEls, newEls) {
+  var oldByKey = {};
+  var newByKey = {};
+
+  for (var i = 0; i < oldEls.length; i++) {
+    var k = elementKey(oldEls[i]);
+    if (!oldByKey[k]) oldByKey[k] = [];
+    oldByKey[k].push(i);
+  }
+  for (var j = 0; j < newEls.length; j++) {
+    var k2 = elementKey(newEls[j]);
+    if (!newByKey[k2]) newByKey[k2] = [];
+    newByKey[k2].push(j);
+  }
+
+  var matched = [];
+  var added = [];
+  var removed = [];
+  var ambiguous = [];
+
+  // Collect all keys from both sets
+  var allKeys = {};
+  for (var ok in oldByKey) allKeys[ok] = true;
+  for (var nk in newByKey) allKeys[nk] = true;
+
+  for (var key in allKeys) {
+    var oldIdxs = oldByKey[key] || [];
+    var newIdxs = newByKey[key] || [];
+
+    if (oldIdxs.length === 1 && newIdxs.length === 1) {
+      matched.push({ oldIdx: oldIdxs[0], newIdx: newIdxs[0], key: key });
+    } else if (oldIdxs.length === 0) {
+      for (var a = 0; a < newIdxs.length; a++) {
+        added.push({ newIdx: newIdxs[a], key: key });
+      }
+    } else if (newIdxs.length === 0) {
+      for (var r = 0; r < oldIdxs.length; r++) {
+        removed.push({ oldIdx: oldIdxs[r], key: key });
+      }
+    } else {
+      // Ambiguous: multiple on at least one side
+      ambiguous.push({ key: key, oldIdxs: oldIdxs, newIdxs: newIdxs });
+    }
+  }
+
+  return { matched: matched, added: added, removed: removed, ambiguous: ambiguous };
+}
+
+function propagateNames(matchResult, oldClassifications, oldGlossaryNames, resolvedPairs) {
+  var cls = {};
+  var names = {};
+
+  // Auto-matched pairs
+  for (var i = 0; i < matchResult.matched.length; i++) {
+    var m = matchResult.matched[i];
+    if (oldClassifications[m.oldIdx] !== undefined) {
+      cls[m.newIdx] = oldClassifications[m.oldIdx];
+    }
+    if (oldGlossaryNames[m.oldIdx]) {
+      names[m.newIdx] = oldGlossaryNames[m.oldIdx];
+    }
+  }
+
+  // User-resolved pairs from ambiguity resolution
+  if (resolvedPairs) {
+    for (var j = 0; j < resolvedPairs.length; j++) {
+      var p = resolvedPairs[j];
+      if (oldClassifications[p.oldIdx] !== undefined) {
+        cls[p.newIdx] = oldClassifications[p.oldIdx];
+      }
+      if (oldGlossaryNames[p.oldIdx]) {
+        names[p.newIdx] = oldGlossaryNames[p.oldIdx];
+      }
+    }
+  }
+
+  return { classifications: cls, glossaryNames: names };
+}
+
+// ---- Resolve Mode (qo2) ----
+
+function enterResolveMode(matchResult, pendingSieve) {
+  state._preResolveMode = state.mode;
+  state.mode = 'resolve';
+  state._pendingSieve = pendingSieve;
+
+  var groups = matchResult.ambiguous;
+  state.resolveContext = {
+    allGroups: groups,
+    currentGroupIdx: 0,
+    selectedOld: null,
+    selectedNew: null,
+    pairs: [],
+    removedOld: [],
+    addedNew: [],
+    matchResult: matchResult,
+  };
+
+  renderOverlay();
+  renderPanel();
+}
+
+function resolveSelectOld(idx) {
+  if (!state.resolveContext) return;
+  // Don't select if already paired or marked
+  if (state.resolveContext.pairs.some(function (p) { return p.oldIdx === idx; })) return;
+  if (state.resolveContext.removedOld.indexOf(idx) >= 0) return;
+  state.resolveContext.selectedOld = idx;
+  renderResolvePanel();
+  renderOverlay();
+}
+
+function resolveSelectNew(idx) {
+  if (!state.resolveContext) return;
+  if (state.resolveContext.pairs.some(function (p) { return p.newIdx === idx; })) return;
+  if (state.resolveContext.addedNew.indexOf(idx) >= 0) return;
+
+  // If an old element is selected, pair them
+  if (state.resolveContext.selectedOld !== null) {
+    state.resolveContext.pairs.push({
+      oldIdx: state.resolveContext.selectedOld,
+      newIdx: idx,
+    });
+    state.resolveContext.selectedOld = null;
+    state.resolveContext.selectedNew = null;
+
+    // Check if current group is done, auto-advance
+    if (isCurrentGroupResolved()) {
+      if (state.resolveContext.currentGroupIdx < state.resolveContext.allGroups.length - 1) {
+        state.resolveContext.currentGroupIdx++;
+      }
+    }
+    renderResolvePanel();
+    renderOverlay();
+  } else {
+    state.resolveContext.selectedNew = idx;
+    renderResolvePanel();
+    renderOverlay();
+  }
+}
+
+function resolveMarkOldRemoved(idx) {
+  if (!state.resolveContext) return;
+  state.resolveContext.removedOld.push(idx);
+  if (state.resolveContext.selectedOld === idx) state.resolveContext.selectedOld = null;
+  if (isCurrentGroupResolved() && state.resolveContext.currentGroupIdx < state.resolveContext.allGroups.length - 1) {
+    state.resolveContext.currentGroupIdx++;
+  }
+  renderResolvePanel();
+  renderOverlay();
+}
+
+function resolveMarkNewAdded(idx) {
+  if (!state.resolveContext) return;
+  state.resolveContext.addedNew.push(idx);
+  if (state.resolveContext.selectedNew === idx) state.resolveContext.selectedNew = null;
+  if (isCurrentGroupResolved() && state.resolveContext.currentGroupIdx < state.resolveContext.allGroups.length - 1) {
+    state.resolveContext.currentGroupIdx++;
+  }
+  renderResolvePanel();
+  renderOverlay();
+}
+
+function resolveUndoPair(oldIdx, newIdx) {
+  if (!state.resolveContext) return;
+  state.resolveContext.pairs = state.resolveContext.pairs.filter(function (p) {
+    return !(p.oldIdx === oldIdx && p.newIdx === newIdx);
+  });
+  renderResolvePanel();
+  renderOverlay();
+}
+
+function resolveUndoRemoved(idx) {
+  if (!state.resolveContext) return;
+  state.resolveContext.removedOld = state.resolveContext.removedOld.filter(function (i) { return i !== idx; });
+  renderResolvePanel();
+  renderOverlay();
+}
+
+function resolveUndoAdded(idx) {
+  if (!state.resolveContext) return;
+  state.resolveContext.addedNew = state.resolveContext.addedNew.filter(function (i) { return i !== idx; });
+  renderResolvePanel();
+  renderOverlay();
+}
+
+function isCurrentGroupResolved() {
+  var ctx = state.resolveContext;
+  if (!ctx) return false;
+  var group = ctx.allGroups[ctx.currentGroupIdx];
+  if (!group) return false;
+
+  // Every old element in this group must be paired or marked removed
+  for (var i = 0; i < group.oldIdxs.length; i++) {
+    var oi = group.oldIdxs[i];
+    var paired = ctx.pairs.some(function (p) { return p.oldIdx === oi; });
+    var removed = ctx.removedOld.indexOf(oi) >= 0;
+    if (!paired && !removed) return false;
+  }
+  // Every new element in this group must be paired or marked added
+  for (var j = 0; j < group.newIdxs.length; j++) {
+    var ni = group.newIdxs[j];
+    var paired2 = ctx.pairs.some(function (p) { return p.newIdx === ni; });
+    var added = ctx.addedNew.indexOf(ni) >= 0;
+    if (!paired2 && !added) return false;
+  }
+  return true;
+}
+
+function areAllGroupsResolved() {
+  var ctx = state.resolveContext;
+  if (!ctx) return false;
+  for (var g = 0; g < ctx.allGroups.length; g++) {
+    var group = ctx.allGroups[g];
+    for (var i = 0; i < group.oldIdxs.length; i++) {
+      var oi = group.oldIdxs[i];
+      if (!ctx.pairs.some(function (p) { return p.oldIdx === oi; }) && ctx.removedOld.indexOf(oi) < 0) return false;
+    }
+    for (var j = 0; j < group.newIdxs.length; j++) {
+      var ni = group.newIdxs[j];
+      if (!ctx.pairs.some(function (p) { return p.newIdx === ni; }) && ctx.addedNew.indexOf(ni) < 0) return false;
+    }
+  }
+  return true;
+}
+
+function finishResolve() {
+  var ctx = state.resolveContext;
+  var pending = state._pendingSieve;
+  if (!ctx || !pending) return;
+
+  // Propagate names using auto-matched + user-resolved pairs
+  var propagated = propagateNames(
+    ctx.matchResult,
+    pending.oldClassifications,
+    pending.oldGlossaryNames,
+    ctx.pairs
+  );
+
+  // Revoke old screenshot
+  if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
+
+  // Apply pending sieve data
+  state.inventory = pending.inventory;
+  state.screenshotUrl = pending.screenshotUrl;
+  state.pageUrl = pending.inventory.url?.raw || pending.inventory.url || null;
+  state.classifications = propagated.classifications;
+  state.glossaryNames = propagated.glossaryNames;
+  state.currentIndex = 0;
+
+  // Restore mode
+  state.mode = state._preResolveMode || 'pass1';
+  state.resolveContext = null;
+  state._pendingSieve = null;
+  state._preResolveMode = null;
+
+  // Rebuild pass2 order if needed
+  if (state.mode === 'pass2') {
+    buildPass2Order();
+    state.pass2Cursor = 0;
+    if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[0];
+  }
+
+  var total = ctx.matchResult.matched.length + ctx.pairs.length;
+  var addedCount = ctx.matchResult.added.length + ctx.addedNew.length;
+  var removedCount = ctx.matchResult.removed.length + ctx.removedOld.length;
+  showToast(total + ' matched, ' + addedCount + ' added, ' + removedCount + ' removed');
+
+  renderScreenshot().then(function () {
+    renderOverlay();
+    renderPanel();
+    renderMetadata();
+    saveState();
+  });
+}
+
+function renderResolvePanel() {
+  var ctx = state.resolveContext;
+  if (!ctx) return;
+
+  var group = ctx.allGroups[ctx.currentGroupIdx];
+  if (!group) return;
+
+  var pending = state._pendingSieve;
+  var oldEls = pending.oldInventory.elements;
+  var newEls = pending.inventory.elements;
+
+  var panel = document.getElementById('panel');
+
+  var html = '<div style="display:flex;flex-direction:column;width:100%;">';
+
+  // Banner
+  html += '<div class="resolve-banner" data-testid="resolve-banner">'
+    + '<span>Resolve ambiguous matches: group ' + (ctx.currentGroupIdx + 1) + ' of ' + ctx.allGroups.length
+    + ' &mdash; key: <code style="background:#1a1a2e;padding:2px 6px;border-radius:3px;">' + escapeHtml(group.key) + '</code></span>'
+    + '<span data-testid="resolve-progress">' + (areAllGroupsResolved() ? 'All resolved' : 'Resolving...') + '</span>'
+    + '</div>';
+
+  // Two columns
+  html += '<div class="resolve-columns">';
+
+  // Old elements column
+  html += '<div class="resolve-col" data-testid="resolve-old-list"><h4>Old elements (carry data from)</h4>';
+  for (var i = 0; i < group.oldIdxs.length; i++) {
+    var oi = group.oldIdxs[i];
+    var oel = oldEls[oi];
+    var isPaired = ctx.pairs.some(function (p) { return p.oldIdx === oi; });
+    var isRemoved = ctx.removedOld.indexOf(oi) >= 0;
+    var isSelected = ctx.selectedOld === oi;
+
+    var itemClass = 'resolve-item';
+    if (isPaired) itemClass += ' paired';
+    else if (isRemoved) itemClass += ' marked';
+    else if (isSelected) itemClass += ' selected';
+
+    var catColor = CATEGORY_COLORS[pending.oldClassifications[oi]] || '#666';
+    var gName = pending.oldGlossaryNames[oi];
+
+    html += '<div class="' + itemClass + '">';
+    if (isPaired) {
+      var pairedNew = ctx.pairs.find(function (p) { return p.oldIdx === oi; }).newIdx;
+      html += '<span class="ri-tag">' + escapeHtml(oel.tag || '?') + '</span>'
+        + '<span class="ri-label">' + escapeHtml(oel.label || '—') + '</span>'
+        + '<span style="color:#22c55e;font-size:11px;">paired→#' + pairedNew + '</span>'
+        + '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveUndoPair(' + oi + ',' + pairedNew + ')">undo</button>';
+    } else if (isRemoved) {
+      html += '<span class="ri-tag">' + escapeHtml(oel.tag || '?') + '</span>'
+        + '<span class="ri-label">' + escapeHtml(oel.label || '—') + '</span>'
+        + '<span style="color:#ef4444;font-size:11px;">removed</span>'
+        + '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveUndoRemoved(' + oi + ')">undo</button>';
+    } else {
+      html += '<span class="ri-tag">' + escapeHtml(oel.tag || '?') + '</span>'
+        + '<span class="ri-label">' + escapeHtml(oel.label || '—') + '</span>';
+      if (pending.oldClassifications[oi]) {
+        html += '<span class="ri-cat" style="border-color:' + catColor + ';color:' + catColor + ';">'
+          + pending.oldClassifications[oi] + '</span>';
+      }
+      if (gName) {
+        html += '<span class="ri-name">' + escapeHtml((gName.intent ? gName.intent + '.' : '') + gName.name) + '</span>';
+      }
+      html += '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveSelectOld(' + oi + ')">select</button>'
+        + '<button class="btn" style="font-size:10px;padding:2px 6px;color:#ef4444;border-color:#ef4444;" onclick="resolveMarkOldRemoved(' + oi + ')">removed</button>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // New elements column
+  html += '<div class="resolve-col" data-testid="resolve-new-list"><h4>New elements (receive data)</h4>';
+  for (var j = 0; j < group.newIdxs.length; j++) {
+    var ni = group.newIdxs[j];
+    var nel = newEls[ni];
+    var isPaired2 = ctx.pairs.some(function (p) { return p.newIdx === ni; });
+    var isAdded = ctx.addedNew.indexOf(ni) >= 0;
+    var isSelected2 = ctx.selectedNew === ni;
+
+    var itemClass2 = 'resolve-item';
+    if (isPaired2) itemClass2 += ' paired';
+    else if (isAdded) itemClass2 += ' marked';
+    else if (isSelected2) itemClass2 += ' selected';
+
+    html += '<div class="' + itemClass2 + '">';
+    if (isPaired2) {
+      var pairedOld = ctx.pairs.find(function (p) { return p.newIdx === ni; }).oldIdx;
+      html += '<span class="ri-tag">' + escapeHtml(nel.tag || '?') + '</span>'
+        + '<span class="ri-label">' + escapeHtml(nel.label || '—') + '</span>'
+        + '<span style="color:#22c55e;font-size:11px;">←paired#' + pairedOld + '</span>'
+        + '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveUndoPair(' + pairedOld + ',' + ni + ')">undo</button>';
+    } else if (isAdded) {
+      html += '<span class="ri-tag">' + escapeHtml(nel.tag || '?') + '</span>'
+        + '<span class="ri-label">' + escapeHtml(nel.label || '—') + '</span>'
+        + '<span style="color:#3b82f6;font-size:11px;">new</span>'
+        + '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveUndoAdded(' + ni + ')">undo</button>';
+    } else {
+      html += '<span class="ri-tag">' + escapeHtml(nel.tag || '?') + '</span>'
+        + '<span class="ri-label">' + escapeHtml(nel.label || '—') + '</span>';
+      var rect = nel.rect;
+      if (rect) {
+        html += '<span style="color:#666;font-size:10px;">' + Math.round(rect.x) + ',' + Math.round(rect.y) + '</span>';
+      }
+      html += '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveSelectNew(' + ni + ')">select</button>'
+        + '<button class="btn" style="font-size:10px;padding:2px 6px;color:#3b82f6;border-color:#3b82f6;" onclick="resolveMarkNewAdded(' + ni + ')">new</button>';
+    }
+    html += '</div>';
+  }
+  html += '</div></div>'; // close columns
+
+  // Action bar
+  var allDone = areAllGroupsResolved();
+  html += '<div class="resolve-actions">';
+  if (ctx.allGroups.length > 1) {
+    html += '<button class="btn" onclick="resolveNavGroup(-1)"'
+      + (ctx.currentGroupIdx === 0 ? ' disabled style="opacity:0.4"' : '') + '>&larr; Prev group</button>';
+    html += '<button class="btn" onclick="resolveNavGroup(1)"'
+      + (ctx.currentGroupIdx >= ctx.allGroups.length - 1 ? ' disabled style="opacity:0.4"' : '') + '>Next group &rarr;</button>';
+  }
+  html += '<span style="flex:1;"></span>';
+  html += '<button class="btn btn-primary" data-testid="btn-resolve-done" onclick="finishResolve()"'
+    + (allDone ? '' : ' disabled style="opacity:0.4"') + '>Done — apply matches</button>';
+  html += '</div>';
+
+  html += '</div>';
+
+  panel.innerHTML = html;
+}
+
+function resolveNavGroup(delta) {
+  if (!state.resolveContext) return;
+  var next = state.resolveContext.currentGroupIdx + delta;
+  if (next >= 0 && next < state.resolveContext.allGroups.length) {
+    state.resolveContext.currentGroupIdx = next;
+    state.resolveContext.selectedOld = null;
+    state.resolveContext.selectedNew = null;
+    renderResolvePanel();
+    renderOverlay();
+  }
+}
+
 function navigate(delta) {
   if (!state.inventory?.elements?.length) return;
+  if (state.mode === 'resolve') return; // block navigation during resolve
   if (state.mode === 'pass2') {
     var len = state.pass2Order.length;
     if (len === 0) return;
@@ -1353,6 +1999,45 @@ document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') {
       e.preventDefault();
       doNavigate();
+    }
+    return;
+  }
+
+  // Resolve mode keyboard handling
+  if (state.mode === 'resolve' && state.resolveContext) {
+    var ctx = state.resolveContext;
+    var group = ctx.allGroups[ctx.currentGroupIdx];
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      // If both old and new selected, pair them
+      if (ctx.selectedOld !== null && ctx.selectedNew !== null) {
+        resolveSelectNew(ctx.selectedNew); // triggers pairing logic
+      } else if (areAllGroupsResolved()) {
+        finishResolve();
+      }
+      return;
+    }
+    if (e.key === 'd') {
+      e.preventDefault();
+      if (ctx.selectedOld !== null) resolveMarkOldRemoved(ctx.selectedOld);
+      else if (ctx.selectedNew !== null) resolveMarkNewAdded(ctx.selectedNew);
+      return;
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      resolveNavGroup(1);
+      return;
+    }
+    if (e.key >= '1' && e.key <= '9') {
+      e.preventDefault();
+      var pos = parseInt(e.key) - 1;
+      if (e.shiftKey) {
+        if (group && pos < group.newIdxs.length) resolveSelectNew(group.newIdxs[pos]);
+      } else {
+        if (group && pos < group.oldIdxs.length) resolveSelectOld(group.oldIdxs[pos]);
+      }
+      return;
     }
     return;
   }

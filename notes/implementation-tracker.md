@@ -6,7 +6,7 @@
 - [x] **r1x** — Pass 2 naming mode
 - [x] **4j8** — Load pre-labeled state
 - [x] **h34** — MCP vocabulary projection
-- [ ] **qo2** — Element identity across observations
+- [x] **qo2** — Element identity across observations
 - [ ] **cuo** — Sieve diff display
 - [ ] **07k** — Write glossary integration
 - [ ] **y7x** — Verify `sl run` + strict mode
