@@ -1,0 +1,62 @@
+[
+  {
+    "id": "intro",
+    "spoken": "This is a web application. We're going to show you what our system sees when it looks at it."
+  },
+  {
+    "id": "sieve-result",
+    "spoken": "The sieve filtered out the noise and found seven meaningful elements. Classified in under a second. No screenshots sent to an LLM. No tokens burned. Deterministic."
+  },
+  {
+    "id": "rapid-classify",
+    "spoken": "Typable. Typable. Clickable. Chrome. Skip. A human can classify an entire page in under a minute."
+  },
+  {
+    "id": "pre-labeled",
+    "spoken": "Here's the full classification. Every element named, located, typed. This becomes the glossary — the vocabulary that agents and tests are bound to."
+  },
+  {
+    "id": "mcp-vocab",
+    "spoken": "Now watch what happens when an agent connects through our MCP server. It doesn't see HTML. It sees the glossary. Login.email is a typable field. Login.submit is a clickable button."
+  },
+  {
+    "id": "strict-mode",
+    "spoken": "Try to reference something that isn't in the glossary? The system rejects it. Unknown object, strict mode."
+  },
+  {
+    "id": "code-change",
+    "spoken": "Let's add a feature. The agent writes three lines of code to add a Remember Me checkbox to the login form."
+  },
+  {
+    "id": "re-sieve-intro",
+    "spoken": "Now let's see what the sieve thinks about the new version."
+  },
+  {
+    "id": "re-sieve",
+    "spoken": "The sieve found a new element. One checkbox that wasn't there before. Everything else is unchanged."
+  },
+  {
+    "id": "test-write",
+    "spoken": "The agent writes a test using validated glossary names. Every element reference is checked at planning time, before it even runs."
+  },
+  {
+    "id": "test-pass",
+    "spoken": "Green. The test passes. The feature works."
+  },
+  {
+    "id": "element-removed-intro",
+    "spoken": "Now watch what happens when someone breaks something. The checkbox is removed from the code."
+  },
+  {
+    "id": "element-gone",
+    "spoken": "The sieve ran again. Login.remember-me is gone. Glossary diff: minus one entry."
+  },
+  {
+    "id": "test-fail",
+    "spoken": "The test fails. Not because of a flaky selector. The glossary says Login.remember-me should exist. The sieve says it doesn't. Misfit detected."
+  },
+  {
+    "id": "closing",
+    "spoken": "The sieve does for E2E testing what unit test frameworks did for functions — makes it so cheap and structured that there's no excuse not to do it."
+  }
+]

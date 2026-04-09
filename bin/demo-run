@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Start all demo services and report when ready.
+#
+# Usage:
+#   bin/demo-run              # start demo app + TL UI + sieve
+#   bin/demo-run --no-sieve   # skip sieve startup (start it from REPL)
+#   bin/demo-run --use-dev    # skip all startups, just health-check
+#
+# Ports (override via env vars):
+#   DEMO_PORT  — Demo app    (default: 3000)
+#   TL_PORT    — TL UI       (default: 8080)
+#   SIEVE_PORT — Sieve server (default: 3333)
+#
+# Prerequisites:
+#   - Node.js for demo app and TL UI server
+#   - SL_DIR pointing to shiftlefter repo (for sieve, unless --no-sieve)
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LG_DIR="$(dirname "$SCRIPT_DIR")"
+SL_DIR="${SL_DIR:-$(dirname "$LG_DIR")/shiftlefter}"
+
+DEMO_PORT="${DEMO_PORT:-3000}"
+TL_PORT="${TL_PORT:-8080}"
+SIEVE_PORT="${SIEVE_PORT:-3333}"
+
+NO_SIEVE=false
+USE_DEV=false
+for arg in "$@"; do
+  case "$arg" in
+    --no-sieve) NO_SIEVE=true ;;
+    --use-dev)  USE_DEV=true ;;
+  esac
+done
+
+# Track PIDs for cleanup
+PIDS=()
+cleanup() {
+  echo ""
+  echo "[demo-run] Cleaning up..."
+  for pid in "${PIDS[@]}"; do
+    kill "$pid" 2>/dev/null && wait "$pid" 2>/dev/null || true
+  done
+  echo "[demo-run] Done."
+}
+trap cleanup EXIT
+
+# --- Health check helper ---
+wait_for() {
+  local name="$1" url="$2" max_wait="${3:-30}"
+  local waited=0
+  echo -n "[demo-run] Waiting for $name at $url "
+  while ! curl -so /dev/null -w '%{http_code}' "$url" 2>/dev/null | grep -q '^[23]'; do
+    sleep 1
+    waited=$((waited + 1))
+    echo -n "."
+    if [[ $waited -ge $max_wait ]]; then
+      echo " TIMEOUT"
+      echo "[demo-run] ERROR: $name did not start within ${max_wait}s"
+      exit 1
+    fi
+  done
+  echo " OK"
+}
+
+if [[ "$USE_DEV" == "true" ]]; then
+  echo "[demo-run] --use-dev: assuming all services already running"
+else
+  # --- Start demo app ---
+  echo "[demo-run] Starting demo app on port $DEMO_PORT..."
+  PORT="$DEMO_PORT" node "$LG_DIR/leftglove/demo-app/server.js" &
+  PIDS+=($!)
+
+  # --- Start TL UI server ---
+  echo "[demo-run] Starting TL UI server on port $TL_PORT..."
+  PORT="$TL_PORT" node "$LG_DIR/leftglove/toddler/server.js" &
+  PIDS+=($!)
+
+  # --- Start sieve server (optional) ---
+  if [[ "$NO_SIEVE" == "false" ]]; then
+    if [[ -d "$SL_DIR" ]]; then
+      echo "[demo-run] Starting sieve server from $SL_DIR on port $SIEVE_PORT..."
+      cd "$SL_DIR"
+      clojure -M:dev -e "(require 'user)" &
+      PIDS+=($!)
+      cd "$LG_DIR"
+    else
+      echo "[demo-run] WARNING: SL_DIR=$SL_DIR not found, skipping sieve startup"
+      NO_SIEVE=true
+    fi
+  fi
+
+  if [[ "$NO_SIEVE" == "true" ]]; then
+    echo "[demo-run] --no-sieve: assuming sieve already running on port $SIEVE_PORT"
+  fi
+fi
+
+# --- Health checks ---
+wait_for "demo app" "http://localhost:$DEMO_PORT/login"
+wait_for "TL UI"    "http://localhost:$TL_PORT/"
+wait_for "sieve"    "http://localhost:$SIEVE_PORT/status" 60
+
+# --- Ready ---
+echo ""
+echo "============================================"
+echo "  All services ready"
+echo ""
+echo "  Demo app:  http://localhost:$DEMO_PORT"
+echo "  TL UI:     http://localhost:$TL_PORT?api=http://localhost:$SIEVE_PORT"
+echo "  Sieve:     http://localhost:$SIEVE_PORT"
+echo "============================================"
+echo ""
+echo "[demo-run] Press Ctrl+C to stop all services."
+
+# Keep running until interrupted
+wait

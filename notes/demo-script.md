@@ -271,6 +271,52 @@ element. That's the core argument in ~2 minutes, even without live anything.
 
 ---
 
+## Automated Video Pipeline
+
+The demo video is generated automatically — no manual rehearsals needed.
+
+**Quick start:**
+
+```bash
+# Start services
+bin/demo-run --no-sieve   # (start sieve from REPL separately)
+
+# Terminal segments only (fast, no services needed)
+make demo-quick
+
+# Full pipeline: browser + terminal + TTS narration
+make demo-final
+
+# Re-render audio only (after editing demo-script.json narration)
+make demo-rebuild
+```
+
+**Architecture:**
+
+- **Browser segments** — Playwright records TL UI interactions (Acts 1, 3a, 5a)
+- **Terminal segments** — asciinema `.cast` files rendered to MP4 (Acts 2, 3b, 4, 5b)
+- **Narration** — Fish Speech TTS generates WAV clips from `demo-script.json`
+- **Assembly** — FFmpeg concatenates video segments, mixes narration audio
+
+**Files:**
+
+| File | Purpose |
+|------|---------|
+| `leftglove/toddler/demo/browser-tour.spec.ts` | Playwright choreography |
+| `leftglove/toddler/demo/terminal-segments.py` | Generates `.cast` files |
+| `leftglove/toddler/demo/demo-script.json` | Narration text (15 clips) |
+| `leftglove/toddler/demo/gen-demo-audio.py` | Fish Speech TTS |
+| `leftglove/toddler/demo/assemble.sh` | FFmpeg concat + audio mix |
+| `leftglove/toddler/demo/cast-to-mp4.py` | Renders `.cast` → MP4 via pyte |
+| `Makefile` | Top-level targets |
+
+**Iteration:** Edit `demo-script.json` for narration, `terminal-segments.py`
+for terminal content, `browser-tour.spec.ts` for browser choreography. Use
+`make demo-rebuild` for audio-only changes, `make demo-quick` for terminal-only
+previews.
+
+---
+
 ## The Demo Is Not Settled
 
 The script above is **one option** — the current best guess. It's contingent

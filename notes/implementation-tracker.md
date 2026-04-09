@@ -12,7 +12,7 @@
 - [x] **y7x** — Verify `sl run` + strict mode
 - [x] **o4c** — Observation loop click
 - [x] **b6d-b** — Auto-save wiring
-- [ ] **9m6** — End-to-end demo rehearsal
+- [x] **9m6** — End-to-end demo rehearsal
 
 ---
 
