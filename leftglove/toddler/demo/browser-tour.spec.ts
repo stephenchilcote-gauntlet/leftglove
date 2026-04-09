@@ -207,7 +207,7 @@ async function waitForSieve(page: Page, timeoutMs = 30000) {
 // auto-name notable elements by their data-testid. No synthetic fixtures.
 async function batchClassifyAndName(page: Page) {
   await page.evaluate(() => {
-    const s = (window as any).state;
+    const s = (state as any);
     if (!s.inventory?.elements?.length) return;
     const els = s.inventory.elements;
 
@@ -253,25 +253,63 @@ async function batchClassifyAndName(page: Page) {
   });
 }
 
-// Toggle the recurring donation element on/off via the demo app API
-async function setRecurring(enabled: boolean) {
-  await fetch(`${DEMO_APP}/set-recurring`, {
+// Toggle the recurring donation element on/off via the demo app API.
+// Returns the confirmed server state.
+async function setRecurring(enabled: boolean): Promise<boolean> {
+  const res = await fetch(`${DEMO_APP}/set-recurring`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
   });
+  const body = await res.json() as { showRecurring: boolean };
+  if (body.showRecurring !== enabled) {
+    throw new Error(`setRecurring(${enabled}) failed: server reports showRecurring=${body.showRecurring}`);
+  }
+  return body.showRecurring;
 }
 
-// Force the sieve's Chrome to reload the page (picks up server-side state changes)
-async function reloadSieveBrowser(page: Page) {
-  await page.evaluate(async (url) => {
+// Navigate the sieve's Chrome to a URL and verify it completed.
+// Then verify the page content matches expectations.
+async function navigateSieveAndVerify(page: Page, url: string, expectRecurring: boolean) {
+  // Navigate sieve Chrome
+  const navResult = await page.evaluate(async (args) => {
+    const API = new URLSearchParams(window.location.search).get('api') || '';
+    const res = await fetch(API + '/navigate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: args.url }),
+    });
+    return res.json();
+  }, { url });
+
+  // Verify via sieve screenshot that the page actually changed:
+  // Run sieve and check element count to confirm recurring state
+  const sieveCheck = await page.evaluate(async () => {
+    const API = new URLSearchParams(window.location.search).get('api') || '';
+    const res = await fetch(API + '/sieve', { method: 'POST' });
+    const data = await res.json();
+    const hasRecurring = data.elements?.some(
+      (e: any) => e.locators?.testid === 'recurring-checkbox' || e.locators?.testid === 'recurring-donation'
+    );
+    return { count: data.elements?.length || 0, hasRecurring };
+  });
+
+  if (sieveCheck.hasRecurring !== expectRecurring) {
+    throw new Error(
+      `Sieve Chrome page has recurring=${sieveCheck.hasRecurring}, expected ${expectRecurring}. ` +
+      `Element count: ${sieveCheck.count}`
+    );
+  }
+
+  // Now reload again so doSieve() in the UI gets a fresh result (the check above consumed one)
+  await page.evaluate(async (args) => {
     const API = new URLSearchParams(window.location.search).get('api') || '';
     await fetch(API + '/navigate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url: args.url }),
     });
-  }, DEMO_APP);
+  }, { url });
 }
 
 // ── Screenshot dir ──────────────────────────────────────────────────────────
@@ -303,11 +341,14 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // Clear any residual state so first sieve is truly fresh
   await page.evaluate(() => {
     localStorage.clear();
-    (window as any).state = (window as any).state || {};
-    (window as any).state.inventory = null;
-    (window as any).state.classifications = {};
-    (window as any).state.glossaryNames = {};
-    (window as any).state.pageUrl = '';
+    // @ts-ignore — state is a top-level let in the TL UI, accessible in evaluate scope
+    state.inventory = null;
+    // @ts-ignore
+    state.classifications = {};
+    // @ts-ignore
+    state.glossaryNames = {};
+    // @ts-ignore
+    state.pageUrl = '';
     const img = document.getElementById('screenshot-img') as HTMLImageElement;
     if (img) img.src = '';
     const overlay = document.getElementById('overlay-svg');
@@ -385,11 +426,9 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   );
   await clearCaption(page);
 
-  // Enable recurring donation element in the demo app
+  // Enable recurring donation element and verify sieve Chrome sees it
   await setRecurring(true);
-
-  // Reload the sieve's Chrome browser to pick up the server-side toggle change
-  await reloadSieveBrowser(page);
+  await navigateSieveAndVerify(page, DEMO_APP, true);
 
   // Re-sieve — the page now has the recurring donation toggle
   await cursorClick(page, '[data-testid="btn-sieve"]');
@@ -421,11 +460,17 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // (Between Act 4 terminal segment and this, the recurring toggle was removed)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // If there's a diff to accept first, accept it
-  const mode = await page.evaluate(() => (window as any).state.mode);
-  if (mode === 'diff') {
+  // Accept the Act 3a diff so Act 5a compares against the new baseline (88 elements)
+  const modeBeforeAct5 = await page.evaluate(() => (state as any).mode);
+  const countBeforeAccept = await page.evaluate(() => (state as any).inventory?.elements?.length);
+  console.log(`[Act 5a] mode=${modeBeforeAct5}, inventory=${countBeforeAccept} elements`);
+  if (modeBeforeAct5 === 'diff') {
     await page.evaluate(() => (window as any).acceptDiff());
-    await pause(page, 500);
+    const countAfterAccept = await page.evaluate(() => (state as any).inventory?.elements?.length);
+    const modeAfterAccept = await page.evaluate(() => (state as any).mode);
+    console.log(`[Act 5a] after acceptDiff: mode=${modeAfterAccept}, inventory=${countAfterAccept} elements`);
+  } else {
+    console.log(`[Act 5a] WARNING: mode was ${modeBeforeAct5}, not diff — skipped acceptDiff`);
   }
 
   await caption(page,
@@ -434,11 +479,9 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   );
   await clearCaption(page);
 
-  // Disable recurring donation element
+  // Disable recurring donation element and verify sieve Chrome sees removal
   await setRecurring(false);
-
-  // Reload the sieve's Chrome to pick up the removal
-  await reloadSieveBrowser(page);
+  await navigateSieveAndVerify(page, DEMO_APP, false);
 
   await cursorClick(page, '[data-testid="btn-sieve"]');
   await page.waitForFunction(
@@ -461,7 +504,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   await clearCaption(page);
 
   // Accept the Act 5a diff before closing so the panel is clean
-  const mode5a = await page.evaluate(() => (window as any).state.mode);
+  const mode5a = await page.evaluate(() => (state as any).mode);
   if (mode5a === 'diff') {
     await page.evaluate(() => (window as any).acceptDiff());
     await pause(page, 500);
