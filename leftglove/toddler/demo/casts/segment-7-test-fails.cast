@@ -1,4 +1,4 @@
-{"version": 2, "width": 120, "height": 30, "env": {"SHELL": "/bin/bash", "TERM": "xterm-256color"}}
+{"version": 2, "width": 80, "height": 30, "env": {"SHELL": "/bin/bash", "TERM": "xterm-256color"}}
 [0.0, "o", "\u001b[1;36m\u2500\u2500 Recurring toggle removed \u2014 test catches the drift \u2500\u2500\u001b[0m\r\n"]
 [0.8, "o", "\u001b[32m$ \u001b[0m"]
 [0.9, "o", "s"]

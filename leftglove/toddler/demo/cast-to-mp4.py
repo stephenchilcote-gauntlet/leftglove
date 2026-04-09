@@ -93,6 +93,7 @@ def main():
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--width", type=int, default=1920)
     parser.add_argument("--height", type=int, default=1080)
+    parser.add_argument("--page-image", help="Page screenshot for split-screen (left half)")
     args = parser.parse_args()
 
     # Parse cast file
@@ -115,9 +116,8 @@ def main():
     total_duration = events[-1][0] + 1.0
     total_frames = int(total_duration * args.fps)
 
-    # Find a monospace font
-    font = None
-    font_size = 24
+    # Find a monospace font — auto-size to fit terminal in frame
+    font_path_found = None
     for font_path in [
         "/usr/share/fonts/TTF/JetBrainsMono-Regular.ttf",
         "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
@@ -125,21 +125,72 @@ def main():
         "/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf",
     ]:
         if Path(font_path).exists():
-            font = ImageFont.truetype(font_path, font_size)
+            font_path_found = font_path
             break
-    if font is None:
+
+    # Start at preferred size 24, shrink if terminal doesn't fit in frame
+    PAD_MARGIN = 40  # px padding on each side
+    font_size = 24
+    while font_size >= 10:
+        if font_path_found:
+            font = ImageFont.truetype(font_path_found, font_size)
+        else:
+            font = ImageFont.load_default()
+            break
+        bbox = font.getbbox("M")
+        char_w = bbox[2] - bbox[0]
+        char_h = int((bbox[3] - bbox[1]) * 1.4)
+        term_w = cols * char_w
+        term_h = rows * char_h
+        if term_w <= args.width - PAD_MARGIN * 2 and term_h <= args.height - PAD_MARGIN * 2:
+            break
+        font_size -= 1
+
+    if font_path_found is None:
         font = ImageFont.load_default()
-        font_size = 10
+        bbox = font.getbbox("M")
+        char_w = bbox[2] - bbox[0]
+        char_h = int((bbox[3] - bbox[1]) * 1.4)
+        term_w = cols * char_w
+        term_h = rows * char_h
 
-    # Measure character size
-    bbox = font.getbbox("M")
-    char_w = bbox[2] - bbox[0]
-    char_h = int((bbox[3] - bbox[1]) * 1.4)  # add line spacing
+    # Split-screen mode: page on left, terminal on right
+    page_img = None
+    if args.page_image:
+        page_img = Image.open(args.page_image).convert("RGB")
+        half_w = args.width // 2
+        page_img = page_img.resize((half_w, args.height), Image.LANCZOS)
+        # Terminal fits in the right half
+        term_area_w = half_w
+        print(f"  Split-screen: page {half_w}×{args.height} | terminal {half_w}×{args.height}")
+    else:
+        term_area_w = args.width
 
-    # Center the terminal in the frame
-    term_w = cols * char_w
-    term_h = rows * char_h
-    pad_x = (args.width - term_w) // 2
+    # Re-fit font if terminal area changed (split-screen shrinks it)
+    if args.page_image:
+        font_size = 24
+        while font_size >= 10:
+            if font_path_found:
+                font = ImageFont.truetype(font_path_found, font_size)
+            else:
+                break
+            bbox = font.getbbox("M")
+            char_w = bbox[2] - bbox[0]
+            char_h = int((bbox[3] - bbox[1]) * 1.4)
+            term_w = cols * char_w
+            term_h = rows * char_h
+            if term_w <= term_area_w - PAD_MARGIN * 2 and term_h <= args.height - PAD_MARGIN * 2:
+                break
+            font_size -= 1
+
+    print(f"  Font size: {font_size}px, char: {char_w}×{char_h}, term: {term_w}×{term_h}")
+
+    # Center the terminal in its area (full frame or right half)
+    if args.page_image:
+        half_w = args.width // 2
+        pad_x = half_w + (half_w - term_w) // 2
+    else:
+        pad_x = (args.width - term_w) // 2
     pad_y = (args.height - term_h) // 2
 
     # Set up pyte terminal emulator
@@ -161,8 +212,10 @@ def main():
                 stream.feed(events[event_idx][1])
                 event_idx += 1
 
-            # Render every Nth frame (skip unchanged frames for speed)
+            # Render terminal frame (with optional page image on left)
             img = render_frame(screen, args.width, args.height, font, char_w, char_h, pad_x, pad_y)
+            if page_img is not None:
+                img.paste(page_img, (0, 0))
             img.save(f"{tmpdir}/frame_{frame_num:06d}.png")
 
             if frame_num % (args.fps * 2) == 0:

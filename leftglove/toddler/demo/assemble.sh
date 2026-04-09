@@ -25,6 +25,7 @@ CASTS_DIR="casts"
 echo "Converting terminal segments..."
 mkdir -p "$SEGMENTS_DIR"
 
+# Render without page image first (page images extracted in Step 2b)
 for cast in "$CASTS_DIR"/*.cast; do
   base=$(basename "$cast" .cast)
   mp4="$SEGMENTS_DIR/${base}.mp4"
@@ -105,19 +106,50 @@ elif [[ -n "$BROWSER_VIDEO" ]]; then
     "$SEGMENTS_DIR/browser-parts/act1.mp4" 2>/dev/null
 fi
 
-# Normalize terminal segments
-for seg_name in segment-4-mcp-vocabulary segment-5-code-change segment-6-test-passes segment-7-test-fails; do
-  src="$SEGMENTS_DIR/${seg_name}.mp4"
-  if [[ ! -f "$src" ]]; then
-    echo "  WARNING: $src not found, skipping"
+# ── Step 2b: Build split-screen terminal segments (page left, terminal right) ─
+
+echo ""
+echo "Building split-screen terminal segments..."
+mkdir -p "$SEGMENTS_DIR/page-frames"
+
+# Map each terminal segment to a browser timestamp for the page screenshot.
+# Center-crop the browser frame to 960×1080 to show just the fundraiser content.
+SEG_NAMES=( segment-4-mcp-vocabulary segment-5-code-change segment-6-test-passes segment-7-test-fails )
+SEG_TIMES=( 45.0 45.0 60.0 78.0 )
+# 45.0 = classified page (vocab/code-change context)
+# 60.0 = page with recurring toggle + diff (test-pass context)
+# 78.0 = page after element removed (test-fail context)
+
+# Extract page frames from browser video
+if [[ -n "$BROWSER_VIDEO" ]]; then
+  for i in "${!SEG_NAMES[@]}"; do
+    seg_name="${SEG_NAMES[$i]}"
+    ts="${SEG_TIMES[$i]}"
+    echo "  Extracting page frame for $seg_name at ${ts}s..."
+    ffmpeg -y -ss "$ts" -i "$BROWSER_VIDEO" -frames:v 1 \
+      -vf "crop=960:1080:480:0" -q:v 2 \
+      "$SEGMENTS_DIR/page-frames/${seg_name}.png" 2>/dev/null
+  done
+fi
+
+# Re-render terminal casts with page image baked in (split-screen)
+for seg_name in "${SEG_NAMES[@]}"; do
+  cast="$CASTS_DIR/${seg_name}.cast"
+  page="$SEGMENTS_DIR/page-frames/${seg_name}.png"
+  dst="$SEGMENTS_DIR/normalized/${seg_name}.mp4"
+
+  if [[ ! -f "$cast" ]]; then
+    echo "  WARNING: $cast not found, skipping"
     continue
   fi
-  dst="$SEGMENTS_DIR/normalized/${seg_name}.mp4"
-  echo "  Normalizing $seg_name..."
-  ffmpeg -y -i "$src" \
-    -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p \
-    -an \
-    "$dst" 2>/dev/null
+
+  if [[ -f "$page" ]]; then
+    echo "  Split-screen: $seg_name (page + terminal)..."
+    python3 cast-to-mp4.py "$cast" "$dst" --fps 15 --page-image "$page"
+  else
+    echo "  Terminal only: $seg_name..."
+    python3 cast-to-mp4.py "$cast" "$dst" --fps 15
+  fi
 done
 
 # Build concat list in story order:
