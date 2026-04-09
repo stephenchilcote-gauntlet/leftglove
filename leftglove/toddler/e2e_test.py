@@ -547,7 +547,7 @@ def test_qo2_pure_propagateNames(driver):
 
 
 def test_qo2_resieve_propagates_classifications(driver):
-    """Real browser: sieve login, classify, re-sieve same page — classifications carry forward."""
+    """Real browser: sieve login, classify, re-sieve same page — diff mode, accept, classifications carry forward."""
     _navigate_and_sieve(driver)
 
     # Classify first 3 elements
@@ -557,31 +557,29 @@ def test_qo2_resieve_propagates_classifications(driver):
     count_before = get_text(driver, "classified-count")
     assert "3" in count_before, f"Expected 3 classified before re-sieve, got: {count_before!r}"
 
-    # Re-sieve the same page
+    # Re-sieve the same page — should enter diff mode
     click(driver, "btn-sieve")
-
-    # Wait for sieve to complete
     time.sleep(1)
+
+    # Wait for diff mode
     WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
+        lambda d: "Sieve Diff" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="mode-indicator"]'
+        ).text
     )
 
-    # Toast should show match results
-    toast = driver.find_element(By.ID, "toast")
-    toast_text = driver.execute_script("return arguments[0].textContent", toast)
-    assert "matched" in toast_text.lower(), f"Expected match toast, got: {toast_text!r}"
+    # Accept the diff to propagate
+    click(driver, "btn-accept-diff")
+    time.sleep(0.5)
 
     # Classifications should have been propagated
     count_after = get_text(driver, "classified-count")
-    # At least some should carry forward (demo login page has testids → clean matches)
     assert count_after.strip() != "" and "0 classified" not in count_after, \
         f"Expected propagated classifications, got: {count_after!r}"
 
 
 def test_qo2_resieve_preserves_mode(driver):
-    """Re-sieve should not reset mode back to pass1 if we were further along."""
+    """Re-sieve should enter diff mode, then restore pass2 after accept."""
     _navigate_and_sieve(driver)
 
     # Classify all elements to reach pass2
@@ -598,18 +596,20 @@ def test_qo2_resieve_preserves_mode(driver):
     mode_before = get_text(driver, "mode-indicator")
     assert "Pass 2" in mode_before
 
-    # Re-sieve
+    # Re-sieve — should enter diff mode
     click(driver, "btn-sieve")
     WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
+        lambda d: "Sieve Diff" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="mode-indicator"]'
+        ).text
     )
+
+    # Accept diff — should restore to pass2
+    click(driver, "btn-accept-diff")
     time.sleep(0.5)
 
-    # Mode should still be pass2
     mode_after = get_text(driver, "mode-indicator")
-    assert "Pass 2" in mode_after, f"Expected mode preserved as Pass 2, got: {mode_after!r}"
+    assert "Pass 2" in mode_after, f"Expected mode restored to Pass 2, got: {mode_after!r}"
 
 
 def test_qo2_resolve_blocks_sieve(driver):
@@ -840,17 +840,29 @@ def test_qo2_resolve_full_flow(driver):
     done_btn = driver.find_element(By.CSS_SELECTOR, '[data-testid="btn-resolve-done"]')
     assert done_btn.get_attribute("disabled") is None, "Done should be enabled after resolving all"
 
-    # Step 4: Click Done
+    # Step 4: Click Done — should enter diff mode (not pass1 directly)
     driver.execute_script("finishResolve()")
     time.sleep(0.5)
 
-    # Should be back in pass1 mode (pre-resolve mode was pass1)
+    # Should be in diff mode after resolve
     mode_after = get_text(driver, "mode-indicator")
-    assert "Pass 1" in mode_after, f"Expected mode restored to Pass 1, got: {mode_after!r}"
+    assert "Sieve Diff" in mode_after, f"Expected diff mode after resolve, got: {mode_after!r}"
 
     # Verify resolve context is cleared
     ctx = driver.execute_script("return state.resolveContext")
     assert ctx is None, f"resolveContext should be null after finish, got: {ctx}"
+
+    # Diff panel should be visible with accept button
+    accept_btn = driver.find_element(By.CSS_SELECTOR, '[data-testid="btn-accept-diff"]')
+    assert accept_btn.is_displayed(), "Accept button should be visible in diff mode"
+
+    # Step 5: Accept diff — now propagation happens
+    driver.execute_script("acceptDiff()")
+    time.sleep(0.5)
+
+    # Should be back in pass1 mode
+    mode_final = get_text(driver, "mode-indicator")
+    assert "Pass 1" in mode_final, f"Expected mode restored to Pass 1, got: {mode_final!r}"
 
     # Verify classifications propagated:
     # old[0] (clickable) → new[0], old[1] (readable) → new[1]
@@ -936,8 +948,14 @@ def test_qo2_resolve_undo_pair(driver):
     pairs = driver.execute_script("return state.resolveContext.pairs")
     assert len(pairs) == 2, f"Expected 2 pairs after re-pairing, got {len(pairs)}"
 
-    # Finish and verify swapped propagation
+    # Finish resolve → enters diff mode → accept to propagate
     driver.execute_script("finishResolve()")
+    time.sleep(0.3)
+
+    mode = get_text(driver, "mode-indicator")
+    assert "Sieve Diff" in mode, f"Expected diff mode after resolve, got: {mode!r}"
+
+    driver.execute_script("acceptDiff()")
     time.sleep(0.3)
 
     cls = driver.execute_script("return state.classifications")
@@ -1001,11 +1019,383 @@ def test_qo2_resolve_mark_all_removed_and_added(driver):
     driver.execute_script("finishResolve()")
     time.sleep(0.3)
 
+    # Should be in diff mode
+    mode = get_text(driver, "mode-indicator")
+    assert "Sieve Diff" in mode, f"Expected diff mode, got: {mode!r}"
+
+    driver.execute_script("acceptDiff()")
+    time.sleep(0.3)
+
     # Nothing should propagate — all old marked removed, all new marked added
     cls = driver.execute_script("return state.classifications")
     names = driver.execute_script("return state.glossaryNames")
     assert len(cls) == 0, f"Expected no classifications (all removed/added), got {cls}"
     assert len(names) == 0, f"Expected no glossary names, got {names}"
+
+
+# ---------------------------------------------------------------------------
+# cuo — Sieve Diff Display
+# ---------------------------------------------------------------------------
+
+def test_cuo_pure_computeDiff(driver):
+    """Test computeDiff pure function via executeScript."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    result = driver.execute_script("""
+        var oldEls = [
+            {tag: 'input', label: 'Email', region: 'form', box: {x:10,y:10,width:200,height:30}, visibleText: ''},
+            {tag: 'button', label: 'Login', region: 'form', box: {x:10,y:50,width:100,height:30}, visibleText: 'Login'},
+            {tag: 'a', label: 'Help', region: 'nav', box: {x:300,y:10,width:50,height:20}, visibleText: 'Help'},
+        ];
+        var newEls = [
+            {tag: 'input', label: 'Email', region: 'form', box: {x:10,y:10,width:200,height:30}, visibleText: ''},
+            {tag: 'button', label: 'Sign In', region: 'form', box: {x:10,y:50,width:100,height:30}, visibleText: 'Sign In'},
+            {tag: 'span', label: 'Welcome', region: 'header', box: {x:400,y:5,width:100,height:20}, visibleText: 'Welcome'},
+        ];
+        var matchResult = {
+            matched: [{oldIdx:0, newIdx:0, key:'name::email'}, {oldIdx:1, newIdx:1, key:'id::login-btn'}],
+            added: [{newIdx:2, key:'composite::header::span::Welcome'}],
+            removed: [{oldIdx:2, key:'id::help-link'}],
+            ambiguous: []
+        };
+        return computeDiff(oldEls, newEls, matchResult);
+    """)
+    assert len(result["added"]) == 1, f"Expected 1 added, got {len(result['added'])}"
+    assert len(result["removed"]) == 1, f"Expected 1 removed, got {len(result['removed'])}"
+    assert len(result["changed"]) == 1, f"Expected 1 changed (label changed), got {len(result['changed'])}"
+    assert len(result["unchanged"]) == 1, f"Expected 1 unchanged, got {len(result['unchanged'])}"
+    assert any("label" in c for c in result["changed"][0]["changes"]), \
+        f"Expected label change, got: {result['changed'][0]['changes']}"
+
+
+def test_cuo_pure_classifyDiff(driver):
+    """Test classifyDiff pure function via executeScript."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    # navigation: URL changed + >50% elements differ
+    cls = driver.execute_script("""
+        return classifyDiff(
+            {added: [{},{},{}], removed: [{},{},{}], changed: [], unchanged: [{},{}]},
+            'http://example.com/login', 'http://example.com/dashboard'
+        );
+    """)
+    assert cls == "navigation", f"Expected navigation, got: {cls}"
+
+    # reveal: only additions
+    cls = driver.execute_script("""
+        return classifyDiff(
+            {added: [{},{}], removed: [], changed: [], unchanged: [{},{},{}]},
+            'http://example.com/page', 'http://example.com/page'
+        );
+    """)
+    assert cls == "reveal", f"Expected reveal, got: {cls}"
+
+    # conceal: only removals
+    cls = driver.execute_script("""
+        return classifyDiff(
+            {added: [], removed: [{},{}], changed: [], unchanged: [{},{},{}]},
+            'http://example.com/page', 'http://example.com/page'
+        );
+    """)
+    assert cls == "conceal", f"Expected conceal, got: {cls}"
+
+    # state-mutation: only changes
+    cls = driver.execute_script("""
+        return classifyDiff(
+            {added: [], removed: [], changed: [{}], unchanged: [{},{},{}]},
+            'http://example.com/page', 'http://example.com/page'
+        );
+    """)
+    assert cls == "state-mutation", f"Expected state-mutation, got: {cls}"
+
+    # no-effect
+    cls = driver.execute_script("""
+        return classifyDiff(
+            {added: [], removed: [], changed: [], unchanged: [{},{},{}]},
+            'http://example.com/page', 'http://example.com/page'
+        );
+    """)
+    assert cls == "no-effect", f"Expected no-effect, got: {cls}"
+
+    # compound: mix
+    cls = driver.execute_script("""
+        return classifyDiff(
+            {added: [{}], removed: [{}], changed: [{}], unchanged: [{}]},
+            'http://example.com/page', 'http://example.com/page'
+        );
+    """)
+    assert cls == "compound", f"Expected compound, got: {cls}"
+
+
+def test_cuo_diff_mode_renders(driver):
+    """Inject state that triggers diff mode, verify UI renders correctly."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com/login'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', box: {x:10,y:10,width:200,height:30}},
+                {locators: {testid: 'submit'}, tag: 'button', label: 'Login', region: 'form', box: {x:10,y:50,width:100,height:30}},
+            ],
+        };
+        state.classifications = {0: 'typable', 1: 'clickable'};
+        state.mode = 'pass1';
+
+        var newInv = {
+            url: {raw: 'http://example.com/dashboard'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', box: {x:10,y:10,width:200,height:30}},
+                {locators: {testid: 'welcome'}, tag: 'span', label: 'Welcome', region: 'header', box: {x:200,y:5,width:150,height:25}},
+            ],
+        };
+
+        var matchResult = matchElements(state.inventory.elements, newInv.elements);
+        var pendingSieve = {
+            inventory: newInv,
+            screenshotUrl: null,
+            screenshotDataUrl: null,
+            matchResult: matchResult,
+            oldInventory: state.inventory,
+            oldClassifications: Object.assign({}, state.classifications),
+            oldGlossaryNames: Object.assign({}, state.glossaryNames),
+        };
+        enterDiffMode(matchResult, pendingSieve, null);
+    """)
+    time.sleep(0.5)
+
+    # Verify diff mode
+    mode = get_text(driver, "mode-indicator")
+    assert "Sieve Diff" in mode, f"Expected Sieve Diff mode, got: {mode!r}"
+
+    # Verify diff panel is visible with counts
+    added_text = get_text(driver, "diff-added-count")
+    assert "1" in added_text, f"Expected 1 added, got: {added_text!r}"
+
+    removed_text = get_text(driver, "diff-removed-count")
+    assert "1" in removed_text, f"Expected 1 removed, got: {removed_text!r}"
+
+    # Verify classification banner mentions navigation
+    cls_text = get_text(driver, "diff-classification")
+    assert "navigation" in cls_text.lower(), f"Expected navigation classification, got: {cls_text!r}"
+
+    # Verify accept button exists
+    accept_btn = driver.find_element(By.CSS_SELECTOR, '[data-testid="btn-accept-diff"]')
+    assert accept_btn.is_displayed(), "Accept button should be visible"
+
+
+def test_cuo_diff_blocks_sieve(driver):
+    """Verify sieve is blocked during diff mode."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    driver.execute_script("""
+        state.mode = 'diff';
+        state.diffResult = {added: [], removed: [], changed: [], unchanged: []};
+        state._pendingSieve = {inventory: {elements:[]}, oldInventory: {elements:[]}};
+    """)
+
+    click(driver, "btn-sieve")
+    time.sleep(0.5)
+
+    toast = driver.find_element(By.ID, "toast")
+    toast_text = driver.execute_script("return arguments[0].textContent", toast)
+    assert "diff" in toast_text.lower(), f"Expected diff-blocking toast, got: {toast_text!r}"
+
+
+def test_cuo_diff_blocks_navigate(driver):
+    """Verify navigate is blocked during diff mode."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    driver.execute_script("""
+        state.mode = 'diff';
+        state.diffResult = {added: [], removed: [], changed: [], unchanged: []};
+        state._pendingSieve = {inventory: {elements:[]}, oldInventory: {elements:[]}};
+    """)
+
+    clear_and_type(driver, "url-input", "http://example.com")
+    click(driver, "btn-navigate")
+    time.sleep(0.5)
+
+    toast = driver.find_element(By.ID, "toast")
+    toast_text = driver.execute_script("return arguments[0].textContent", toast)
+    assert "diff" in toast_text.lower(), f"Expected diff-blocking toast, got: {toast_text!r}"
+
+
+def test_cuo_accept_diff_propagates(driver):
+    """Full diff flow: inject diff state, accept, verify propagation and mode restore."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com/page'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {testid: 'a'}, tag: 'input', label: 'Field A', region: 'form', box: {x:0,y:0,width:100,height:20}},
+                {locators: {testid: 'b'}, tag: 'button', label: 'Btn B', region: 'form', box: {x:0,y:30,width:100,height:20}},
+            ],
+        };
+        state.classifications = {0: 'typable', 1: 'clickable'};
+        state.glossaryNames = {0: {name: 'field-a', intent: 'Form', source: 'human', notes: ''}};
+        state.mode = 'pass2';
+
+        var newInv = {
+            url: {raw: 'http://example.com/page'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {testid: 'a'}, tag: 'input', label: 'Field A', region: 'form', box: {x:0,y:0,width:100,height:20}},
+                {locators: {testid: 'b'}, tag: 'button', label: 'Btn B', region: 'form', box: {x:0,y:30,width:100,height:20}},
+                {locators: {testid: 'c'}, tag: 'span', label: 'New thing', region: 'form', box: {x:0,y:60,width:100,height:20}},
+            ],
+        };
+
+        var matchResult = matchElements(state.inventory.elements, newInv.elements);
+        var pendingSieve = {
+            inventory: newInv,
+            screenshotUrl: null,
+            screenshotDataUrl: null,
+            matchResult: matchResult,
+            oldInventory: state.inventory,
+            oldClassifications: Object.assign({}, state.classifications),
+            oldGlossaryNames: Object.assign({}, state.glossaryNames),
+        };
+        enterDiffMode(matchResult, pendingSieve, null);
+    """)
+    time.sleep(0.5)
+
+    mode = get_text(driver, "mode-indicator")
+    assert "Sieve Diff" in mode
+
+    # Accept
+    driver.execute_script("acceptDiff()")
+    time.sleep(0.5)
+
+    # Mode should restore to pass2
+    mode_after = get_text(driver, "mode-indicator")
+    assert "Pass 2" in mode_after, f"Expected Pass 2 restored, got: {mode_after!r}"
+
+    # Classifications propagated
+    cls = driver.execute_script("return state.classifications")
+    assert cls.get("0") == "typable", f"Expected cls[0]=typable, got {cls}"
+    assert cls.get("1") == "clickable", f"Expected cls[1]=clickable, got {cls}"
+
+    # Glossary name propagated
+    names = driver.execute_script("return state.glossaryNames")
+    assert names.get("0") is not None, f"Expected name on [0], got {names}"
+    assert names["0"]["name"] == "field-a"
+
+    # New inventory has 3 elements
+    count = driver.execute_script("return state.inventory.elements.length")
+    assert count == 3, f"Expected 3 elements, got {count}"
+
+    # Diff state cleared
+    diff = driver.execute_script("return state.diffResult")
+    assert diff is None, f"Expected diffResult null after accept, got {diff}"
+
+
+def test_cuo_diff_keyboard_accept(driver):
+    """Test Enter key accepts diff."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [{locators: {testid: 'x'}, tag: 'div', label: 'X', region: 'main', box: {x:0,y:0,width:50,height:50}}],
+        };
+        state.classifications = {};
+        state.mode = 'pass1';
+
+        var newInv = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [{locators: {testid: 'x'}, tag: 'div', label: 'X', region: 'main', box: {x:0,y:0,width:50,height:50}}],
+        };
+        var matchResult = matchElements(state.inventory.elements, newInv.elements);
+        var pendingSieve = {
+            inventory: newInv, screenshotUrl: null, screenshotDataUrl: null,
+            matchResult: matchResult, oldInventory: state.inventory,
+            oldClassifications: {}, oldGlossaryNames: {},
+        };
+        enterDiffMode(matchResult, pendingSieve, null);
+    """)
+    time.sleep(0.3)
+
+    assert "Sieve Diff" in get_text(driver, "mode-indicator")
+
+    # Press Enter to accept
+    body = driver.find_element(By.TAG_NAME, "body")
+    body.send_keys(Keys.RETURN)
+    time.sleep(0.5)
+
+    mode = get_text(driver, "mode-indicator")
+    assert "Pass 1" in mode, f"Expected Pass 1 after Enter accept, got: {mode!r}"
+
+
+def test_cuo_diff_item_selection(driver):
+    """Test clicking diff items highlights them and j/k navigation works."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {testid: 'a'}, tag: 'div', label: 'A', region: 'main', box: {x:0,y:0,width:50,height:50}},
+            ],
+        };
+        state.classifications = {};
+        state.mode = 'pass1';
+
+        var newInv = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {testid: 'a'}, tag: 'div', label: 'A', region: 'main', box: {x:0,y:0,width:50,height:50}},
+                {locators: {testid: 'b'}, tag: 'span', label: 'B', region: 'main', box: {x:0,y:60,width:50,height:50}},
+                {locators: {testid: 'c'}, tag: 'p', label: 'C', region: 'main', box: {x:0,y:120,width:50,height:50}},
+            ],
+        };
+        var matchResult = matchElements(state.inventory.elements, newInv.elements);
+        var pendingSieve = {
+            inventory: newInv, screenshotUrl: null, screenshotDataUrl: null,
+            matchResult: matchResult, oldInventory: state.inventory,
+            oldClassifications: {}, oldGlossaryNames: {},
+        };
+        enterDiffMode(matchResult, pendingSieve, null);
+    """)
+    time.sleep(0.5)
+
+    # Click first item in diff list
+    driver.execute_script("diffSelectItem(0)")
+    time.sleep(0.2)
+
+    sel = driver.execute_script("return state.diffSelectedIdx")
+    assert sel == 0, f"Expected selected index 0, got {sel}"
+
+    # Press j to move down
+    body = driver.find_element(By.TAG_NAME, "body")
+    body.send_keys("j")
+    time.sleep(0.2)
+
+    sel = driver.execute_script("return state.diffSelectedIdx")
+    assert sel == 1, f"Expected selected index 1 after j, got {sel}"
+
+    # Press k to move up
+    body.send_keys("k")
+    time.sleep(0.2)
+
+    sel = driver.execute_script("return state.diffSelectedIdx")
+    assert sel == 0, f"Expected selected index 0 after k, got {sel}"
 
 
 # ---------------------------------------------------------------------------
@@ -1045,6 +1435,15 @@ TESTS = [
     ("qo2: resolve full flow — pair + mark added + finish", test_qo2_resolve_full_flow),
     ("qo2: resolve undo pair and re-pair", test_qo2_resolve_undo_pair),
     ("qo2: resolve mark all removed/added", test_qo2_resolve_mark_all_removed_and_added),
+    # cuo — Sieve diff display
+    ("cuo: computeDiff pure function", test_cuo_pure_computeDiff),
+    ("cuo: classifyDiff pure function", test_cuo_pure_classifyDiff),
+    ("cuo: diff mode UI renders", test_cuo_diff_mode_renders),
+    ("cuo: diff blocks sieve", test_cuo_diff_blocks_sieve),
+    ("cuo: diff blocks navigate", test_cuo_diff_blocks_navigate),
+    ("cuo: accept diff propagates and restores mode", test_cuo_accept_diff_propagates),
+    ("cuo: Enter key accepts diff", test_cuo_diff_keyboard_accept),
+    ("cuo: diff item selection and j/k navigation", test_cuo_diff_item_selection),
 ]
 
 if __name__ == "__main__":

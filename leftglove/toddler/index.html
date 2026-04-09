@@ -395,6 +395,70 @@
 
   .resolve-actions .btn { font-size: 12px; padding: 4px 10px; }
 
+  /* --- Diff mode (cuo) --- */
+  #mode-indicator.diff { background: #1e3a5f; color: #60a5fa; }
+
+  .diff-banner {
+    padding: 8px 12px;
+    background: #172554;
+    border-bottom: 1px solid #1e3a5f;
+    color: #60a5fa;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .diff-counts {
+    display: flex;
+    gap: 12px;
+    padding: 8px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid #333;
+  }
+
+  .diff-counts .added { color: #22c55e; }
+  .diff-counts .removed { color: #ef4444; }
+  .diff-counts .changed { color: #eab308; }
+  .diff-counts .unchanged { color: #666; }
+
+  .diff-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px;
+  }
+
+  .diff-item {
+    padding: 6px 8px;
+    border: 1px solid #333;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .diff-item:hover { background: rgba(255,255,255,0.05); }
+  .diff-item.selected { border-color: #22d3ee; background: rgba(34,211,238,0.1); }
+  .diff-item.diff-added { border-left: 3px solid #22c55e; }
+  .diff-item.diff-removed { border-left: 3px solid #ef4444; }
+  .diff-item.diff-changed { border-left: 3px solid #eab308; }
+
+  .diff-item .di-type { font-size: 10px; font-weight: 700; text-transform: uppercase; margin-right: 6px; }
+  .diff-item .di-type.added { color: #22c55e; }
+  .diff-item .di-type.removed { color: #ef4444; }
+  .diff-item .di-type.changed { color: #eab308; }
+  .diff-item .di-tag { color: #888; }
+  .diff-item .di-label { color: #fbbf24; }
+  .diff-item .di-changes { color: #999; font-size: 11px; margin-top: 2px; }
+
+  .diff-actions {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid #333;
+    align-items: center;
+  }
+
+  .diff-actions .btn { font-size: 12px; padding: 4px 10px; }
+
   /* Error toast */
   #toast {
     position: fixed;
@@ -469,6 +533,7 @@
     </div>
   </div>
   <div id="resolve-panel" style="display:none;flex-direction:column;width:100%;"></div>
+  <div id="diff-panel" data-testid="diff-summary" style="display:none;flex-direction:column;width:100%;"></div>
 </div>
 
 <!-- Error toast -->
@@ -498,13 +563,18 @@ let state = {
   classifications: {},
   screenshotDims: { w: 0, h: 0 },
   pageUrl: null,
-  mode: 'pass1',          // 'pass1' | 'pass2' | 'review'
+  mode: 'pass1',          // 'pass1' | 'pass2' | 'review' | 'resolve' | 'diff'
   glossaryNames: {},       // { [inventoryIndex]: { name, intent, source, notes } }
   pass2Order: [],          // filtered+sorted inventory indices for Pass 2 traversal
   pass2Cursor: 0,          // position within pass2Order
   resolveContext: null,    // active resolve session (null when not resolving)
-  _pendingSieve: null,     // pending sieve data during resolve mode
+  _pendingSieve: null,     // pending sieve data during resolve/diff mode
   _preResolveMode: null,   // mode to restore after resolve completes
+  _preDiffMode: null,      // mode to restore after diff accept
+  diffResult: null,        // output of computeDiff()
+  diffClass: null,         // output of classifyDiff()
+  diffSelectedIdx: null,   // selected item index in flat diff list
+  _diffResolvedPairs: null, // resolved pairs from resolve mode (if any)
 };
 
 // ---- Persistence ----
@@ -586,8 +656,8 @@ async function fetchStatus() {
 
 // ---- Core actions ----
 async function doSieve() {
-  if (state.mode === 'resolve') {
-    showToast('Finish resolving ambiguous matches first.');
+  if (state.mode === 'resolve' || state.mode === 'diff') {
+    showToast(state.mode === 'resolve' ? 'Finish resolving ambiguous matches first.' : 'Accept or review the current diff first.');
     return;
   }
   const statusEl = document.getElementById('status-indicator');
@@ -621,31 +691,19 @@ async function doSieve() {
         return;
       }
 
-      // No ambiguity — propagate automatically
-      var propagated = propagateNames(matchResult, state.classifications, state.glossaryNames);
-
-      // Revoke old screenshot URL
-      if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
-
-      state.inventory = inventory;
-      state.screenshotUrl = screenshot.blobUrl;
-      state.screenshotDataUrl = screenshot.dataUrl;
-      state.pageUrl = inventory.url?.raw || inventory.url || null;
-      state.classifications = propagated.classifications;
-      state.glossaryNames = propagated.glossaryNames;
-      state.currentIndex = 0;
-      // Keep current mode — don't reset to pass1
-
-      // Rebuild pass2 order if in pass2
-      if (state.mode === 'pass2') {
-        buildPass2Order();
-        state.pass2Cursor = 0;
-        if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[0];
-      }
-
-      showToast(matchResult.matched.length + ' matched, '
-        + matchResult.added.length + ' added, '
-        + matchResult.removed.length + ' removed');
+      // No ambiguity — enter diff mode for user review
+      var pendingSieveDiff = {
+        inventory: inventory,
+        screenshotUrl: screenshot.blobUrl,
+        screenshotDataUrl: screenshot.dataUrl,
+        matchResult: matchResult,
+        oldInventory: state.inventory,
+        oldClassifications: Object.assign({}, state.classifications),
+        oldGlossaryNames: Object.assign({}, state.glossaryNames),
+      };
+      statusEl.textContent = 'Diff ready';
+      enterDiffMode(matchResult, pendingSieveDiff, null);
+      return;
     } else {
       // First sieve — fresh state
       if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
@@ -676,8 +734,8 @@ async function doSieve() {
 }
 
 async function doNavigate() {
-  if (state.mode === 'resolve') {
-    showToast('Finish resolving ambiguous matches first.');
+  if (state.mode === 'resolve' || state.mode === 'diff') {
+    showToast(state.mode === 'resolve' ? 'Finish resolving ambiguous matches first.' : 'Accept or review the current diff first.');
     return;
   }
   let url = document.getElementById('url-input').value.trim();
@@ -795,12 +853,95 @@ function renderResolveOverlay(svg) {
   svg.innerHTML = html;
 }
 
+function renderDiffOverlay(svg) {
+  var diff = state.diffResult;
+  var pending = state._pendingSieve;
+  if (!diff || !pending) return;
+
+  var newEls = pending.inventory.elements;
+  var oldEls = pending.oldInventory.elements;
+  var dims = state.screenshotDims;
+  svg.setAttribute('width', dims.w);
+  svg.setAttribute('height', dims.h);
+
+  var html = '';
+  var selectedType = null;
+  var selectedItemIdx = null;
+  if (state.diffSelectedIdx !== null) {
+    // Decode flat index: added, then removed, then changed
+    var si = state.diffSelectedIdx;
+    if (si < diff.added.length) { selectedType = 'added'; selectedItemIdx = si; }
+    else if (si < diff.added.length + diff.removed.length) { selectedType = 'removed'; selectedItemIdx = si - diff.added.length; }
+    else if (si < diff.added.length + diff.removed.length + diff.changed.length) { selectedType = 'changed'; selectedItemIdx = si - diff.added.length - diff.removed.length; }
+  }
+
+  // Unchanged elements — dimmed
+  for (var u = 0; u < diff.unchanged.length; u++) {
+    var ue = diff.unchanged[u];
+    var ub = newEls[ue.newIdx]?.box;
+    if (!ub) continue;
+    html += '<rect x="' + ub.x + '" y="' + ub.y + '" width="' + (ub.width || ub.w) + '" height="' + (ub.height || ub.h) + '"'
+      + ' fill="none" stroke="#444" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>';
+  }
+
+  // Added elements — green dashed
+  for (var a = 0; a < diff.added.length; a++) {
+    var ae = diff.added[a];
+    var ab = ae.el?.box;
+    if (!ab) continue;
+    var isSel = (selectedType === 'added' && selectedItemIdx === a);
+    html += '<rect x="' + ab.x + '" y="' + ab.y + '" width="' + (ab.width || ab.w) + '" height="' + (ab.height || ab.h) + '"'
+      + ' fill="rgba(34,197,94,0.08)" stroke="' + (isSel ? '#22d3ee' : '#22c55e') + '"'
+      + ' stroke-width="' + (isSel ? 3 : 2) + '" stroke-dasharray="6,3"/>';
+    var atY = ab.y - 4;
+    html += '<text x="' + ab.x + '" y="' + (atY > 10 ? atY : ab.y + 12) + '"'
+      + ' fill="#22c55e" font-size="10" font-family="sans-serif" font-weight="700">NEW</text>';
+  }
+
+  // Removed elements — red dashed (use old bounding box)
+  for (var r = 0; r < diff.removed.length; r++) {
+    var re = diff.removed[r];
+    var rb = re.el?.box;
+    if (!rb) continue;
+    var isSel2 = (selectedType === 'removed' && selectedItemIdx === r);
+    html += '<rect x="' + rb.x + '" y="' + rb.y + '" width="' + (rb.width || rb.w) + '" height="' + (rb.height || rb.h) + '"'
+      + ' fill="rgba(239,68,68,0.08)" stroke="' + (isSel2 ? '#22d3ee' : '#ef4444') + '"'
+      + ' stroke-width="' + (isSel2 ? 3 : 2) + '" stroke-dasharray="6,3"/>';
+    var rtY = rb.y - 4;
+    html += '<text x="' + rb.x + '" y="' + (rtY > 10 ? rtY : rb.y + 12) + '"'
+      + ' fill="#ef4444" font-size="10" font-family="sans-serif" font-weight="700">REMOVED</text>';
+  }
+
+  // Changed elements — yellow solid
+  for (var c = 0; c < diff.changed.length; c++) {
+    var ce = diff.changed[c];
+    var cb = ce.newEl?.box;
+    if (!cb) continue;
+    var isSel3 = (selectedType === 'changed' && selectedItemIdx === c);
+    html += '<rect x="' + cb.x + '" y="' + cb.y + '" width="' + (cb.width || cb.w) + '" height="' + (cb.height || cb.h) + '"'
+      + ' fill="rgba(234,179,8,0.08)" stroke="' + (isSel3 ? '#22d3ee' : '#eab308') + '"'
+      + ' stroke-width="' + (isSel3 ? 3 : 2) + '"/>';
+    var ctY = cb.y - 4;
+    html += '<text x="' + cb.x + '" y="' + (ctY > 10 ? ctY : cb.y + 12) + '"'
+      + ' fill="#eab308" font-size="10" font-family="sans-serif" font-weight="600">'
+      + escapeHtml(ce.changes[0].slice(0, 25)) + '</text>';
+  }
+
+  svg.innerHTML = html;
+}
+
 function renderOverlay() {
   const svg = document.getElementById('overlay-svg');
 
   // Resolve mode: show old+new element highlights
   if (state.mode === 'resolve' && state.resolveContext && state._pendingSieve) {
     renderResolveOverlay(svg);
+    return;
+  }
+
+  // Diff mode: show diff overlay
+  if (state.mode === 'diff' && state.diffResult) {
+    renderDiffOverlay(svg);
     return;
   }
 
@@ -916,7 +1057,7 @@ function renderOverlay() {
 function updateModeIndicator() {
   var mi = document.getElementById('mode-indicator');
   if (!mi) return;
-  var labels = { pass1: 'Pass 1: Classify', pass2: 'Pass 2: Name', review: 'Review', resolve: 'Resolve Matches' };
+  var labels = { pass1: 'Pass 1: Classify', pass2: 'Pass 2: Name', review: 'Review', resolve: 'Resolve Matches', diff: 'Sieve Diff' };
   mi.textContent = labels[state.mode] || '';
   mi.className = state.mode;
 }
@@ -1014,8 +1155,9 @@ function renderPass2Panel() {
 function renderPanel() {
   updateModeIndicator();
 
-  // Toggle panel visibility between resolve and normal modes
+  // Toggle panel visibility between resolve/diff and normal modes
   var resolveDiv = document.getElementById('resolve-panel');
+  var diffDiv = document.getElementById('diff-panel');
   var panelInfo = document.getElementById('panel-info');
   var panelControls = document.getElementById('panel-controls');
 
@@ -1024,8 +1166,18 @@ function renderPanel() {
     return;
   }
 
-  // Restore normal panels (in case we're leaving resolve mode)
+  if (state.mode === 'diff') {
+    resolveDiv.style.display = 'none';
+    diffDiv.style.display = 'flex';
+    panelInfo.style.display = 'none';
+    panelControls.style.display = 'none';
+    renderDiffPanel();
+    return;
+  }
+
+  // Restore normal panels (in case we're leaving resolve/diff mode)
   resolveDiv.style.display = 'none';
+  diffDiv.style.display = 'none';
   panelInfo.style.display = '';
   panelControls.style.display = '';
 
@@ -1203,7 +1355,7 @@ function skipName() {
 // ---- Classification ----
 function classify(category) {
   if (!state.inventory?.elements?.length) return;
-  if (state.mode === 'resolve') return; // block during resolve
+  if (state.mode === 'resolve' || state.mode === 'diff') return; // block during resolve/diff
   state.classifications[state.currentIndex] = category;
   saveState();
 
@@ -1397,6 +1549,89 @@ function propagateNames(matchResult, oldClassifications, oldGlossaryNames, resol
   return { classifications: cls, glossaryNames: names };
 }
 
+// ---- Diff Computation (cuo) ----
+
+function computeDiff(oldEls, newEls, matchResult) {
+  var added = [];
+  var removed = [];
+  var changed = [];
+  var unchanged = [];
+
+  // Process matched pairs — detect changes
+  for (var i = 0; i < matchResult.matched.length; i++) {
+    var m = matchResult.matched[i];
+    var oldEl = oldEls[m.oldIdx];
+    var newEl = newEls[m.newIdx];
+    var changes = [];
+
+    // Compare label
+    if ((oldEl.label || '') !== (newEl.label || '')) {
+      changes.push('label: \'' + (oldEl.label || '') + '\' \u2192 \'' + (newEl.label || '') + '\'');
+    }
+    // Compare tag
+    if ((oldEl.tag || '') !== (newEl.tag || '')) {
+      changes.push('tag: ' + (oldEl.tag || '') + ' \u2192 ' + (newEl.tag || ''));
+    }
+    // Compare region
+    if ((oldEl.region || '') !== (newEl.region || '')) {
+      changes.push('region: ' + (oldEl.region || '') + ' \u2192 ' + (newEl.region || ''));
+    }
+    // Compare bounding box (5px tolerance)
+    if (oldEl.box && newEl.box) {
+      var dx = Math.abs((oldEl.box.x || 0) - (newEl.box.x || 0));
+      var dy = Math.abs((oldEl.box.y || 0) - (newEl.box.y || 0));
+      var dw = Math.abs((oldEl.box.width || 0) - (newEl.box.width || 0));
+      var dh = Math.abs((oldEl.box.height || 0) - (newEl.box.height || 0));
+      if (dx > 5 || dy > 5 || dw > 5 || dh > 5) {
+        changes.push('moved/resized');
+      }
+    }
+    // Compare visible text
+    if ((oldEl.visibleText || '') !== (newEl.visibleText || '')) {
+      changes.push('text changed');
+    }
+
+    if (changes.length > 0) {
+      changed.push({ oldIdx: m.oldIdx, newIdx: m.newIdx, key: m.key, oldEl: oldEl, newEl: newEl, changes: changes });
+    } else {
+      unchanged.push({ oldIdx: m.oldIdx, newIdx: m.newIdx, key: m.key });
+    }
+  }
+
+  // Added elements (only in new)
+  for (var a = 0; a < matchResult.added.length; a++) {
+    var add = matchResult.added[a];
+    added.push({ newIdx: add.newIdx, key: add.key, el: newEls[add.newIdx] });
+  }
+
+  // Removed elements (only in old)
+  for (var r = 0; r < matchResult.removed.length; r++) {
+    var rem = matchResult.removed[r];
+    removed.push({ oldIdx: rem.oldIdx, key: rem.key, el: oldEls[rem.oldIdx] });
+  }
+
+  return { added: added, removed: removed, changed: changed, unchanged: unchanged };
+}
+
+function classifyDiff(diff, urlA, urlB) {
+  var addedCount = diff.added.length;
+  var removedCount = diff.removed.length;
+  var changedCount = diff.changed.length;
+
+  if (addedCount === 0 && removedCount === 0 && changedCount === 0) return 'no-effect';
+
+  var urlChanged = (urlA || '') !== (urlB || '');
+  var totalOld = removedCount + changedCount + diff.unchanged.length;
+  var totalNew = addedCount + changedCount + diff.unchanged.length;
+  var maxTotal = Math.max(totalOld, totalNew, 1);
+
+  if (urlChanged && (removedCount + addedCount) / maxTotal > 0.5) return 'navigation';
+  if (addedCount > 0 && removedCount === 0 && changedCount === 0) return 'reveal';
+  if (removedCount > 0 && addedCount === 0 && changedCount === 0) return 'conceal';
+  if (changedCount > 0 && addedCount === 0 && removedCount === 0) return 'state-mutation';
+  return 'compound';
+}
+
 // ---- Resolve Mode (qo2) ----
 
 function enterResolveMode(matchResult, pendingSieve) {
@@ -1549,52 +1784,185 @@ function finishResolve() {
   var pending = state._pendingSieve;
   if (!ctx || !pending) return;
 
-  // Propagate names using auto-matched + user-resolved pairs
+  // Chain into diff mode — let user review changes before committing
+  enterDiffMode(ctx.matchResult, pending, ctx.pairs);
+}
+
+// ---- Diff Mode (cuo) ----
+
+function enterDiffMode(matchResult, pendingSieve, resolvedPairs) {
+  var oldEls = pendingSieve.oldInventory.elements;
+  var newEls = pendingSieve.inventory.elements;
+
+  state.diffResult = computeDiff(oldEls, newEls, matchResult);
+  state.diffClass = classifyDiff(
+    state.diffResult,
+    pendingSieve.oldInventory.url?.raw || pendingSieve.oldInventory.url || state.pageUrl,
+    pendingSieve.inventory.url?.raw || pendingSieve.inventory.url
+  );
+  state.diffSelectedIdx = null;
+  state._diffResolvedPairs = resolvedPairs || null;
+
+  // Save pre-diff mode (may already be saved from resolve)
+  if (state.mode !== 'resolve') {
+    state._preDiffMode = state.mode;
+  } else {
+    state._preDiffMode = state._preResolveMode || 'pass1';
+  }
+
+  state._pendingSieve = pendingSieve;
+  state.mode = 'diff';
+
+  // Show new screenshot in diff mode
+  if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
+  state.screenshotUrl = pendingSieve.screenshotUrl;
+  state.screenshotDataUrl = pendingSieve.screenshotDataUrl;
+
+  // Clean up resolve state
+  state.resolveContext = null;
+  state._preResolveMode = null;
+
+  updateModeIndicator();
+  renderOverlay();
+  renderPanel();
+  renderMetadata();
+  saveState();
+  renderScreenshot().catch(function () {});
+}
+
+function acceptDiff() {
+  var pending = state._pendingSieve;
+  var diff = state.diffResult;
+  if (!pending || !diff) return;
+
+  // Propagate names from old → new
   var propagated = propagateNames(
-    ctx.matchResult,
+    pending.matchResult,
     pending.oldClassifications,
     pending.oldGlossaryNames,
-    ctx.pairs
+    state._diffResolvedPairs
   );
 
-  // Revoke old screenshot
-  if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
-
-  // Apply pending sieve data (including deferred screenshotDataUrl)
+  // Apply new inventory
   state.inventory = pending.inventory;
-  state.screenshotUrl = pending.screenshotUrl;
-  state.screenshotDataUrl = pending.screenshotDataUrl;
   state.pageUrl = pending.inventory.url?.raw || pending.inventory.url || null;
   state.classifications = propagated.classifications;
   state.glossaryNames = propagated.glossaryNames;
   state.currentIndex = 0;
 
   // Restore mode
-  state.mode = state._preResolveMode || 'pass1';
-  state.resolveContext = null;
-  state._pendingSieve = null;
-  state._preResolveMode = null;
+  state.mode = state._preDiffMode || 'pass1';
 
-  // Rebuild pass2 order if needed
+  // Clear diff state
+  state.diffResult = null;
+  state.diffClass = null;
+  state.diffSelectedIdx = null;
+  state._diffResolvedPairs = null;
+  state._pendingSieve = null;
+  state._preDiffMode = null;
+
+  // Rebuild pass2 order if returning to pass2
   if (state.mode === 'pass2') {
     buildPass2Order();
     state.pass2Cursor = 0;
     if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[0];
   }
 
-  var total = ctx.matchResult.matched.length + ctx.pairs.length;
-  var addedCount = ctx.matchResult.added.length + ctx.addedNew.length;
-  var removedCount = ctx.matchResult.removed.length + ctx.removedOld.length;
-  showToast(total + ' matched, ' + addedCount + ' added, ' + removedCount + ' removed');
+  var summary = diff.added.length + ' added, ' + diff.removed.length + ' removed, '
+    + diff.changed.length + ' changed, ' + diff.unchanged.length + ' unchanged';
+  showToast('Diff accepted: ' + summary);
 
-  // Render panel/overlay synchronously so mode indicator updates immediately.
-  // Screenshot loading is async but UI state shouldn't wait for it.
+  updateModeIndicator();
   renderOverlay();
   renderPanel();
   renderMetadata();
   saveState();
+}
 
-  renderScreenshot().catch(function () { /* screenshot may be null in tests */ });
+function renderDiffPanel() {
+  var diff = state.diffResult;
+  var pending = state._pendingSieve;
+  if (!diff || !pending) return;
+
+  var panel = document.getElementById('diff-panel');
+  var classification = state.diffClass || 'unknown';
+  var oldUrl = pending.oldInventory?.url || state.pageUrl || '';
+  var newUrl = pending.inventory?.url || '';
+
+  // Classification banner
+  var bannerText = classification;
+  if (classification === 'navigation' && oldUrl !== newUrl) {
+    bannerText += ' \u2014 URL changed from ' + oldUrl + ' to ' + newUrl;
+  }
+
+  var html = '<div class="diff-banner" data-testid="diff-classification">' + escapeHtml(bannerText) + '</div>';
+
+  // Counts
+  html += '<div class="diff-counts">'
+    + '<span class="added" data-testid="diff-added-count">' + diff.added.length + ' added</span>'
+    + '<span class="removed" data-testid="diff-removed-count">' + diff.removed.length + ' removed</span>'
+    + '<span class="changed" data-testid="diff-changed-count">' + diff.changed.length + ' changed</span>'
+    + '<span class="unchanged">' + diff.unchanged.length + ' unchanged</span>'
+    + '</div>';
+
+  // Scrollable change list
+  html += '<div class="diff-list" data-testid="diff-change-list">';
+
+  var flatIdx = 0;
+
+  // Added items
+  for (var a = 0; a < diff.added.length; a++) {
+    var ae = diff.added[a];
+    var sel = state.diffSelectedIdx === flatIdx ? ' selected' : '';
+    html += '<div class="diff-item diff-added' + sel + '" onclick="diffSelectItem(' + flatIdx + ')">'
+      + '<span class="di-type added">new</span>'
+      + '<span class="di-tag">' + escapeHtml(ae.el?.tag || '?') + '</span> '
+      + '<span class="di-label">' + escapeHtml((ae.el?.label || '').slice(0, 40)) + '</span>'
+      + '</div>';
+    flatIdx++;
+  }
+
+  // Removed items
+  for (var r = 0; r < diff.removed.length; r++) {
+    var re = diff.removed[r];
+    var sel2 = state.diffSelectedIdx === flatIdx ? ' selected' : '';
+    html += '<div class="diff-item diff-removed' + sel2 + '" onclick="diffSelectItem(' + flatIdx + ')">'
+      + '<span class="di-type removed">removed</span>'
+      + '<span class="di-tag">' + escapeHtml(re.el?.tag || '?') + '</span> '
+      + '<span class="di-label">' + escapeHtml((re.el?.label || '').slice(0, 40)) + '</span>'
+      + '</div>';
+    flatIdx++;
+  }
+
+  // Changed items
+  for (var c = 0; c < diff.changed.length; c++) {
+    var ce = diff.changed[c];
+    var sel3 = state.diffSelectedIdx === flatIdx ? ' selected' : '';
+    html += '<div class="diff-item diff-changed' + sel3 + '" onclick="diffSelectItem(' + flatIdx + ')">'
+      + '<span class="di-type changed">changed</span>'
+      + '<span class="di-tag">' + escapeHtml(ce.newEl?.tag || '?') + '</span> '
+      + '<span class="di-label">' + escapeHtml((ce.newEl?.label || '').slice(0, 40)) + '</span>'
+      + '<div class="di-changes">' + escapeHtml(ce.changes.join(', ')) + '</div>'
+      + '</div>';
+    flatIdx++;
+  }
+
+  html += '</div>';
+
+  // Accept button
+  html += '<div class="diff-actions">'
+    + '<button class="btn" data-testid="btn-accept-diff" onclick="acceptDiff()"'
+    + ' style="background:#1e3a5f;color:#60a5fa;border:1px solid #60a5fa;">'
+    + 'Accept \u2014 apply changes</button>'
+    + '</div>';
+
+  panel.innerHTML = html;
+}
+
+function diffSelectItem(flatIdx) {
+  state.diffSelectedIdx = (state.diffSelectedIdx === flatIdx) ? null : flatIdx;
+  renderDiffPanel();
+  renderOverlay();
 }
 
 function renderResolvePanel() {
@@ -1746,7 +2114,7 @@ function resolveNavGroup(delta) {
 
 function navigate(delta) {
   if (!state.inventory?.elements?.length) return;
-  if (state.mode === 'resolve') return; // block navigation during resolve
+  if (state.mode === 'resolve' || state.mode === 'diff') return; // block navigation during resolve/diff
   if (state.mode === 'pass2') {
     var len = state.pass2Order.length;
     if (len === 0) return;
@@ -1982,8 +2350,8 @@ document.getElementById('btn-load').addEventListener('click', function () {
 });
 
 document.getElementById('file-input').addEventListener('change', async function (e) {
-  if (state.mode === 'resolve') {
-    showToast('Finish resolving ambiguous matches first.');
+  if (state.mode === 'resolve' || state.mode === 'diff') {
+    showToast(state.mode === 'resolve' ? 'Finish resolving ambiguous matches first.' : 'Accept or review the current diff first.');
     e.target.value = '';
     return;
   }
@@ -2076,6 +2444,50 @@ document.addEventListener('keydown', function (e) {
       } else {
         if (group && pos < group.oldIdxs.length) resolveSelectOld(group.oldIdxs[pos]);
       }
+      return;
+    }
+    return;
+  }
+
+  // Diff mode keyboard handling
+  if (state.mode === 'diff' && state.diffResult) {
+    var diff = state.diffResult;
+    var totalItems = diff.added.length + diff.removed.length + diff.changed.length;
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      acceptDiff();
+      return;
+    }
+    if (e.key === 'j' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (totalItems === 0) return;
+      if (state.diffSelectedIdx === null) {
+        state.diffSelectedIdx = 0;
+      } else {
+        state.diffSelectedIdx = Math.min(totalItems - 1, state.diffSelectedIdx + 1);
+      }
+      renderDiffPanel();
+      renderOverlay();
+      return;
+    }
+    if (e.key === 'k' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (totalItems === 0) return;
+      if (state.diffSelectedIdx === null) {
+        state.diffSelectedIdx = 0;
+      } else {
+        state.diffSelectedIdx = Math.max(0, state.diffSelectedIdx - 1);
+      }
+      renderDiffPanel();
+      renderOverlay();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      state.diffSelectedIdx = null;
+      renderDiffPanel();
+      renderOverlay();
       return;
     }
     return;

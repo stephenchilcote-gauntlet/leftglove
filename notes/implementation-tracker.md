@@ -7,7 +7,7 @@
 - [x] **4j8** — Load pre-labeled state
 - [x] **h34** — MCP vocabulary projection
 - [x] **qo2** — Element identity across observations
-- [ ] **cuo** — Sieve diff display
+- [x] **cuo** — Sieve diff display
 - [ ] **07k** — Write glossary integration
 - [ ] **y7x** — Verify `sl run` + strict mode
 - [ ] **o4c** — Observation loop click
