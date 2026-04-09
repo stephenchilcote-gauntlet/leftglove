@@ -555,9 +555,8 @@ async function fetchScreenshot() {
   const res = await fetch(API + '/screenshot');
   if (!res.ok) throw new Error('Screenshot request failed: ' + res.status);
   const blob = await res.blob();
-  // Capture base64 for intermediate format persistence
-  state.screenshotDataUrl = await blobToDataUrl(blob);
-  return URL.createObjectURL(blob);
+  var dataUrl = await blobToDataUrl(blob);
+  return { blobUrl: URL.createObjectURL(blob), dataUrl: dataUrl };
 }
 
 function blobToDataUrl(blob) {
@@ -587,10 +586,14 @@ async function fetchStatus() {
 
 // ---- Core actions ----
 async function doSieve() {
+  if (state.mode === 'resolve') {
+    showToast('Finish resolving ambiguous matches first.');
+    return;
+  }
   const statusEl = document.getElementById('status-indicator');
   statusEl.textContent = 'Sieving...';
   try {
-    const [inventory, screenshotUrl] = await Promise.all([
+    const [inventory, screenshot] = await Promise.all([
       fetchSieve(),
       fetchScreenshot(),
     ]);
@@ -603,9 +606,11 @@ async function doSieve() {
 
       if (matchResult.ambiguous.length > 0) {
         // Ambiguity detected — enter resolve mode (blocking)
+        // Don't touch state.screenshotDataUrl yet — keep old screenshot consistent
         var pendingSieve = {
           inventory: inventory,
-          screenshotUrl: screenshotUrl,
+          screenshotUrl: screenshot.blobUrl,
+          screenshotDataUrl: screenshot.dataUrl,
           matchResult: matchResult,
           oldInventory: state.inventory,
           oldClassifications: Object.assign({}, state.classifications),
@@ -623,7 +628,8 @@ async function doSieve() {
       if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
 
       state.inventory = inventory;
-      state.screenshotUrl = screenshotUrl;
+      state.screenshotUrl = screenshot.blobUrl;
+      state.screenshotDataUrl = screenshot.dataUrl;
       state.pageUrl = inventory.url?.raw || inventory.url || null;
       state.classifications = propagated.classifications;
       state.glossaryNames = propagated.glossaryNames;
@@ -645,7 +651,8 @@ async function doSieve() {
       if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
 
       state.inventory = inventory;
-      state.screenshotUrl = screenshotUrl;
+      state.screenshotUrl = screenshot.blobUrl;
+      state.screenshotDataUrl = screenshot.dataUrl;
       state.pageUrl = inventory.url?.raw || inventory.url || null;
       state.classifications = {};
       state.currentIndex = 0;
@@ -669,6 +676,10 @@ async function doSieve() {
 }
 
 async function doNavigate() {
+  if (state.mode === 'resolve') {
+    showToast('Finish resolving ambiguous matches first.');
+    return;
+  }
   let url = document.getElementById('url-input').value.trim();
   if (!url) return;
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
@@ -1549,9 +1560,10 @@ function finishResolve() {
   // Revoke old screenshot
   if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
 
-  // Apply pending sieve data
+  // Apply pending sieve data (including deferred screenshotDataUrl)
   state.inventory = pending.inventory;
   state.screenshotUrl = pending.screenshotUrl;
+  state.screenshotDataUrl = pending.screenshotDataUrl;
   state.pageUrl = pending.inventory.url?.raw || pending.inventory.url || null;
   state.classifications = propagated.classifications;
   state.glossaryNames = propagated.glossaryNames;
@@ -1968,6 +1980,11 @@ document.getElementById('btn-load').addEventListener('click', function () {
 });
 
 document.getElementById('file-input').addEventListener('change', async function (e) {
+  if (state.mode === 'resolve') {
+    showToast('Finish resolving ambiguous matches first.');
+    e.target.value = '';
+    return;
+  }
   const file = e.target.files[0];
   if (!file) return;
   e.target.value = '';  // reset so same file can be re-loaded
