@@ -6,43 +6,43 @@
  :elements
  {:about-heading     {:desc "About page heading"
                       :type :readable
-                      :bindings {:web {:testid "about-heading"}}}
+                      :bindings {:web {:css "[data-testid='about-heading']"}}}
   :about-description {:desc "App description paragraph"
                       :type :readable
-                      :bindings {:web {:testid "about-description"}}}
+                      :bindings {:web {:css "[data-testid='about-description']"}}}
   :features-heading  {:desc "Features section heading"
                       :type :readable
-                      :bindings {:web {:testid "features-heading"}}}
+                      :bindings {:web {:css "[data-testid='features-heading']"}}}
   :feature-list      {:desc "Feature bullet list"
                       :type :readable
-                      :bindings {:web {:testid "feature-list"}}}
+                      :bindings {:web {:css "[data-testid='feature-list']"}}}
   :feature-auth      {:desc "Secure authentication feature item"
                       :type :readable
-                      :bindings {:web {:testid "feature-auth"}}}
+                      :bindings {:web {:css "[data-testid='feature-auth']"}}}
   :feature-dashboard {:desc "User dashboard feature item"
                       :type :readable
-                      :bindings {:web {:testid "feature-dashboard"}}}
+                      :bindings {:web {:css "[data-testid='feature-dashboard']"}}}
   :feature-responsive {:desc "Responsive design feature item"
                        :type :readable
-                       :bindings {:web {:testid "feature-responsive"}}}
+                       :bindings {:web {:css "[data-testid='feature-responsive']"}}}
   :team-heading      {:desc "Team section heading"
                       :type :readable
-                      :bindings {:web {:testid "team-heading"}}}
+                      :bindings {:web {:css "[data-testid='team-heading']"}}}
   :team-description  {:desc "Team description"
                       :type :readable
-                      :bindings {:web {:testid "team-description"}}}
+                      :bindings {:web {:css "[data-testid='team-description']"}}}
   :cta-login         {:desc "Get Started CTA button"
                       :type :clickable
-                      :bindings {:web {:testid "cta-login"}}}
+                      :bindings {:web {:css "[data-testid='cta-login']"}}}
   :contact-link      {:desc "Contact email link"
                       :type :clickable
-                      :bindings {:web {:testid "contact-link"}}}
+                      :bindings {:web {:css "[data-testid='contact-link']"}}}
   :nav-home          {:desc "Home nav link"
                       :type :clickable
-                      :bindings {:web {:testid "nav-home"}}}
+                      :bindings {:web {:css "[data-testid='nav-home']"}}}
   :nav-login         {:desc "Login nav link"
                       :type :clickable
-                      :bindings {:web {:testid "nav-login"}}}
+                      :bindings {:web {:css "[data-testid='nav-login']"}}}
   :nav-about         {:desc "About nav link"
                       :type :clickable
-                      :bindings {:web {:testid "nav-about"}}}}}
+                      :bindings {:web {:css "[data-testid='nav-about']"}}}}}

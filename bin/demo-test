@@ -85,13 +85,13 @@ wait_for "demo app" "http://localhost:$DEMO_PORT/login"
 echo "[demo-test] Demo app healthy at http://localhost:$DEMO_PORT"
 echo ""
 
-# --- Phase 1: Dry run with strict mode ---
-echo "[demo-test] Phase 1: $SL_CMD run --dry-run --strict features/"
+# --- Phase 1: Dry run (strict mode via :svo config in shiftlefter.edn) ---
+echo "[demo-test] Phase 1: $SL_CMD run --dry-run features/"
 cd "$SL_PROJECT"
-if $SL_CMD run --dry-run --strict features/; then
-  echo "[demo-test] PASS: dry-run strict mode"
+if $SL_CMD run --dry-run features/; then
+  echo "[demo-test] PASS: dry-run"
 else
-  echo "[demo-test] FAIL: dry-run strict mode (exit $?)"
+  echo "[demo-test] FAIL: dry-run (exit $?)"
   exit 1
 fi
 echo ""

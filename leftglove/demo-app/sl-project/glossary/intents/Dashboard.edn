@@ -6,19 +6,19 @@
  :elements
  {:welcome-msg       {:desc "Welcome greeting with user name"
                       :type :readable
-                      :bindings {:web {:testid "welcome-msg"}}}
+                      :bindings {:web {:css "[data-testid='welcome-msg']"}}}
   :dashboard-content {:desc "Main dashboard content area"
                       :type :readable
-                      :bindings {:web {:testid "dashboard-content"}}}
+                      :bindings {:web {:css "[data-testid='dashboard-content']"}}}
   :nav-home          {:desc "Home nav link"
                       :type :clickable
-                      :bindings {:web {:testid "nav-home"}}}
+                      :bindings {:web {:css "[data-testid='nav-home']"}}}
   :nav-dashboard     {:desc "Dashboard nav link"
                       :type :clickable
-                      :bindings {:web {:testid "nav-dashboard"}}}
+                      :bindings {:web {:css "[data-testid='nav-dashboard']"}}}
   :nav-logout        {:desc "Logout nav link"
                       :type :clickable
-                      :bindings {:web {:testid "nav-logout"}}}
+                      :bindings {:web {:css "[data-testid='nav-logout']"}}}
   :help-link         {:desc "Help link (opens new tab)"
                       :type :clickable
-                      :bindings {:web {:testid "help-link"}}}}}
+                      :bindings {:web {:css "[data-testid='help-link']"}}}}}
