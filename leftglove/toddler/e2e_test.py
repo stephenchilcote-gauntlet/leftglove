@@ -1439,7 +1439,7 @@ def test_visual_pass1_classify(driver):
     judge.assert_screenshot(screenshot, [
         critical("Is there a dark-themed web application UI visible with a toolbar at the top?"),
         critical("Is there a screenshot of a web page displayed in the main area?"),
-        critical("Are there colored rectangular outlines (overlay boxes) drawn on top of the screenshot?"),
+        critical("Are there dashed rectangular outlines in cyan or teal color drawn over the page content (these are element overlay boxes, not part of the web page itself)?"),
         advisory("Is there a bottom panel showing element details like tag, label, or region?"),
         advisory("Is there a mode indicator showing 'Pass 1' or 'Classify'?"),
     ], test_name="pass1_classify")
