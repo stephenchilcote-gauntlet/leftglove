@@ -1,24 +1,21 @@
-/**
- * LeftGlove Demo Video — Browser Segments
- *
- * Records browser-side demo segments as WebM video via Playwright.
- * Three segments corresponding to Acts 1, 3a, and 5a of the demo.
- *
- * Pre-conditions (start via bin/demo-run):
- *   Demo app:  http://localhost:3000
- *   TL UI:     http://localhost:8080
- *   Sieve:     http://localhost:3333
- *
- * Output: test-results/browser-tour-*/video.webm
- *         audio-clips/timing.json
- */
+// LeftGlove Demo Video — Browser Segments
+//
+// Records browser-side demo segments as WebM video via Playwright.
+// Three segments corresponding to Acts 1, 3a, and 5a of the demo.
+//
+// Pre-conditions (start via bin/demo-run):
+//   Demo app:  http://localhost:3000
+//   TL UI:     http://localhost:8080
+//   Sieve:     http://localhost:3333
+//
+// Output: test-results/browser-tour-{hash}/video.webm
+//         audio-clips/timing.json
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { test, type Page } from '@playwright/test';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// __dirname is available natively in Playwright's CJS transform
 
 const TL_URL = 'http://localhost:8080?api=http://localhost:3333';
 const DEMO_LOGIN = 'http://localhost:3000/login';
@@ -190,12 +187,19 @@ async function pause(page: Page, ms = 1500) {
   await page.waitForTimeout(ms);
 }
 
-/** Wait for sieve to complete (status shows element count). */
-async function waitForSieve(page: Page, timeoutMs = 20000) {
+/** Wait for sieve to complete — matches first sieve (element count) or re-sieve (diff/resolve). */
+async function waitForSieve(page: Page, timeoutMs = 30000) {
   await page.waitForFunction(
     () => {
       const el = document.querySelector('[data-testid="status-indicator"]');
-      return el && /\d+\s+element/i.test(el.textContent || '');
+      if (!el) return false;
+      const text = el.textContent || '';
+      // First sieve: "N elements"
+      if (/\d+\s+element/i.test(text)) return true;
+      // Re-sieve: "Diff ready" or "N ambiguous"
+      if (/diff ready/i.test(text)) return true;
+      if (/ambiguous/i.test(text)) return true;
+      return false;
     },
     { timeout: timeoutMs },
   );
@@ -242,9 +246,24 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // ACT 1 — THE SIEVE SEES EVERYTHING (~60s)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // -- Scene: Load TL UI --
+  // -- Scene: Load TL UI (clean state) --
   await page.goto(TL_URL);
   await page.waitForSelector('[data-testid="url-input"]');
+  // Clear any residual state so first sieve is truly fresh
+  await page.evaluate(() => {
+    localStorage.clear();
+    (window as any).state = (window as any).state || {};
+    (window as any).state.inventory = null;
+    (window as any).state.classifications = {};
+    (window as any).state.glossaryNames = {};
+    (window as any).state.pageUrl = '';
+    const img = document.getElementById('screenshot-img') as HTMLImageElement;
+    if (img) img.src = '';
+    const overlay = document.getElementById('overlay-svg');
+    if (overlay) overlay.innerHTML = '';
+    const status = document.getElementById('status-indicator');
+    if (status) status.textContent = 'Ready';
+  });
   await ensureCursor(page);
   await pause(page, 1000);
 
@@ -255,24 +274,13 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   );
   await clearCaption(page);
 
-  // -- Scene: Type URL and navigate --
+  // -- Scene: Type URL and navigate (Navigate auto-sieves) --
   await cursorClick(page, '[data-testid="url-input"]');
   await page.fill('[data-testid="url-input"]', DEMO_LOGIN);
   await pause(page, 500);
   await cursorClick(page, '[data-testid="btn-navigate"]');
 
-  // Wait for navigate to complete
-  await page.waitForFunction(
-    () => {
-      const img = document.getElementById('screenshot-img') as HTMLImageElement;
-      return img && img.src && img.src.startsWith('blob:');
-    },
-    { timeout: 15000 },
-  );
-  await pause(page, 1000);
-
-  // -- Scene: Sieve --
-  await cursorClick(page, '[data-testid="btn-sieve"]');
+  // Navigate auto-calls doSieve() — wait for sieve to finish
   await waitForSieve(page);
   await pause(page, 500);
   await snap(page, 'act1-after-sieve');
