@@ -484,6 +484,7 @@
   <button class="btn" id="btn-navigate" data-testid="btn-navigate">Navigate</button>
   <button class="btn btn-primary" id="btn-sieve" data-testid="btn-sieve">Sieve</button>
   <button class="btn" id="btn-export" data-testid="btn-export">Export</button>
+  <button class="btn" id="btn-export-glossary" data-testid="btn-export-glossary" style="display:none">Export Glossary</button>
   <button class="btn" id="btn-load" data-testid="btn-load">Load</button>
   <input type="file" id="file-input" accept=".json" style="display:none">
   <span id="status-indicator" data-testid="status-indicator">Ready</span>
@@ -1142,6 +1143,9 @@ function renderPass2Panel() {
 
 function renderPanel() {
   updateModeIndicator();
+  // Toggle Export Glossary button visibility
+  var glossaryBtn = document.getElementById('btn-export-glossary');
+  if (glossaryBtn) glossaryBtn.style.display = Object.keys(state.glossaryNames).length > 0 ? '' : 'none';
 
   // Toggle panel visibility between resolve/diff and normal modes
   var resolveDiv = document.getElementById('resolve-panel');
@@ -2203,6 +2207,73 @@ function toIntermediate(st) {
   };
 }
 
+// ---- Glossary EDN Export (07k) ----
+
+function bestLocator(locators) {
+  if (!locators) return null;
+  if (locators.testid) return { strategy: 'testid', value: locators.testid };
+  if (locators.id && !isDynamicId(locators.id)) return { strategy: 'id', value: locators.id };
+  if (locators.name) return { strategy: 'name', value: locators.name };
+  if (locators.href) return { strategy: 'css', value: '[href="' + locators.href + '"]' };
+  return null;
+}
+
+function toGlossaryIntents(data) {
+  if (!data || !data.elements) return [];
+  var groups = {};
+  data.elements.forEach(function (el) {
+    var name = el['glossary-name'];
+    var intent = el['glossary-intent'];
+    if (!name || !intent) return;
+    if (!groups[intent]) groups[intent] = { intent: intent, description: '', elements: {} };
+    var loc = bestLocator(el.locators);
+    groups[intent].elements[name] = {
+      desc: el.label || '',
+      type: (el.category || '').replace(/^:/, ''),
+      binding: loc,
+    };
+  });
+  return Object.values(groups);
+}
+
+function toEdn(intentObj) {
+  var lines = [];
+  lines.push(';; Intent region: ' + intentObj.intent);
+  lines.push('');
+  lines.push('{:intent "' + intentObj.intent + '"');
+  lines.push(' :description "' + (intentObj.description || '') + '"');
+  lines.push(' :elements');
+
+  var keys = Object.keys(intentObj.elements);
+  if (keys.length === 0) {
+    lines.push(' {}}');
+    return lines.join('\n');
+  }
+
+  // Compute padding for alignment
+  var maxKeyLen = Math.max.apply(null, keys.map(function (k) { return k.length; }));
+
+  keys.forEach(function (key, idx) {
+    var el = intentObj.elements[key];
+    var pad = new Array(maxKeyLen - key.length + 1).join(' ');
+    var prefix = idx === 0 ? ' {:' : '  :';
+    var suffix = idx === keys.length - 1 ? '}}' : '';
+
+    var bindingStr = 'nil';
+    if (el.binding) {
+      bindingStr = '{:web {:' + el.binding.strategy + ' "' + el.binding.value + '"}}';
+    }
+
+    lines.push(prefix + key + pad + ' {:desc "' + (el.desc || '') + '"');
+    lines.push(new Array(prefix.length + key.length + pad.length + 2).join(' ')
+      + ':type :' + (el.type || 'readable'));
+    lines.push(new Array(prefix.length + key.length + pad.length + 2).join(' ')
+      + ':bindings ' + bindingStr + '}' + suffix);
+  });
+
+  return lines.join('\n');
+}
+
 function fromIntermediate(data) {
   const errors = validateIntermediate(data);
   if (errors.length) return errors;
@@ -2332,6 +2403,48 @@ function doExport() {
   a.download = 'toddler-session-' + Date.now() + '.json';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+async function doExportGlossary() {
+  const data = toIntermediate(state);
+  if (!data) {
+    showToast('Nothing to export — run Sieve first.');
+    return;
+  }
+  const intents = toGlossaryIntents(data);
+  if (intents.length === 0) {
+    showToast('No named elements — complete Pass 2 first.');
+    return;
+  }
+
+  // Try POST to SL glossary endpoint
+  try {
+    const resp = await fetch(API + '/glossary/intents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(intents),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      showToast('Exported ' + intents.length + ' intent' + (intents.length > 1 ? 's' : '') + ' to glossary.');
+      return;
+    }
+  } catch (_) { /* fall through to download */ }
+
+  // Fallback: download EDN files
+  intents.forEach(function (intent) {
+    const edn = toEdn(intent);
+    const blob = new Blob([edn + '\n'], { type: 'application/edn' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = intent.intent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '.edn';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+  showToast('Glossary endpoint unavailable — downloaded ' + intents.length + ' EDN file' + (intents.length > 1 ? 's' : '') + '.');
 }
 
 // ---- Load ----
@@ -2607,6 +2720,7 @@ function escapeHtml(str) {
 document.getElementById('btn-sieve').addEventListener('click', doSieve);
 document.getElementById('btn-navigate').addEventListener('click', doNavigate);
 document.getElementById('btn-export').addEventListener('click', doExport);
+document.getElementById('btn-export-glossary').addEventListener('click', doExportGlossary);
 
 // Restore state on load
 loadState();

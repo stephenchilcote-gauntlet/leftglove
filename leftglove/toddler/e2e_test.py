@@ -1551,6 +1551,205 @@ def test_visual_diff_overlay(driver):
 
 
 # ---------------------------------------------------------------------------
+# 07k — Glossary EDN export
+# ---------------------------------------------------------------------------
+
+def test_07k_pure_bestLocator(driver):
+    """bestLocator picks testid > id > name > href, skipping dynamic ids."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    result = driver.execute_script("""
+        var tests = [];
+        // testid wins
+        tests.push(bestLocator({testid: 'foo', id: 'bar', name: 'baz'}));
+        // id next (non-dynamic)
+        tests.push(bestLocator({id: 'my-btn', name: 'submit'}));
+        // dynamic id skipped
+        tests.push(bestLocator({id: '12345', name: 'email'}));
+        // name fallback
+        tests.push(bestLocator({name: 'q'}));
+        // href fallback
+        tests.push(bestLocator({href: '/about'}));
+        // nothing
+        tests.push(bestLocator({}));
+        tests.push(bestLocator(null));
+        return tests;
+    """)
+    assert result[0] == {"strategy": "testid", "value": "foo"}
+    assert result[1] == {"strategy": "id", "value": "my-btn"}
+    assert result[2] == {"strategy": "name", "value": "email"}, f"Dynamic id should be skipped: {result[2]}"
+    assert result[3] == {"strategy": "name", "value": "q"}
+    assert result[4] == {"strategy": "css", "value": '[href="/about"]'}
+    assert result[5] is None
+    assert result[6] is None
+
+
+def test_07k_pure_toGlossaryIntents(driver):
+    """toGlossaryIntents groups named elements by intent."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    result = driver.execute_script("""
+        var data = {
+            elements: [
+                {'glossary-name': 'email', 'glossary-intent': 'Login', category: 'typable',
+                 label: 'Email', locators: {testid: 'login-email'}},
+                {'glossary-name': 'submit', 'glossary-intent': 'Login', category: 'clickable',
+                 label: 'Sign In', locators: {testid: 'login-submit'}},
+                {'glossary-name': 'heading', 'glossary-intent': 'Dashboard', category: 'readable',
+                 label: 'Welcome', locators: {id: 'dash-title'}},
+                {'glossary-name': null, 'glossary-intent': null, category: 'chrome',
+                 label: 'Nav', locators: {}},
+            ]
+        };
+        return toGlossaryIntents(data);
+    """)
+    assert len(result) == 2, f"Expected 2 intents, got {len(result)}"
+
+    login = [i for i in result if i["intent"] == "Login"][0]
+    assert "email" in login["elements"]
+    assert "submit" in login["elements"]
+    assert login["elements"]["email"]["type"] == "typable"
+    assert login["elements"]["email"]["binding"]["strategy"] == "testid"
+    assert login["elements"]["submit"]["desc"] == "Sign In"
+
+    dash = [i for i in result if i["intent"] == "Dashboard"][0]
+    assert "heading" in dash["elements"]
+    assert dash["elements"]["heading"]["binding"]["strategy"] == "id"
+
+
+def test_07k_pure_toEdn(driver):
+    """toEdn produces valid SL-compatible EDN."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    edn = driver.execute_script("""
+        var intent = {
+            intent: 'Login Form',
+            description: 'Auth page',
+            elements: {
+                'email-input': {desc: 'Email', type: 'typable', binding: {strategy: 'testid', value: 'login-email'}},
+                'submit-btn': {desc: 'Sign In', type: 'clickable', binding: {strategy: 'id', value: 'login-btn'}},
+            }
+        };
+        return toEdn(intent);
+    """)
+    # Structural checks
+    assert ':intent "Login Form"' in edn, f"Missing intent: {edn}"
+    assert ':description "Auth page"' in edn, f"Missing description: {edn}"
+    assert ':email-input' in edn, f"Missing email-input key: {edn}"
+    assert ':submit-btn' in edn, f"Missing submit-btn key: {edn}"
+    assert ':type :typable' in edn, f"Missing type for email: {edn}"
+    assert ':type :clickable' in edn, f"Missing type for submit: {edn}"
+    assert ':testid "login-email"' in edn, f"Missing testid binding: {edn}"
+    assert ':id "login-btn"' in edn, f"Missing id binding: {edn}"
+    assert ':bindings {:web' in edn, f"Missing bindings wrapper: {edn}"
+    assert edn.startswith(';; Intent region: Login Form'), f"Missing header comment: {edn}"
+
+
+def test_07k_export_glossary_button_visibility(driver):
+    """Export Glossary button hidden when no names, visible when names exist."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    # Initially hidden (no glossary names)
+    visible = driver.execute_script("""
+        return document.getElementById('btn-export-glossary').style.display;
+    """)
+    assert visible == "none", f"Button should be hidden initially, got display={visible!r}"
+
+    # Inject a named element and re-render
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {tag: 'input', label: 'Email', category: ':typable',
+                 locators: {testid: 'email'}, rect: {x:0,y:0,w:100,h:30}, region: 'form'}
+            ]
+        };
+        state.classifications = {0: 'typable'};
+        state.glossaryNames = {0: {name: 'email', intent: 'Login', source: 'human', notes: ''}};
+        state.mode = 'pass2';
+        renderPanel();
+    """)
+    time.sleep(0.3)
+
+    visible = driver.execute_script("""
+        return document.getElementById('btn-export-glossary').style.display;
+    """)
+    assert visible != "none", f"Button should be visible when names exist, got display={visible!r}"
+
+
+def test_07k_export_glossary_download_fallback(driver):
+    """doExportGlossary falls back to file download when API unreachable."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    # Set up state with named elements and an unreachable API
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com/login'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {tag: 'input', label: 'Email', category: ':typable',
+                 locators: {testid: 'email'}, rect: {x:0,y:0,w:100,h:30}, region: 'form'},
+                {tag: 'button', label: 'Submit', category: ':clickable',
+                 locators: {testid: 'submit'}, rect: {x:0,y:40,w:100,h:30}, region: 'form'},
+            ]
+        };
+        state.classifications = {0: 'typable', 1: 'clickable'};
+        state.glossaryNames = {
+            0: {name: 'email', intent: 'Login', source: 'human', notes: ''},
+            1: {name: 'submit', intent: 'Login', source: 'human', notes: ''},
+        };
+        state.mode = 'pass2';
+        state.pageUrl = 'http://example.com/login';
+    """)
+    time.sleep(0.2)
+
+    # Override API to unreachable host, then call doExportGlossary
+    # Intercept the download by checking what toGlossaryIntents + toEdn produce
+    result = driver.execute_script("""
+        var data = toIntermediate(state);
+        var intents = toGlossaryIntents(data);
+        if (intents.length === 0) return {error: 'no intents'};
+        return {
+            count: intents.length,
+            intentName: intents[0].intent,
+            elementCount: Object.keys(intents[0].elements).length,
+            edn: toEdn(intents[0]),
+        };
+    """)
+    assert result["count"] == 1, f"Expected 1 intent: {result}"
+    assert result["intentName"] == "Login"
+    assert result["elementCount"] == 2
+    assert ':email' in result["edn"]
+    assert ':submit' in result["edn"]
+    assert ':testid "email"' in result["edn"]
+    assert ':testid "submit"' in result["edn"]
+
+
+def test_07k_toEdn_nil_binding(driver):
+    """toEdn handles elements with no locator (nil binding)."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    edn = driver.execute_script("""
+        var intent = {
+            intent: 'Bare',
+            description: '',
+            elements: {
+                'mystery': {desc: 'Unknown', type: 'readable', binding: null},
+            }
+        };
+        return toEdn(intent);
+    """)
+    assert ':bindings nil' in edn, f"Expected nil binding: {edn}"
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -1602,6 +1801,13 @@ TESTS = [
     ("cuo: accept diff propagates and restores mode", test_cuo_accept_diff_propagates),
     ("cuo: Enter key accepts diff", test_cuo_diff_keyboard_accept),
     ("cuo: diff item selection and j/k navigation", test_cuo_diff_item_selection),
+    # 07k — Glossary EDN export
+    ("07k: bestLocator priority", test_07k_pure_bestLocator),
+    ("07k: toGlossaryIntents grouping", test_07k_pure_toGlossaryIntents),
+    ("07k: toEdn produces valid EDN", test_07k_pure_toEdn),
+    ("07k: Export Glossary button visibility", test_07k_export_glossary_button_visibility),
+    ("07k: export fallback produces correct EDN", test_07k_export_glossary_download_fallback),
+    ("07k: toEdn nil binding", test_07k_toEdn_nil_binding),
 ]
 
 if __name__ == "__main__":

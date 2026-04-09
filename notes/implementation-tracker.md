@@ -8,7 +8,7 @@
 - [x] **h34** — MCP vocabulary projection
 - [x] **qo2** — Element identity across observations
 - [x] **cuo** — Sieve diff display
-- [ ] **07k** — Write glossary integration
+- [x] **07k** — Write glossary integration
 - [ ] **y7x** — Verify `sl run` + strict mode
 - [ ] **o4c** — Observation loop click
 - [ ] **b6d-b** — Auto-save wiring
