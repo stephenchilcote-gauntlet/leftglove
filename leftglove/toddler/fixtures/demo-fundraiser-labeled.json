@@ -241,5 +241,15 @@
       "glossary-source": null,
       "notes": null
     }
-  ]
+  ],
+  "metadata": {
+    "cookies": [],
+    "storage": {
+      "localStorage": [],
+      "sessionStorage": []
+    },
+    "tabs": 1
+  },
+  "pass-1-complete": true,
+  "pass-2-progress": 9
 }

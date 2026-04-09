@@ -47,42 +47,66 @@ if [[ -z "$BROWSER_VIDEO" ]]; then
   echo "Run 'make demo-browser' first for the full demo."
 fi
 
-# ── Step 2: Normalize and concatenate video segments ────────────────────────
+# ── Step 2: Split browser video and normalize all segments ──────────────────
 
 echo ""
-echo "Normalizing video segments..."
-mkdir -p "$SEGMENTS_DIR/normalized"
-
-# Build segment list in act order
-SEGMENT_ORDER=(
-  # Act 1: browser sieve + classify
-  # Act 2: terminal MCP vocabulary
-  "segment-4-mcp-vocabulary"
-  # Act 3b: terminal code change
-  "segment-5-code-change"
-  # Act 3a: browser re-sieve (part of browser video, can't split easily)
-  # Act 4: terminal test passes
-  "segment-6-test-passes"
-  # Act 5b: terminal test fails
-  "segment-7-test-fails"
-)
+echo "Splitting and normalizing video segments..."
+mkdir -p "$SEGMENTS_DIR/normalized" "$SEGMENTS_DIR/browser-parts"
 
 CONCAT_LIST="$SEGMENTS_DIR/concat.txt"
 > "$CONCAT_LIST"
 
-# If browser video exists, normalize and add it first (it covers Acts 1, 3a, 5a)
-if [[ -n "$BROWSER_VIDEO" ]]; then
-  echo "  Normalizing browser segment..."
+# Split browser video into act segments using timing log
+if [[ -n "$BROWSER_VIDEO" ]] && [[ -f "$TIMING_JSON" ]]; then
+  echo "  Splitting browser video into acts..."
+
+  # Read split points from timing log (re-sieve-intro starts Act 3a, element-removed-intro starts Act 5a, closing)
+  read ACT3A_START ACT5A_START CLOSING_START < <(python3 -c "
+import json
+with open('${TIMING_JSON}') as f:
+    events = json.load(f)
+by_clip = {e['clipId']: e['t']/1000.0 for e in events if e.get('clipId')}
+print(by_clip.get('re-sieve-intro', 48.3), by_clip.get('element-removed-intro', 63.8), by_clip.get('closing', 81.0))
+")
+
+  SCALE_OPTS="scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x1a1a2e"
+
+  # Act 1: start to re-sieve-intro
+  echo "  Browser Act 1: 0 to ${ACT3A_START}s"
+  ffmpeg -y -i "$BROWSER_VIDEO" -t "$ACT3A_START" \
+    -vf "$SCALE_OPTS" -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
+    "$SEGMENTS_DIR/browser-parts/act1.mp4" 2>/dev/null
+
+  # Act 3a: re-sieve-intro to element-removed-intro
+  ACT3A_DUR=$(python3 -c "print($ACT5A_START - $ACT3A_START)")
+  echo "  Browser Act 3a: ${ACT3A_START}s to ${ACT5A_START}s"
+  ffmpeg -y -i "$BROWSER_VIDEO" -ss "$ACT3A_START" -t "$ACT3A_DUR" \
+    -vf "$SCALE_OPTS" -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
+    "$SEGMENTS_DIR/browser-parts/act3a.mp4" 2>/dev/null
+
+  # Act 5a: element-removed-intro to closing
+  ACT5A_DUR=$(python3 -c "print($CLOSING_START - $ACT5A_START)")
+  echo "  Browser Act 5a: ${ACT5A_START}s to ${CLOSING_START}s"
+  ffmpeg -y -i "$BROWSER_VIDEO" -ss "$ACT5A_START" -t "$ACT5A_DUR" \
+    -vf "$SCALE_OPTS" -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
+    "$SEGMENTS_DIR/browser-parts/act5a.mp4" 2>/dev/null
+
+  # Closing
+  echo "  Browser Closing: ${CLOSING_START}s to end"
+  ffmpeg -y -i "$BROWSER_VIDEO" -ss "$CLOSING_START" \
+    -vf "$SCALE_OPTS" -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
+    "$SEGMENTS_DIR/browser-parts/closing.mp4" 2>/dev/null
+elif [[ -n "$BROWSER_VIDEO" ]]; then
+  # No timing log — fall back to whole browser segment
+  echo "  WARNING: No timing log, using whole browser segment"
   ffmpeg -y -i "$BROWSER_VIDEO" \
     -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x1a1a2e" \
-    -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p \
-    -an \
-    "$SEGMENTS_DIR/normalized/browser.mp4" 2>/dev/null
-  echo "file '$(pwd)/$SEGMENTS_DIR/normalized/browser.mp4'" >> "$CONCAT_LIST"
+    -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
+    "$SEGMENTS_DIR/browser-parts/act1.mp4" 2>/dev/null
 fi
 
-# Add terminal segments in order
-for seg_name in "${SEGMENT_ORDER[@]}"; do
+# Normalize terminal segments
+for seg_name in segment-4-mcp-vocabulary segment-5-code-change segment-6-test-passes segment-7-test-fails; do
   src="$SEGMENTS_DIR/${seg_name}.mp4"
   if [[ ! -f "$src" ]]; then
     echo "  WARNING: $src not found, skipping"
@@ -94,7 +118,29 @@ for seg_name in "${SEGMENT_ORDER[@]}"; do
     -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p \
     -an \
     "$dst" 2>/dev/null
-  echo "file '$(pwd)/$dst'" >> "$CONCAT_LIST"
+done
+
+# Build concat list in story order:
+#   Act 1 (browser) → Act 2 (MCP) → Act 3b (code change) → Act 3a (re-sieve) →
+#   Act 4 (test passes) → Act 5a (element gone) → Act 5b (test fails) → Closing
+echo ""
+echo "Building story-order concat list..."
+PARTS_DIR="$SEGMENTS_DIR/browser-parts"
+NORM_DIR="$SEGMENTS_DIR/normalized"
+for seg in \
+  "$PARTS_DIR/act1.mp4" \
+  "$NORM_DIR/segment-4-mcp-vocabulary.mp4" \
+  "$NORM_DIR/segment-5-code-change.mp4" \
+  "$PARTS_DIR/act3a.mp4" \
+  "$NORM_DIR/segment-6-test-passes.mp4" \
+  "$PARTS_DIR/act5a.mp4" \
+  "$NORM_DIR/segment-7-test-fails.mp4" \
+  "$PARTS_DIR/closing.mp4"; do
+  if [[ -f "$seg" ]]; then
+    echo "file '$(pwd)/$seg'" >> "$CONCAT_LIST"
+    dur=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$seg")
+    echo "  $(basename $seg): ${dur}s"
+  fi
 done
 
 echo ""
@@ -127,55 +173,82 @@ SAMPLE_RATE = 44100
 PAD_MS = 300
 GAP_MS = 200
 
-# ── Merge browser + terminal timing into unified list ──
+# ── Read concat list to compute global offsets for each segment ──
+
+concat_list = "segments/concat.txt"
+segment_order = []
+if os.path.exists(concat_list):
+    with open(concat_list) as f:
+        for line in f:
+            seg_path = line.strip().split("'")[1] if "'" in line else ""
+            if seg_path:
+                segment_order.append(seg_path)
+
+seg_offsets = {}  # segment name -> global start ms
+cumulative_ms = 0
+for seg_path in segment_order:
+    seg_name = os.path.basename(seg_path).replace(".mp4", "")
+    seg_offsets[seg_name] = cumulative_ms
+    dur_out = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", seg_path],
+        capture_output=True, text=True,
+    )
+    try:
+        dur_s = float(dur_out.stdout.strip())
+    except ValueError:
+        dur_s = 0
+    cumulative_ms += int(dur_s * 1000)
+    print(f"  Segment {seg_name}: starts at {seg_offsets[seg_name]/1000:.1f}s, duration {dur_s:.1f}s")
+
+# ── Map browser timing events to split browser segments ──
+# Browser timing has offsets relative to the original unsplit recording.
+# We need to remap to the new global positions of split browser parts.
 
 timing = []
 
-# Browser timing: already has global offsets (browser segment is first)
 if os.path.exists(BROWSER_TIMING):
     with open(BROWSER_TIMING) as f:
-        timing.extend(json.load(f))
+        browser_events = json.load(f)
 
-# Terminal timing: offsets are local to each segment — need global offset
+    # Browser split points (same as used in assemble.sh Step 2)
+    by_clip = {e['clipId']: e['t'] for e in browser_events if e.get('clipId')}
+    act3a_start_ms = by_clip.get('re-sieve-intro', 48300)
+    act5a_start_ms = by_clip.get('element-removed-intro', 63800)
+    closing_start_ms = by_clip.get('closing', 81000)
+
+    # Map each browser event to its split segment + local offset
+    for event in browser_events:
+        clip_id = event.get('clipId')
+        if not clip_id:
+            continue
+        orig_t = event['t']  # ms in original browser recording
+
+        if orig_t < act3a_start_ms:
+            seg_name = 'act1'
+            local_t = orig_t
+        elif orig_t < act5a_start_ms:
+            seg_name = 'act3a'
+            local_t = orig_t - act3a_start_ms
+        elif orig_t < closing_start_ms:
+            seg_name = 'act5a'
+            local_t = orig_t - act5a_start_ms
+        else:
+            seg_name = 'closing'
+            local_t = orig_t - closing_start_ms
+
+        global_offset = seg_offsets.get(seg_name, 0)
+        timing.append({
+            "id": event.get('id', f"browser-{clip_id}"),
+            "clipId": clip_id,
+            "t": global_offset + local_t,
+        })
+
+# ── Add terminal timing events ──
 if os.path.exists(TERMINAL_TIMING):
     with open(TERMINAL_TIMING) as f:
         terminal_events = json.load(f)
 
-    # Compute global start of each segment from normalized segment durations
-    segment_order = []
-    concat_list = "segments/concat.txt"
-    if os.path.exists(concat_list):
-        with open(concat_list) as f:
-            for line in f:
-                # "file '/abs/path/to/normalized/name.mp4'"
-                seg_path = line.strip().split("'")[1] if "'" in line else ""
-                if seg_path:
-                    segment_order.append(seg_path)
-
-    # Get duration of each concatenated segment
-    seg_offsets = {}  # segment name -> global start ms
-    cumulative_ms = 0
-    for seg_path in segment_order:
-        seg_name = os.path.basename(seg_path).replace(".mp4", "")
-        # Strip "normalized/" prefix handling — name is the key
-        if seg_name == "browser":
-            seg_offsets["browser"] = cumulative_ms
-        else:
-            seg_offsets[seg_name] = cumulative_ms
-
-        dur_out = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1", seg_path],
-            capture_output=True, text=True,
-        )
-        try:
-            dur_s = float(dur_out.stdout.strip())
-        except ValueError:
-            dur_s = 0
-        cumulative_ms += int(dur_s * 1000)
-        print(f"  Segment {seg_name}: starts at {seg_offsets[seg_name]/1000:.1f}s, duration {dur_s:.1f}s")
-
-    # Add terminal events with global offsets
     for event in terminal_events:
         seg_name = event["segment"]
         global_offset = seg_offsets.get(seg_name, 0)
