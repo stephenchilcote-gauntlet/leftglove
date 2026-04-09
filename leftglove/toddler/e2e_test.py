@@ -18,6 +18,7 @@ import json
 import subprocess
 import tempfile
 import urllib.request
+from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -27,9 +28,25 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 
+from visual_judge import VisualJudge, critical, advisory
+
 TL_URL = "http://localhost:8080?api=http://localhost:3333"
 DEMO_LOGIN = "http://localhost:3000/login"
 SIEVE_STATUS = "http://localhost:3333/status"
+VISUAL_ARTIFACT_DIR = Path(__file__).parent / "tests" / "artifacts" / "visual"
+
+_judge_instance = None
+
+def _get_judge():
+    """Returns VisualJudge if ANTHROPIC_API_KEY is set, else None."""
+    global _judge_instance
+    if _judge_instance is not None:
+        return _judge_instance
+    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        return None
+    _judge_instance = VisualJudge(api_key=key, artifact_dir=VISUAL_ARTIFACT_DIR)
+    return _judge_instance
 
 PASS = "\033[32mPASS\033[0m"
 FAIL = "\033[31mFAIL\033[0m"
@@ -1399,8 +1416,131 @@ def test_cuo_diff_item_selection(driver):
 
 
 # ---------------------------------------------------------------------------
+# Visual assertion tests (require ANTHROPIC_API_KEY)
+# ---------------------------------------------------------------------------
+
+def test_visual_pass1_classify(driver):
+    """Visual: Pass 1 classification view looks correct after sieving."""
+    judge = _get_judge()
+    if not judge:
+        print("    (skipped — no ANTHROPIC_API_KEY)")
+        return
+
+    _navigate_and_sieve(driver)
+    _classify_n(driver, 3)
+    time.sleep(0.3)
+
+    screenshot = driver.get_screenshot_as_png()
+    judge.assert_screenshot(screenshot, [
+        critical("Is there a dark-themed web application UI visible with a toolbar at the top?"),
+        critical("Is there a screenshot of a web page displayed in the main area?"),
+        critical("Are there colored rectangular outlines (overlay boxes) drawn on top of the screenshot?"),
+        advisory("Is there a bottom panel showing element details like tag, label, or region?"),
+        advisory("Is there a mode indicator showing 'Pass 1' or 'Classify'?"),
+    ], test_name="pass1_classify")
+
+
+def test_visual_diff_mode(driver):
+    """Visual: Diff mode view shows classification banner, counts, and change list."""
+    judge = _get_judge()
+    if not judge:
+        print("    (skipped — no ANTHROPIC_API_KEY)")
+        return
+
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    # Inject a diff state with mixed changes to get a rich visual
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com/login'},
+            viewport: {w: 1280, h: 900},
+            elements: [
+                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', box: {x:100,y:200,width:300,height:40}},
+                {locators: {testid: 'pass'}, tag: 'input', label: 'Password', region: 'form', box: {x:100,y:260,width:300,height:40}},
+                {locators: {testid: 'submit'}, tag: 'button', label: 'Login', region: 'form', box: {x:100,y:320,width:100,height:35}},
+                {locators: {testid: 'help'}, tag: 'a', label: 'Help', region: 'nav', box: {x:500,y:50,width:60,height:20}},
+            ],
+        };
+        state.screenshotDims = {w: 1280, h: 900};
+        state.classifications = {0: 'typable', 1: 'typable', 2: 'clickable', 3: 'clickable'};
+        state.glossaryNames = {};
+        state.mode = 'pass1';
+
+        var newInv = {
+            url: {raw: 'http://example.com/dashboard'},
+            viewport: {w: 1280, h: 900},
+            elements: [
+                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', box: {x:100,y:200,width:300,height:40}},
+                {locators: {testid: 'submit'}, tag: 'button', label: 'Sign In', region: 'form', box: {x:100,y:320,width:120,height:35}},
+                {locators: {testid: 'welcome'}, tag: 'h1', label: 'Welcome', region: 'main', box: {x:100,y:100,width:400,height:50}},
+            ],
+        };
+
+        var matchResult = matchElements(state.inventory.elements, newInv.elements);
+        var pendingSieve = {
+            inventory: newInv,
+            screenshotUrl: null,
+            screenshotDataUrl: null,
+            matchResult: matchResult,
+            oldInventory: state.inventory,
+            oldClassifications: Object.assign({}, state.classifications),
+            oldGlossaryNames: Object.assign({}, state.glossaryNames),
+        };
+        enterDiffMode(matchResult, pendingSieve, null);
+    """)
+    time.sleep(0.5)
+
+    screenshot = driver.get_screenshot_as_png()
+    judge.assert_screenshot(screenshot, [
+        critical("Is there a bottom panel visible with a blue-tinted banner showing a diff classification (like 'navigation' or 'compound')?"),
+        critical("Are there count indicators showing numbers for 'added', 'removed', or 'changed' elements?"),
+        critical("Is there a list of change items in the bottom panel, each with a colored left border (green, red, or yellow)?"),
+        advisory("Is there a mode indicator showing 'Sieve Diff' or similar diff-related text?"),
+        advisory("Is there an 'Accept' button visible at the bottom of the panel?"),
+    ], test_name="cuo_diff_mode")
+
+
+def test_visual_diff_overlay(driver):
+    """Visual: Diff overlay shows colored rectangles on the screenshot area."""
+    judge = _get_judge()
+    if not judge:
+        print("    (skipped — no ANTHROPIC_API_KEY)")
+        return
+
+    # Navigate and sieve to get a real screenshot, then re-sieve for diff
+    _navigate_and_sieve(driver)
+    _classify_n(driver, 2)
+    time.sleep(0.3)
+
+    # Re-sieve to trigger diff mode with real screenshot
+    click(driver, "btn-sieve")
+    time.sleep(1)
+    WebDriverWait(driver, 20).until(
+        lambda d: "Sieve Diff" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="mode-indicator"]'
+        ).text
+    )
+    time.sleep(0.5)
+
+    screenshot = driver.get_screenshot_as_png()
+    judge.assert_screenshot(screenshot, [
+        critical("Is there a web page screenshot visible in the main area of the application?"),
+        critical("Is there a bottom panel with diff information (counts, classification, or change list)?"),
+        advisory("Are there rectangular outlines drawn on the screenshot area, possibly in different colors?"),
+        advisory("Does the overall layout appear to have a dark theme with the screenshot on top and a panel below?"),
+    ], test_name="cuo_diff_overlay_real")
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
+
+VISUAL_TESTS = [
+    ("visual: Pass 1 classification view", test_visual_pass1_classify),
+    ("visual: diff mode panel and counts", test_visual_diff_mode),
+    ("visual: diff overlay on real screenshot", test_visual_diff_overlay),
+]
 
 TESTS = [
     ("Page loads", test_page_loads),
@@ -1458,14 +1598,23 @@ if __name__ == "__main__":
         print("Running tests...\n")
         for name, fn in TESTS:
             run_test(name, fn, driver)
+
+        # Visual tests (optional — require ANTHROPIC_API_KEY)
+        if _get_judge():
+            print("\n  Running visual assertion tests (ANTHROPIC_API_KEY set)...\n")
+            for name, fn in VISUAL_TESTS:
+                run_test(name, fn, driver)
+        else:
+            print(f"\n  Skipping {len(VISUAL_TESTS)} visual tests (ANTHROPIC_API_KEY not set)")
     finally:
         driver.quit()
 
+    total = len(TESTS) + (len(VISUAL_TESTS) if _get_judge() else 0)
     print()
     if failures:
-        print(f"FAILED: {len(failures)}/{len(TESTS)} tests")
+        print(f"FAILED: {len(failures)}/{total} tests")
         for f in failures:
             print(f"  - {f}")
         sys.exit(1)
     else:
-        print(f"All {len(TESTS)} tests passed.")
+        print(f"All {total} tests passed.")
