@@ -203,22 +203,54 @@ async function waitForSieve(page: Page, timeoutMs = 30000) {
   );
 }
 
-// Load a fixture file by injecting JSON directly into fromIntermediate().
-async function loadFixture(page: Page, fixturePath: string) {
-  const json = fs.readFileSync(fixturePath, 'utf-8');
-  await page.evaluate(async (jsonStr) => {
-    const data = JSON.parse(jsonStr);
-    const errors = (window as any).fromIntermediate(data);
-    if (errors.length) throw new Error('Load failed: ' + errors.join('; '));
-    const n = (window as any).state.inventory?.elements?.length || 0;
-    document.getElementById('status-indicator')!.textContent =
-      n + ' element' + (n !== 1 ? 's' : '') + ' (loaded)';
-    await (window as any).renderScreenshot();
+// Batch-classify all elements using the sieve's own categories, then
+// auto-name notable elements by their data-testid. No synthetic fixtures.
+async function batchClassifyAndName(page: Page) {
+  await page.evaluate(() => {
+    const s = (window as any).state;
+    if (!s.inventory?.elements?.length) return;
+    const els = s.inventory.elements;
+
+    // Pass 1: classify every element using the sieve's category field
+    for (let i = 0; i < els.length; i++) {
+      const cat = els[i].category;
+      if (cat && !s.classifications[i]) {
+        s.classifications[i] = cat;
+      }
+    }
+
+    // Pass 2: auto-name elements that have a data-testid locator
+    // Build pass2Order first
+    const pass2 = [];
+    for (let i = 0; i < els.length; i++) {
+      const cat = s.classifications[i];
+      if (cat === 'chrome' || cat === 'skip') continue;
+      pass2.push(i);
+    }
+    s.pass2Order = pass2;
+
+    for (const i of pass2) {
+      const el = els[i];
+      const testid = el.locators?.testid || el.locators?.['data-testid'];
+      const label = el.label || '';
+      // Use testid as glossary name, or derive from label
+      const name = testid || label.replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase().replace(/\s+/g, '-').slice(0, 30);
+      if (name && !s.glossaryNames[i]) {
+        s.glossaryNames[i] = {
+          name: name,
+          intent: 'Fundraiser',
+          source: 'human',
+          notes: '',
+        };
+      }
+    }
+
+    // Update mode to pass2/review
+    s.mode = 'review';
+    (window as any).saveState();
     (window as any).renderOverlay();
     (window as any).renderPanel();
-    (window as any).renderMetadata();
-    (window as any).saveState();
-  }, json);
+  });
 }
 
 // Toggle the recurring donation element on/off via the demo app API
@@ -228,6 +260,18 @@ async function setRecurring(enabled: boolean) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
   });
+}
+
+// Force the sieve's Chrome to reload the page (picks up server-side state changes)
+async function reloadSieveBrowser(page: Page) {
+  await page.evaluate(async (url) => {
+    const API = new URLSearchParams(window.location.search).get('api') || '';
+    await fetch(API + '/navigate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+  }, DEMO_APP);
 }
 
 // ── Screenshot dir ──────────────────────────────────────────────────────────
@@ -245,9 +289,6 @@ async function snap(page: Page, name: string) {
 
 test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   _t0 = Date.now();
-
-  const FIXTURES = path.join(__dirname, '..', 'fixtures');
-  const fundraiserLabeled = path.join(FIXTURES, 'demo-fundraiser-labeled.json');
 
   // Ensure recurring donation is OFF at start
   await setRecurring(false);
@@ -320,13 +361,13 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   await pause(page, 500);
   await snap(page, 'act1-after-classify');
 
-  // -- Scene: Load pre-labeled state --
+  // -- Scene: Show fully classified state (from live sieve data) --
   await caption(page,
     'Here\'s the full classification. Every element named, located, typed. This becomes the glossary — the vocabulary that agents and tests are bound to.',
     9500, 'pre-labeled',
   );
 
-  await loadFixture(page, fundraiserLabeled);
+  await batchClassifyAndName(page);
   await pause(page, 2000);
   await snap(page, 'act1-pre-labeled');
   await clearCaption(page);
@@ -346,6 +387,9 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // Enable recurring donation element in the demo app
   await setRecurring(true);
+
+  // Reload the sieve's Chrome browser to pick up the server-side toggle change
+  await reloadSieveBrowser(page);
 
   // Re-sieve — the page now has the recurring donation toggle
   await cursorClick(page, '[data-testid="btn-sieve"]');
@@ -392,6 +436,9 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // Disable recurring donation element
   await setRecurring(false);
+
+  // Reload the sieve's Chrome to pick up the removal
+  await reloadSieveBrowser(page);
 
   await cursorClick(page, '[data-testid="btn-sieve"]');
   await page.waitForFunction(
