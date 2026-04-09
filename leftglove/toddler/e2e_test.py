@@ -1429,6 +1429,8 @@ def test_visual_pass1_classify(driver):
         print("    (skipped — no ANTHROPIC_API_KEY)")
         return
 
+    driver.get(TL_URL)
+    driver.execute_script("localStorage.clear()")
     _navigate_and_sieve(driver)
     _classify_n(driver, 3)
     time.sleep(0.3)
@@ -1512,6 +1514,8 @@ def test_visual_diff_overlay(driver):
         return
 
     # Navigate and sieve to get a real screenshot, then re-sieve for diff
+    driver.get(TL_URL)
+    driver.execute_script("localStorage.clear()")
     _navigate_and_sieve(driver)
     _classify_n(driver, 2)
     time.sleep(0.3)

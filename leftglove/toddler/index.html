@@ -1886,8 +1886,8 @@ function renderDiffPanel() {
 
   var panel = document.getElementById('diff-panel');
   var classification = state.diffClass || 'unknown';
-  var oldUrl = pending.oldInventory?.url || state.pageUrl || '';
-  var newUrl = pending.inventory?.url || '';
+  var oldUrl = pending.oldInventory?.url?.raw || pending.oldInventory?.url || state.pageUrl || '';
+  var newUrl = pending.inventory?.url?.raw || pending.inventory?.url || '';
 
   // Classification banner
   var bannerText = classification;
