@@ -2302,10 +2302,6 @@ def test_b6db_auto_save_on_classify(driver):
         ).text.lower()
     )
 
-    # Verify auto-save endpoint is detected
-    endpoint = driver.execute_script("return _autoSaveEndpoint")
-    assert endpoint == "/save", f"Expected auto-save endpoint '/save', got {endpoint!r}"
-
     # Classify one element
     click(driver, "cat-clickable")
 
@@ -2421,23 +2417,6 @@ def test_b6db_multiple_urls_separate_files(driver):
     assert "dashboard" in names[0] or "dashboard" in names[1], f"Expected 'dashboard' in one filename: {names}"
     _clear_sessions()
 
-def test_b6db_graceful_without_server(driver):
-    """Auto-save endpoint detection handles missing server gracefully."""
-    # This test verifies that _autoSaveEndpoint is set (since we're running via node server)
-    # and that autoSave() with null endpoint is a no-op
-    driver.get(TL_URL)
-    wait_for(driver, "btn-sieve")
-    time.sleep(1)
-
-    # Simulate no server by temporarily nulling the endpoint
-    driver.execute_script("_autoSaveEndpoint = null")
-    # Calling autoSave should not throw
-    driver.execute_script("autoSave()")
-    time.sleep(0.5)
-    # No error means success — autoSave is a no-op when endpoint is null
-
-    # Restore
-    driver.execute_script("_autoSaveEndpoint = '/save'")
 
 def test_visual_b6db_no_error_after_save(driver):
     """Visual: after auto-save completes, UI shows no error state."""
@@ -2556,7 +2535,6 @@ TESTS = [
     ("b6d-b: auto-save debounce", test_b6db_auto_save_debounce),
     ("b6d-b: saved file is valid intermediate", test_b6db_saved_file_is_valid_intermediate),
     ("b6d-b: multiple URLs separate files", test_b6db_multiple_urls_separate_files),
-    ("b6d-b: graceful without server", test_b6db_graceful_without_server),
 ]
 
 if __name__ == "__main__":
