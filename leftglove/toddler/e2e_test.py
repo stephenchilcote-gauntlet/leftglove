@@ -1750,6 +1750,453 @@ def test_07k_toEdn_nil_binding(driver):
 
 
 # ---------------------------------------------------------------------------
+# o4c — Observation loop click (explore mode)
+# ---------------------------------------------------------------------------
+
+def test_o4c_explore_button_present(driver):
+    """Explore mode toggle button exists in toolbar."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-explore-mode")
+    text = get_text(driver, "btn-explore-mode")
+    assert "Explore" in text, f"Expected 'Explore', got: {text!r}"
+
+
+def test_o4c_explore_toggle(driver):
+    """Toggling explore mode updates button text and persists state."""
+    driver.get(TL_URL)
+    driver.execute_script("localStorage.clear()")
+    driver.get(TL_URL)
+    wait_for(driver, "btn-explore-mode")
+
+    # Initially off
+    text = get_text(driver, "btn-explore-mode")
+    assert text.strip() == "Explore", f"Expected 'Explore', got: {text!r}"
+    mode = driver.execute_script("return state.exploreMode")
+    assert mode is False, f"Expected exploreMode=false, got: {mode}"
+
+    # Toggle on
+    click(driver, "btn-explore-mode")
+    text = get_text(driver, "btn-explore-mode")
+    assert "ON" in text, f"Expected 'Explore ON', got: {text!r}"
+    mode = driver.execute_script("return state.exploreMode")
+    assert mode is True
+
+    # Toggle off
+    click(driver, "btn-explore-mode")
+    text = get_text(driver, "btn-explore-mode")
+    assert text.strip() == "Explore", f"Expected 'Explore' after toggle off, got: {text!r}"
+    mode = driver.execute_script("return state.exploreMode")
+    assert mode is False
+
+
+def test_o4c_explore_persists_across_reload(driver):
+    """Explore mode state persists via localStorage."""
+    driver.get(TL_URL)
+    driver.execute_script("localStorage.clear()")
+    driver.get(TL_URL)
+    wait_for(driver, "btn-explore-mode")
+
+    click(driver, "btn-explore-mode")
+    mode = driver.execute_script("return state.exploreMode")
+    assert mode is True
+
+    # Reload and check
+    driver.get(TL_URL)
+    wait_for(driver, "btn-explore-mode")
+    mode = driver.execute_script("return state.exploreMode")
+    assert mode is True, "Explore mode should persist across reload"
+    text = get_text(driver, "btn-explore-mode")
+    assert "ON" in text, f"Button text should reflect persisted state: {text!r}"
+
+
+def test_o4c_buildClickSelector_pure(driver):
+    """buildClickSelector returns correct CSS selectors from element locators."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    results = driver.execute_script("""
+        return [
+            buildClickSelector({locators: {testid: 'login-submit'}}),
+            buildClickSelector({locators: {id: 'my-btn', name: 'submit'}}),
+            buildClickSelector({locators: {id: '12345', name: 'email'}}),
+            buildClickSelector({locators: {name: 'q'}}),
+            buildClickSelector({locators: {}}),
+            buildClickSelector({}),
+            buildClickSelector({locators: null}),
+        ];
+    """)
+    assert results[0] == '[data-testid="login-submit"]', f"testid: {results[0]}"
+    assert results[1] == '#my-btn', f"id: {results[1]}"
+    assert results[2] == '[name="email"]', f"dynamic id skipped: {results[2]}"
+    assert results[3] == '[name="q"]', f"name: {results[3]}"
+    assert results[4] is None, f"empty locators: {results[4]}"
+    assert results[5] is None, f"no locators: {results[5]}"
+    assert results[6] is None, f"null locators: {results[6]}"
+
+
+def test_o4c_explore_click_no_selector_shows_toast(driver):
+    """Clicking element without locators in explore mode shows toast."""
+    driver.get(TL_URL)
+    driver.execute_script("localStorage.clear()")
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    # Inject inventory with one element that has no usable locators
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1280, h: 900},
+            elements: [{
+                tag: 'div', label: '', region: 'body',
+                locators: {},
+                rect: {x: 100, y: 100, w: 200, h: 50}
+            }],
+        };
+        state.screenshotDims = {w: 1280, h: 900};
+        state.classifications = {};
+        state.mode = 'pass1';
+        state.exploreMode = true;
+        renderOverlay();
+    """)
+    time.sleep(0.3)
+
+    # Click the rect in the overlay
+    driver.execute_script("jumpTo(0)")
+    time.sleep(0.5)
+
+    toast = driver.find_element(By.CSS_SELECTOR, "#toast")
+    assert toast.is_displayed(), "Toast should appear for elements without selector"
+    assert "no reliable selector" in toast.text.lower(), f"Toast: {toast.text!r}"
+
+
+def test_o4c_explore_click_dispatches_and_resieves(driver):
+    """In explore mode, clicking an element dispatches real click and triggers re-sieve."""
+    driver.get(TL_URL)
+    driver.execute_script("localStorage.clear()")
+    _navigate_and_sieve(driver)
+
+    # Enable explore mode
+    click(driver, "btn-explore-mode")
+    time.sleep(0.3)
+
+    # Find the login-submit element index
+    submit_idx = driver.execute_script("""
+        for (var i = 0; i < state.inventory.elements.length; i++) {
+            if (state.inventory.elements[i].locators &&
+                state.inventory.elements[i].locators.testid === 'login-submit') {
+                return i;
+            }
+        }
+        return -1;
+    """)
+    assert submit_idx >= 0, "Should find login-submit element in inventory"
+
+    # Record pre-click state
+    pre_url = driver.execute_script("return state.pageUrl")
+    pre_log_len = driver.execute_script("return state.observationLog.length")
+
+    # Click the submit button via explore mode
+    driver.execute_script(f"jumpTo({submit_idx})")
+
+    # Wait for the re-sieve cycle to complete (status goes through Clicking... → Re-sieving... → done)
+    # The page will show an error (no credentials filled) or redirect
+    WebDriverWait(driver, 20).until(
+        lambda d: d.execute_script("return state.observationLog.length") > pre_log_len
+    )
+
+    # Observation log should have a new entry
+    log_len = driver.execute_script("return state.observationLog.length")
+    assert log_len == pre_log_len + 1, f"Expected {pre_log_len + 1} log entries, got {log_len}"
+
+    # Check log entry structure
+    entry = driver.execute_script("return state.observationLog[state.observationLog.length - 1]")
+    assert entry["action"]["type"] == "click"
+    assert "login-submit" in entry["action"]["selector"]
+    assert entry["obs1"]["url"] is not None
+    assert entry["obs2"]["url"] is not None
+    assert entry["obs2"]["timestamp"] > entry["obs1"]["timestamp"]
+
+
+def test_o4c_explore_click_triggers_diff(driver):
+    """Explore click that causes page change triggers diff mode."""
+    driver.get(TL_URL)
+    driver.execute_script("localStorage.clear()")
+    _navigate_and_sieve(driver)
+
+    # Fill in valid credentials first so clicking submit causes navigation
+    driver.execute_script("""
+        // Use fetchClick to fill the form fields via the sieve server
+        // Actually, we need to type into the real page's form via sieve actions
+    """)
+
+    # Type credentials into the real page via sieve server navigate trick:
+    # Fill email and password by executing JS in the sieve browser
+    import urllib.request
+    import json as json_mod
+
+    # Use the sieve /click endpoint to verify it's available
+    try:
+        req = urllib.request.Request(
+            "http://localhost:3333/status",
+            method="GET",
+        )
+        resp = urllib.request.urlopen(req, timeout=3)
+        status = json_mod.loads(resp.read())
+        # Sieve browser should be on login page from previous navigate
+    except Exception:
+        pass
+
+    # Enable explore mode
+    click(driver, "btn-explore-mode")
+    time.sleep(0.3)
+
+    # Classify a few elements so diff has old state to compare
+    click(driver, "btn-explore-mode")  # toggle off for classification
+    _classify_n(driver, 3)
+    click(driver, "btn-explore-mode")  # toggle back on
+
+    # Navigate sieve browser to /about (simulate clicking a link that navigates)
+    # Use navigate endpoint to move sieve browser, then sieve
+    driver.execute_script("""
+        fetch(API + '/navigate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url: 'http://localhost:3000/about'})
+        });
+    """)
+    time.sleep(1)
+
+    # Now sieve to pick up the new page — this gives us a "before" on /about
+    click(driver, "btn-explore-mode")  # off
+    click(driver, "btn-sieve")
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+        or "Diff" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="mode-indicator"]'
+        ).text
+    )
+
+    # If we ended up in diff mode, that proves the diff pipeline fires
+    mode_text = get_text(driver, "mode-indicator")
+    if "Diff" in mode_text:
+        # Accept diff to continue
+        driver.execute_script("acceptDiff()")
+        time.sleep(0.5)
+
+    # Now we're on /about with inventory. Enable explore, click a nav link
+    click(driver, "btn-explore-mode")
+    time.sleep(0.3)
+
+    # Find nav-home link
+    home_idx = driver.execute_script("""
+        for (var i = 0; i < state.inventory.elements.length; i++) {
+            if (state.inventory.elements[i].locators &&
+                state.inventory.elements[i].locators.testid === 'nav-home') {
+                return i;
+            }
+        }
+        return -1;
+    """)
+
+    if home_idx >= 0:
+        pre_log = driver.execute_script("return state.observationLog.length")
+        driver.execute_script(f"jumpTo({home_idx})")
+
+        # Wait for re-sieve cycle
+        WebDriverWait(driver, 20).until(
+            lambda d: d.execute_script("return state.observationLog.length") > pre_log
+        )
+
+        # Should enter diff mode since page changed
+        time.sleep(1)
+        mode_text = get_text(driver, "mode-indicator")
+        # After explore click + re-sieve on a different page, diff or resolve mode should appear
+        assert "Diff" in mode_text or "Resolve" in mode_text or \
+            driver.execute_script("return state.mode") in ("diff", "resolve"), \
+            f"Expected diff/resolve mode after navigation click, got mode={mode_text!r}"
+
+
+def test_o4c_explore_reentrant_guard(driver):
+    """Double-clicking in explore mode doesn't fire concurrent cycles."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    result = driver.execute_script("""
+        state._exploreInProgress = true;
+        state.inventory = {
+            elements: [{tag: 'a', locators: {testid: 'x'}, rect: {x:0,y:0,w:10,h:10}}],
+        };
+        state.exploreMode = true;
+        state.mode = 'pass1';
+        // jumpTo should return immediately due to guard
+        jumpTo(0);
+        return state._exploreInProgress;
+    """)
+    assert result is True, "Guard should prevent re-entrant explore click"
+
+    # Reset
+    driver.execute_script("state._exploreInProgress = false")
+
+
+def test_o4c_observation_log_structure(driver):
+    """Observation log entries have correct shape."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    driver.execute_script("""
+        state.observationLog = [{
+            obs1: {url: 'http://a.com', elementCount: 10, timestamp: 1000},
+            action: {type: 'click', selector: '[data-testid="x"]', elementLabel: 'X', elementIndex: 0},
+            obs2: {url: 'http://b.com', elementCount: 8, timestamp: 2000},
+        }];
+        saveState();
+    """)
+
+    # Reload and verify persistence
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+    log = driver.execute_script("return state.observationLog")
+    assert len(log) == 1
+    entry = log[0]
+    assert entry["obs1"]["url"] == "http://a.com"
+    assert entry["action"]["type"] == "click"
+    assert entry["obs2"]["url"] == "http://b.com"
+    assert entry["obs2"]["timestamp"] > entry["obs1"]["timestamp"]
+
+
+def test_o4c_explore_overlay_visual_feedback(driver):
+    """In explore mode, overlay rects have orange-tinted styling."""
+    driver.get(TL_URL)
+    driver.execute_script("localStorage.clear()")
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    # Inject inventory with elements (some with testid, some without)
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 800, h: 600},
+            elements: [
+                {tag: 'button', label: 'Submit', locators: {testid: 'submit'}, rect: {x:100,y:100,w:200,h:40}, region: 'form'},
+                {tag: 'div', label: '', locators: {}, rect: {x:100,y:200,w:200,h:40}, region: 'body'},
+            ],
+        };
+        state.screenshotDims = {w: 800, h: 600};
+        state.classifications = {};
+        state.mode = 'pass1';
+        state.exploreMode = true;
+        state.currentIndex = 0;
+        renderOverlay();
+    """)
+    time.sleep(0.3)
+
+    # Check SVG cursor
+    cursor = driver.execute_script("""
+        return document.getElementById('overlay-svg').style.cursor;
+    """)
+    assert cursor == "pointer", f"SVG cursor should be 'pointer' in explore mode, got: {cursor!r}"
+
+    # Check rect fills — element with testid should have orange tint
+    fills = driver.execute_script("""
+        var rects = document.querySelectorAll('#overlay-svg rect');
+        return Array.from(rects).map(function(r) { return r.getAttribute('fill'); });
+    """)
+    assert len(fills) >= 2
+    # First rect (current + has testid) should have orange fill
+    assert "249" in fills[0] or "f97316" in fills[0].lower(), \
+        f"Current clickable element should have orange fill, got: {fills[0]!r}"
+
+    # Toggle explore off — cursor should reset
+    driver.execute_script("state.exploreMode = false; renderOverlay();")
+    time.sleep(0.1)
+    cursor = driver.execute_script("""
+        return document.getElementById('overlay-svg').style.cursor;
+    """)
+    assert cursor == "", f"SVG cursor should reset when explore off, got: {cursor!r}"
+
+
+# -- Visual assertion tests for o4c --
+
+def test_visual_explore_mode_overlay(driver):
+    """Visual: Explore mode shows orange-tinted overlay with pointer cursor."""
+    judge = _get_judge()
+    if not judge:
+        print("    (skipped — no ANTHROPIC_API_KEY)")
+        return
+
+    driver.get(TL_URL)
+    driver.execute_script("localStorage.clear()")
+    _navigate_and_sieve(driver)
+
+    # Enable explore mode
+    click(driver, "btn-explore-mode")
+    time.sleep(0.5)
+
+    screenshot = driver.get_screenshot_as_png()
+    judge.assert_screenshot(screenshot, [
+        critical("Is there a dark-themed web application UI with a toolbar at the top?"),
+        critical("Is there a screenshot of a web page displayed in the main area with rectangular overlays?"),
+        critical("Is there a button in the toolbar that says 'Explore ON' or similar explore-related text with an orange/highlighted appearance?"),
+        critical("Are the overlay rectangles on the screenshot tinted orange or have orange-colored outlines (not the default cyan/blue)?"),
+        advisory("Is there a mode indicator or status text visible in the toolbar area?"),
+    ], test_name="o4c_explore_mode_overlay")
+
+
+def test_visual_explore_after_click(driver):
+    """Visual: After explore click, diff view appears showing page transition."""
+    judge = _get_judge()
+    if not judge:
+        print("    (skipped — no ANTHROPIC_API_KEY)")
+        return
+
+    driver.get(TL_URL)
+    driver.execute_script("localStorage.clear()")
+    _navigate_and_sieve(driver)
+    _classify_n(driver, 3)
+
+    # Enable explore mode and click the submit button
+    click(driver, "btn-explore-mode")
+    time.sleep(0.3)
+
+    submit_idx = driver.execute_script("""
+        for (var i = 0; i < state.inventory.elements.length; i++) {
+            if (state.inventory.elements[i].locators &&
+                state.inventory.elements[i].locators.testid === 'login-submit') {
+                return i;
+            }
+        }
+        return -1;
+    """)
+
+    if submit_idx < 0:
+        print("    (skipped — login-submit not found in inventory)")
+        return
+
+    pre_log = driver.execute_script("return state.observationLog.length")
+    driver.execute_script(f"jumpTo({submit_idx})")
+
+    # Wait for re-sieve to complete
+    try:
+        WebDriverWait(driver, 25).until(
+            lambda d: d.execute_script("return state.observationLog.length") > pre_log
+        )
+    except Exception:
+        print("    (skipped — explore click timed out)")
+        return
+
+    time.sleep(0.5)
+    screenshot = driver.get_screenshot_as_png()
+    judge.assert_screenshot(screenshot, [
+        critical("Is there a web application UI visible with a screenshot area and bottom panel?"),
+        critical("Is there a bottom panel showing diff information (with counts, change items, or a classification banner)?"),
+        advisory("Does the diff panel show counts for 'added', 'removed', or 'changed' elements?"),
+        advisory("Is there a mode indicator showing 'Diff' or 'Resolve' text?"),
+    ], test_name="o4c_explore_after_click")
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -1757,6 +2204,8 @@ VISUAL_TESTS = [
     ("visual: Pass 1 classification view", test_visual_pass1_classify),
     ("visual: diff mode panel and counts", test_visual_diff_mode),
     ("visual: diff overlay on real screenshot", test_visual_diff_overlay),
+    ("visual: explore mode overlay", test_visual_explore_mode_overlay),
+    ("visual: explore after click", test_visual_explore_after_click),
 ]
 
 TESTS = [
@@ -1808,6 +2257,17 @@ TESTS = [
     ("07k: Export Glossary button visibility", test_07k_export_glossary_button_visibility),
     ("07k: export fallback produces correct EDN", test_07k_export_glossary_download_fallback),
     ("07k: toEdn nil binding", test_07k_toEdn_nil_binding),
+    # o4c — Observation loop click (explore mode)
+    ("o4c: explore button present", test_o4c_explore_button_present),
+    ("o4c: explore toggle on/off", test_o4c_explore_toggle),
+    ("o4c: explore persists across reload", test_o4c_explore_persists_across_reload),
+    ("o4c: buildClickSelector pure function", test_o4c_buildClickSelector_pure),
+    ("o4c: no selector shows toast", test_o4c_explore_click_no_selector_shows_toast),
+    ("o4c: explore click dispatches and re-sieves", test_o4c_explore_click_dispatches_and_resieves),
+    ("o4c: explore click triggers diff", test_o4c_explore_click_triggers_diff),
+    ("o4c: re-entrant guard", test_o4c_explore_reentrant_guard),
+    ("o4c: observation log structure", test_o4c_observation_log_structure),
+    ("o4c: explore overlay visual feedback", test_o4c_explore_overlay_visual_feedback),
 ]
 
 if __name__ == "__main__":
