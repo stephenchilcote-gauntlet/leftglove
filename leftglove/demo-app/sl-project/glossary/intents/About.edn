@@ -16,6 +16,15 @@
   :feature-list      {:desc "Feature bullet list"
                       :type :readable
                       :bindings {:web {:testid "feature-list"}}}
+  :feature-auth      {:desc "Secure authentication feature item"
+                      :type :readable
+                      :bindings {:web {:testid "feature-auth"}}}
+  :feature-dashboard {:desc "User dashboard feature item"
+                      :type :readable
+                      :bindings {:web {:testid "feature-dashboard"}}}
+  :feature-responsive {:desc "Responsive design feature item"
+                       :type :readable
+                       :bindings {:web {:testid "feature-responsive"}}}
   :team-heading      {:desc "Team section heading"
                       :type :readable
                       :bindings {:web {:testid "team-heading"}}}
