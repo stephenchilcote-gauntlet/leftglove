@@ -1544,7 +1544,7 @@ def test_visual_diff_overlay(driver):
     judge.assert_screenshot(screenshot, [
         critical("Is there a web page screenshot visible in the main area of the application?"),
         critical("Is there a bottom panel with diff information showing non-zero counts for added and/or removed elements?"),
-        critical("Are there colored rectangular outlines (green, red, or yellow) drawn on top of the screenshot, indicating added/removed/changed elements?"),
+        critical("Are there colored rectangular outlines (green dashed for added, or yellow for changed) drawn on top of the screenshot?"),
         advisory("Does the diff classification banner mention 'navigation' (since the URL changed between pages)?"),
         advisory("Is there a change list in the bottom panel with items labeled NEW or REMOVED?"),
     ], test_name="cuo_diff_overlay_navigation")

@@ -898,19 +898,7 @@ function renderDiffOverlay(svg) {
       + ' fill="#22c55e" font-size="10" font-family="sans-serif" font-weight="700">NEW</text>';
   }
 
-  // Removed elements — red dashed (use old bounding box)
-  for (var r = 0; r < diff.removed.length; r++) {
-    var re = diff.removed[r];
-    var rb = re.el?.rect || re.el?.box;
-    if (!rb) continue;
-    var isSel2 = (selectedType === 'removed' && selectedItemIdx === r);
-    html += '<rect x="' + rb.x + '" y="' + rb.y + '" width="' + (rb.width || rb.w) + '" height="' + (rb.height || rb.h) + '"'
-      + ' fill="rgba(239,68,68,0.08)" stroke="' + (isSel2 ? '#22d3ee' : '#ef4444') + '"'
-      + ' stroke-width="' + (isSel2 ? 3 : 2) + '" stroke-dasharray="6,3"/>';
-    var rtY = rb.y - 4;
-    html += '<text x="' + rb.x + '" y="' + (rtY > 10 ? rtY : rb.y + 12) + '"'
-      + ' fill="#ef4444" font-size="10" font-family="sans-serif" font-weight="700">REMOVED</text>';
-  }
+  // Removed elements — panel only, no overlay (old bounding boxes don't map to new screenshot)
 
   // Changed elements — yellow solid
   for (var c = 0; c < diff.changed.length; c++) {
