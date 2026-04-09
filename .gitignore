@@ -6,3 +6,5 @@
 .claude/tracking/
 node_modules/
 dist/
+.env
+tests/artifacts/
