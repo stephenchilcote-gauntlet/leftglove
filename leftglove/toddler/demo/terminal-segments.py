@@ -76,6 +76,13 @@ def blank_line(events: list, t: float) -> float:
     return t + 0.05
 
 
+def hold(events: list, t: float, secs: float) -> float:
+    """Add a no-op event to hold the terminal display for `secs` seconds."""
+    t += secs
+    events.append((t, "o", ""))  # empty event to extend duration
+    return t
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SEGMENT 4 — Act 2: MCP Vocabulary (~30s)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -108,13 +115,15 @@ def segment_mcp_vocabulary():
     ])
     t += BLOCK_PAUSE
 
+    t = hold(events, t, 2.0)  # Hold on vocabulary list so mcp-vocab narration (13.1s) can finish
+
     # Show strict mode rejection
     t = type_command(events, t, "echo '{\"method\":\"tools/call\",\"params\":{\"name\":\"act\",\"arguments\":{\"verb\":\"click\",\"intent\":\"Login\",\"element\":\"nonexistent\"}}}' | node dist/index.js")
     t = show_output(events, t, [
         '\x1b[31m✗ Error: unknown object "Login.nonexistent" (strict mode)\x1b[0m',
         '\x1b[90m  Available elements: email, password, submit, forgot-pw, heading\x1b[0m',
     ])
-    t += BLOCK_PAUSE
+    t = hold(events, t, 5.0)  # Hold on error so strict-mode narration (6.9s) can finish
 
     return write_cast("segment-4-mcp-vocabulary.cast", events)
 
@@ -144,7 +153,7 @@ def segment_code_change():
         '       <button type="submit" data-testid="login-submit">Sign In</button>',
         '     </form>',
     ])
-    t += BLOCK_PAUSE
+    t = hold(events, t, 5.0)  # Hold on diff so narration (6.7s) can finish
 
     return write_cast("segment-5-code-change.cast", events)
 
@@ -174,6 +183,8 @@ def segment_test_passes():
     ])
     t += BLOCK_PAUSE
 
+    t = hold(events, t, 6.0)  # Hold on test source so test-write narration (8.3s) can play
+
     t = type_command(events, t, "sl run features/remember-me.feature")
     t = show_output(events, t, [
         '\x1b[90m[sl] Loading glossary from sl-project/glossary/...\x1b[0m',
@@ -192,7 +203,7 @@ def segment_test_passes():
         '\x1b[32m6 steps (6 passed)\x1b[0m',
         '\x1b[90m0m4.2s\x1b[0m',
     ])
-    t += BLOCK_PAUSE
+    t = hold(events, t, 4.0)  # Hold on pass result so test-pass narration (4.4s) can play
 
     return write_cast("segment-6-test-passes.cast", events)
 
@@ -223,7 +234,7 @@ def segment_test_fails():
         '\x1b[31m0 steps (glossary validation failed)\x1b[0m',
         '\x1b[90m0m0.1s\x1b[0m',
     ])
-    t += BLOCK_PAUSE * 2
+    t = hold(events, t, 9.0)  # Hold on failure output so narration (10.6s) can finish
 
     return write_cast("segment-7-test-fails.cast", events)
 
@@ -236,5 +247,29 @@ if __name__ == "__main__":
     segment_code_change()
     segment_test_passes()
     segment_test_fails()
+
+    # Write timing.json — maps narration clips to offsets within each segment.
+    # assemble.sh adds each segment's global start offset to get final placement.
+    timing = [
+        # segment-4: MCP vocabulary (~25s)
+        # mcp-vocab (13.1s) starts at title, strict-mode (6.9s) starts at error output
+        {"segment": "segment-4-mcp-vocabulary", "clipId": "mcp-vocab", "t": 500},
+        {"segment": "segment-4-mcp-vocabulary", "clipId": "strict-mode", "t": 15000},
+        # segment-5: code change (~8s)
+        # code-change (6.7s) starts at diff output
+        {"segment": "segment-5-code-change", "clipId": "code-change", "t": 300},
+        # segment-6: test passes (~15s)
+        # test-write (8.3s) starts at cat output, test-pass (4.4s) starts at sl run output
+        {"segment": "segment-6-test-passes", "clipId": "test-write", "t": 300},
+        {"segment": "segment-6-test-passes", "clipId": "test-pass", "t": 9500},
+        # segment-7: test fails (~11s)
+        # test-fail (10.6s) starts at validation failure
+        {"segment": "segment-7-test-fails", "clipId": "test-fail", "t": 300},
+    ]
+    timing_path = CAST_DIR / "timing.json"
+    with open(timing_path, "w") as f:
+        json.dump(timing, f, indent=2)
+    print(f"  Timing: {timing_path}")
+
     print(f"\nAll segments written to {CAST_DIR}/")
     print("Preview with: asciinema play <file>.cast")

@@ -270,7 +270,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // Caption: intro
   await caption(page,
     'This is a web application. We\'re going to show you what our system sees when it looks at it.',
-    5000, 'intro',
+    5500, 'intro',
   );
   await clearCaption(page);
 
@@ -288,7 +288,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // Caption: sieve result
   await caption(page,
     'The sieve filtered out the noise and found the meaningful elements. Classified in under a second. No screenshots sent to an LLM. Deterministic.',
-    6000, 'sieve-result',
+    10500, 'sieve-result',
     '[data-testid="status-indicator"]',
   );
   await clearCaption(page);
@@ -296,7 +296,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // -- Scene: Rapid-fire classify --
   await caption(page,
     'A human can classify an entire page in under a minute.',
-    4000, 'rapid-classify',
+    8500, 'rapid-classify',
     '[data-testid="progress"]',
   );
 
@@ -313,7 +313,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // -- Scene: Load pre-labeled state --
   await caption(page,
     'Here\'s the full classification. Every element named, located, typed. This becomes the glossary.',
-    6000, 'pre-labeled',
+    9500, 'pre-labeled',
   );
 
   await loadFixture(page, loginLabeled);
@@ -330,7 +330,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // Caption: code change context
   await caption(page,
     'The agent added a Remember Me checkbox. Let\'s see what the sieve thinks about the new version.',
-    5000, 're-sieve-intro',
+    4000, 're-sieve-intro',
   );
   await clearCaption(page);
 
@@ -354,7 +354,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // Caption: new element found
   await caption(page,
     'The sieve found a new element. One checkbox that wasn\'t there before. Everything else is unchanged.',
-    5000, 're-sieve',
+    7000, 're-sieve',
     '[data-testid="diff-summary"]',
   );
   await clearCaption(page);
@@ -374,7 +374,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   await caption(page,
     'Now someone removed the checkbox. Let\'s sieve again.',
-    4000, 'element-removed-intro',
+    6000, 'element-removed-intro',
   );
   await clearCaption(page);
 
@@ -393,7 +393,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   await caption(page,
     'Login.remember-me is gone. The glossary diff shows minus one entry.',
-    5000, 'element-gone',
+    8000, 'element-gone',
     '[data-testid="diff-summary"]',
   );
   await clearCaption(page);
@@ -401,7 +401,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // Closing caption
   await caption(page,
     'The sieve does for E2E testing what unit test frameworks did for functions — makes it so cheap and structured that there\'s no excuse not to do it.',
-    7000, 'closing',
+    10000, 'closing',
   );
   await clearCaption(page);
   await pause(page, 2000);

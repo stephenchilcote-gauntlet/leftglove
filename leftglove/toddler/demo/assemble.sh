@@ -109,7 +109,7 @@ echo "Combined video duration: ${COMBINED_DURATION}s"
 
 # ── Step 3: Build voiceover audio ───────────────────────────────────────────
 
-if [[ -f "$TIMING_JSON" ]] && [[ -f "$MANIFEST_JSON" ]]; then
+if [[ -f "$MANIFEST_JSON" ]]; then
   echo ""
   echo "Building voiceover audio track..."
 
@@ -120,14 +120,78 @@ import os
 import sys
 
 AUDIO_DIR = "audio-clips"
-TIMING_JSON = f"{AUDIO_DIR}/timing.json"
+BROWSER_TIMING = f"{AUDIO_DIR}/timing.json"
+TERMINAL_TIMING = "casts/timing.json"
 MANIFEST_JSON = f"{AUDIO_DIR}/manifest.json"
 SAMPLE_RATE = 44100
 PAD_MS = 300
 GAP_MS = 200
 
-with open(TIMING_JSON) as f:
-    timing = json.load(f)
+# ── Merge browser + terminal timing into unified list ──
+
+timing = []
+
+# Browser timing: already has global offsets (browser segment is first)
+if os.path.exists(BROWSER_TIMING):
+    with open(BROWSER_TIMING) as f:
+        timing.extend(json.load(f))
+
+# Terminal timing: offsets are local to each segment — need global offset
+if os.path.exists(TERMINAL_TIMING):
+    with open(TERMINAL_TIMING) as f:
+        terminal_events = json.load(f)
+
+    # Compute global start of each segment from normalized segment durations
+    segment_order = []
+    concat_list = "segments/concat.txt"
+    if os.path.exists(concat_list):
+        with open(concat_list) as f:
+            for line in f:
+                # "file '/abs/path/to/normalized/name.mp4'"
+                seg_path = line.strip().split("'")[1] if "'" in line else ""
+                if seg_path:
+                    segment_order.append(seg_path)
+
+    # Get duration of each concatenated segment
+    seg_offsets = {}  # segment name -> global start ms
+    cumulative_ms = 0
+    for seg_path in segment_order:
+        seg_name = os.path.basename(seg_path).replace(".mp4", "")
+        # Strip "normalized/" prefix handling — name is the key
+        if seg_name == "browser":
+            seg_offsets["browser"] = cumulative_ms
+        else:
+            seg_offsets[seg_name] = cumulative_ms
+
+        dur_out = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", seg_path],
+            capture_output=True, text=True,
+        )
+        try:
+            dur_s = float(dur_out.stdout.strip())
+        except ValueError:
+            dur_s = 0
+        cumulative_ms += int(dur_s * 1000)
+        print(f"  Segment {seg_name}: starts at {seg_offsets[seg_name]/1000:.1f}s, duration {dur_s:.1f}s")
+
+    # Add terminal events with global offsets
+    for event in terminal_events:
+        seg_name = event["segment"]
+        global_offset = seg_offsets.get(seg_name, 0)
+        timing.append({
+            "id": f"term-{event['clipId']}",
+            "clipId": event["clipId"],
+            "t": global_offset + event["t"],
+        })
+
+# Sort by time
+timing.sort(key=lambda e: e.get("t", 0))
+
+if not timing:
+    print("WARNING: No timing events found. Skipping voiceover.")
+    sys.exit(0)
+
 with open(MANIFEST_JSON) as f:
     manifest = json.load(f)
 
@@ -224,8 +288,8 @@ offset=${offset}:linear=true" \
   HAS_AUDIO=true
 else
   echo ""
-  echo "No timing.json or manifest.json — skipping voiceover."
-  echo "Run demo-browser + gen-demo-audio.py first for full audio."
+  echo "No manifest.json — skipping voiceover."
+  echo "Run gen-demo-audio.py first for audio."
   HAS_AUDIO=false
 fi
 
