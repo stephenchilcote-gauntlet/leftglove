@@ -193,20 +193,26 @@ def run_test(name, fn, driver):
 
 def test_page_loads(driver):
     driver.get(TL_URL)
-    wait_for(driver, "btn-sieve")
-    wait_for(driver, "btn-navigate")
-    wait_for(driver, "url-input")
+    btn_sieve = wait_for(driver, "btn-sieve")
+    btn_nav = wait_for(driver, "btn-navigate")
+    url_input = wait_for(driver, "url-input")
     wait_for(driver, "mode-indicator")
-    assert "Toddler" in driver.title or True  # title may vary
+    assert btn_sieve.is_displayed(), "Sieve button should be visible"
+    assert btn_nav.is_displayed(), "Navigate button should be visible"
+    assert url_input.is_displayed(), "URL input should be visible"
+    # Mode defaults to 'pass1' in state even before sieve
+    mode = driver.execute_script("return state.mode")
+    assert mode == "pass1", f"Initial state.mode should be 'pass1', got: {mode!r}"
 
 def test_status_prepopulates_url(driver):
     driver.get(TL_URL)
     wait_for(driver, "url-input")
     time.sleep(1)  # let JS init run
     val = get_value(driver, "url-input")
-    # After loading, the JS fetches /status and sets the url-input
-    # If sieve browser is at data:, that's fine — just check it's a string
-    assert isinstance(val, str)
+    # /status returns the sieve browser's current URL; it should populate the input
+    assert val and len(val) > 0, f"URL input should be populated from /status, got empty"
+    # Should look like a URL (http/https/data) or be a recognizable browser state
+    assert ":" in val, f"URL input should contain a URL-like value, got: {val!r}"
 
 def test_navigate_to_demo_app(driver):
     driver.get(TL_URL)
@@ -224,8 +230,12 @@ def test_navigate_to_demo_app(driver):
                   not in ("Navigating...", "Sieving...", "Ready")
     )
     status_text = get_text(driver, "status-indicator")
-    assert "element" in status_text.lower() or "Error" not in status_text, \
-        f"Expected element count, got: {status_text!r}"
+    # Should show "N elements" where N > 0
+    import re as _re
+    match = _re.search(r'(\d+)\s+element', status_text.lower())
+    assert match, f"Expected 'N elements' in status, got: {status_text!r}"
+    count = int(match.group(1))
+    assert count > 0, f"Expected positive element count, got {count}"
 
 def test_sieve_returns_elements(driver):
     driver.get(TL_URL)
@@ -242,9 +252,11 @@ def test_sieve_returns_elements(driver):
         ).text.lower()
     )
 
-    # SVG overlay should have rects
+    # SVG overlay should have rects matching the element count
     rects = driver.find_elements(By.CSS_SELECTOR, '#overlay-svg rect')
-    assert len(rects) > 0, f"Expected SVG rects, found {len(rects)}"
+    elem_count = driver.execute_script("return state.inventory.elements.length")
+    assert len(rects) == elem_count, \
+        f"Expected {elem_count} SVG rects (one per element), found {len(rects)}"
 
 def test_screenshot_renders(driver):
     driver.get(TL_URL)
@@ -261,9 +273,15 @@ def test_screenshot_renders(driver):
     )
 
     img = driver.find_element(By.CSS_SELECTOR, '[data-testid="screenshot-img"]')
-    # src should be a blob URL (from createObjectURL)
     src = img.get_attribute("src")
     assert src and src.startswith("blob:"), f"Expected blob URL, got: {src!r}"
+    # Verify the image has real dimensions (not a broken blob)
+    dims = driver.execute_script("""
+        var img = arguments[0];
+        return {w: img.naturalWidth, h: img.naturalHeight};
+    """, img)
+    assert dims["w"] > 100 and dims["h"] > 100, \
+        f"Screenshot should have real dimensions, got {dims['w']}x{dims['h']}"
 
 def test_element_detail_shows(driver):
     driver.get(TL_URL)
@@ -279,8 +297,11 @@ def test_element_detail_shows(driver):
         ).text.lower()
     )
 
-    detail = driver.find_element(By.CSS_SELECTOR, '[data-testid="element-detail"]')
-    assert detail.text.strip() != "", "Element detail panel should not be empty"
+    detail_text = get_text(driver, "element-detail")
+    # Detail panel should show the tag of the first element
+    first_tag = driver.execute_script("return state.inventory.elements[0].tag")
+    assert first_tag.lower() in detail_text.lower(), \
+        f"Element detail should contain tag '{first_tag}', got: {detail_text!r}"
 
 def test_classify_element(driver):
     driver.get(TL_URL)
@@ -304,8 +325,11 @@ def test_classify_element(driver):
     time.sleep(0.3)
 
     new_count = get_text(driver, "classified-count")
-    assert new_count != initial_count or "1 classified" in new_count, \
-        f"Classification count should have changed: {initial_count!r} -> {new_count!r}"
+    assert "1 classified" in new_count, \
+        f"Expected '1 classified' after classifying one element, got: {new_count!r}"
+    # Verify classification was actually stored in state
+    cls = driver.execute_script("return state.classifications[state.currentIndex - 1]")
+    assert cls == "clickable", f"Expected classification 'clickable', got: {cls!r}"
 
 def test_pass1_complete_shows_start_pass2(driver):
     """Classify all elements in Pass 1 and verify Start Pass 2 button appears."""
@@ -408,7 +432,10 @@ def test_load_valid_fixture(driver):
     _send_fixture(driver)
     _wait_for_rects(driver)
     rects = driver.find_elements(By.CSS_SELECTOR, '#overlay-svg rect')
-    assert len(rects) > 0, f"Expected SVG rects after load, found {len(rects)}"
+    elem_count = driver.execute_script("return state.inventory.elements.length")
+    assert elem_count > 0, "Fixture should load elements into state"
+    assert len(rects) == elem_count, \
+        f"Expected {elem_count} SVG rects matching loaded elements, found {len(rects)}"
 
 def test_load_screenshot_appears(driver):
     driver.get(TL_URL)
@@ -429,7 +456,10 @@ def test_load_status_shows_count(driver):
         ).text.lower()
     )
     status = get_text(driver, "status-indicator")
-    assert "element" in status.lower(), f"Expected element count in status, got: {status!r}"
+    import re as _re
+    match = _re.search(r'(\d+)\s+element', status.lower())
+    assert match, f"Expected 'N elements' in status after load, got: {status!r}"
+    assert int(match.group(1)) > 0, f"Element count should be > 0 after load"
 
 def test_load_mode_indicator(driver):
     """Fixture is pass-1-complete + has glossary names → mode should be pass2 or review."""
@@ -447,8 +477,10 @@ def test_load_element_detail_populated(driver):
     _send_fixture(driver)
     _wait_for_rects(driver)
     time.sleep(0.3)  # let renderPanel() settle
-    detail = driver.find_element(By.CSS_SELECTOR, '[data-testid="element-detail"]')
-    assert detail.text.strip() != "", "Element detail panel should be populated after load"
+    detail_text = get_text(driver, "element-detail")
+    first_tag = driver.execute_script("return state.inventory.elements[state.currentIndex].tag")
+    assert first_tag.lower() in detail_text.lower(), \
+        f"Loaded element detail should contain tag '{first_tag}', got: {detail_text!r}"
 
 def test_load_invalid_json_shows_toast(driver):
     driver.get(TL_URL)
@@ -478,7 +510,8 @@ def test_load_invalid_intermediate_shows_toast(driver):
         toast = WebDriverWait(driver, 5).until(
             EC.visibility_of_element_located((By.ID, 'toast'))
         )
-        assert toast.text.strip() != "", "Expected non-empty error toast for invalid intermediate"
+        assert "sieve-version" in toast.text.lower() or "version" in toast.text.lower() or "missing" in toast.text.lower(), \
+            f"Expected validation error mentioning schema issues, got: {toast.text!r}"
     finally:
         os.unlink(bad_path)
 
@@ -1941,152 +1974,141 @@ def test_o4c_explore_click_no_selector_shows_toast(driver):
 
 
 def test_o4c_explore_click_dispatches_and_resieves(driver):
-    """In explore mode, clicking an element dispatches real click and triggers re-sieve."""
+    """In explore mode, clicking a link navigates and re-sieves with different content."""
     driver.get(TL_URL)
     driver.execute_script("localStorage.clear()")
     _navigate_and_sieve(driver)
+
+    pre_url = driver.execute_script("return state.pageUrl")
+    assert "/login" in pre_url, f"Should start on login page, got: {pre_url!r}"
 
     # Enable explore mode
     click(driver, "btn-explore-mode")
     time.sleep(0.3)
 
-    # Find the login-submit element index
-    submit_idx = driver.execute_script("""
+    # Find the forgot-password link — clicking it navigates without preconditions
+    link_idx = driver.execute_script("""
         for (var i = 0; i < state.inventory.elements.length; i++) {
             if (state.inventory.elements[i].locators &&
-                state.inventory.elements[i].locators.testid === 'login-submit') {
+                state.inventory.elements[i].locators.testid === 'forgot-password') {
                 return i;
             }
         }
         return -1;
     """)
-    assert submit_idx >= 0, "Should find login-submit element in inventory"
+    assert link_idx >= 0, "Should find forgot-password link in inventory"
 
-    # Record pre-click state
-    pre_url = driver.execute_script("return state.pageUrl")
     pre_log_len = driver.execute_script("return state.observationLog.length")
 
-    # Click the submit button via explore mode
-    driver.execute_script(f"jumpTo({submit_idx})")
+    # Click the link via explore mode
+    driver.execute_script(f"jumpTo({link_idx})")
 
-    # Wait for the re-sieve cycle to complete (status goes through Clicking... → Re-sieving... → done)
-    # The page will show an error (no credentials filled) or redirect
+    # Wait for the re-sieve cycle to complete
     WebDriverWait(driver, 20).until(
         lambda d: d.execute_script("return state.observationLog.length") > pre_log_len
     )
 
-    # Observation log should have a new entry
-    log_len = driver.execute_script("return state.observationLog.length")
-    assert log_len == pre_log_len + 1, f"Expected {pre_log_len + 1} log entries, got {log_len}"
+    # Verify the click actually navigated — URL should have changed
+    post_url = driver.execute_script("return state.pageUrl")
+    assert post_url != pre_url, \
+        f"URL should have changed after clicking link, still: {post_url!r}"
+    assert "forgot" in post_url.lower() or post_url != pre_url, \
+        f"Expected navigation to forgot-password page, got: {post_url!r}"
 
-    # Check log entry structure
+    # Verify observation log records the actual transition
     entry = driver.execute_script("return state.observationLog[state.observationLog.length - 1]")
     assert entry["action"]["type"] == "click"
-    assert "login-submit" in entry["action"]["selector"]
-    assert entry["obs1"]["url"] is not None
-    assert entry["obs2"]["url"] is not None
-    assert entry["obs2"]["timestamp"] > entry["obs1"]["timestamp"]
+    assert "forgot-password" in entry["action"]["selector"]
+    assert entry["obs1"]["url"] == pre_url, \
+        f"obs1.url should be pre-click URL {pre_url!r}, got: {entry['obs1']['url']!r}"
+    assert entry["obs2"]["url"] == post_url, \
+        f"obs2.url should be post-click URL {post_url!r}, got: {entry['obs2']['url']!r}"
+    assert entry["obs2"]["url"] != entry["obs1"]["url"], \
+        "obs1 and obs2 URLs should differ after navigation click"
 
 
 def test_o4c_explore_click_triggers_diff(driver):
-    """Explore click that causes page change triggers diff mode."""
+    """Explore click that causes navigation triggers diff mode with 'navigation' classification."""
+    # Start on /about page, then explore-click nav-home which goes to / (redirects to /login)
     driver.get(TL_URL)
     driver.execute_script("localStorage.clear()")
-    _navigate_and_sieve(driver)
+    driver.get(TL_URL)  # reload to pick up cleared state
+    wait_for(driver, "url-input")
+    time.sleep(0.5)
 
-    # Fill in valid credentials first so clicking submit causes navigation
-    driver.execute_script("""
-        // Use fetchClick to fill the form fields via the sieve server
-        // Actually, we need to type into the real page's form via sieve actions
-    """)
-
-    # Type credentials into the real page via sieve server navigate trick:
-    # Fill email and password by executing JS in the sieve browser
-    import urllib.request
-    import json as json_mod
-
-    # Use the sieve /click endpoint to verify it's available
-    try:
-        req = urllib.request.Request(
-            "http://localhost:3333/status",
-            method="GET",
-        )
-        resp = urllib.request.urlopen(req, timeout=3)
-        status = json_mod.loads(resp.read())
-        # Sieve browser should be on login page from previous navigate
-    except Exception:
-        pass
-
-    # Enable explore mode
-    click(driver, "btn-explore-mode")
-    time.sleep(0.3)
-
-    # Classify a few elements so diff has old state to compare
-    click(driver, "btn-explore-mode")  # toggle off for classification
-    _classify_n(driver, 3)
-    click(driver, "btn-explore-mode")  # toggle back on
-
-    # Navigate sieve browser to /about (simulate clicking a link that navigates)
-    # Use navigate endpoint to move sieve browser, then sieve
-    driver.execute_script("""
-        fetch(API + '/navigate', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({url: 'http://localhost:3000/about'})
-        });
-    """)
-    time.sleep(1)
-
-    # Now sieve to pick up the new page — this gives us a "before" on /about
-    click(driver, "btn-explore-mode")  # off
-    click(driver, "btn-sieve")
+    # Navigate sieve browser to /about and sieve it
+    clear_and_type(driver, "url-input", "http://localhost:3000/about")
+    click(driver, "btn-navigate")
     WebDriverWait(driver, 20).until(
         lambda d: "element" in d.find_element(
             By.CSS_SELECTOR, '[data-testid="status-indicator"]'
         ).text.lower()
-        or "Diff" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="mode-indicator"]'
-        ).text
     )
+    time.sleep(0.5)
 
-    # If we ended up in diff mode, that proves the diff pipeline fires
-    mode_text = get_text(driver, "mode-indicator")
-    if "Diff" in mode_text:
-        # Accept diff to continue
-        driver.execute_script("acceptDiff()")
-        time.sleep(0.5)
+    # If a diff/resolve appeared from prior state, accept it first
+    mode = driver.execute_script("return state.mode")
+    if mode in ("diff", "resolve"):
+        if mode == "resolve":
+            driver.execute_script("""
+                if (typeof finishResolve === 'function') finishResolve();
+            """)
+            time.sleep(0.5)
+        mode = driver.execute_script("return state.mode")
+        if mode == "diff":
+            driver.execute_script("acceptDiff()")
+            time.sleep(0.5)
 
-    # Now we're on /about with inventory. Enable explore, click a nav link
+    pre_url = driver.execute_script("return state.pageUrl")
+    assert "/about" in pre_url, f"Should start on /about, got: {pre_url!r}"
+
+    # Classify a few elements so diff has old state to compare against
+    _classify_n(driver, 3)
+
+    # Enable explore mode, click nav-login link (navigates from /about to /login)
     click(driver, "btn-explore-mode")
     time.sleep(0.3)
 
-    # Find nav-home link
-    home_idx = driver.execute_script("""
+    login_idx = driver.execute_script("""
         for (var i = 0; i < state.inventory.elements.length; i++) {
             if (state.inventory.elements[i].locators &&
-                state.inventory.elements[i].locators.testid === 'nav-home') {
+                state.inventory.elements[i].locators.testid === 'nav-login') {
                 return i;
             }
         }
         return -1;
     """)
+    assert login_idx >= 0, "Should find nav-login link in /about page inventory"
 
-    if home_idx >= 0:
-        pre_log = driver.execute_script("return state.observationLog.length")
-        driver.execute_script(f"jumpTo({home_idx})")
+    pre_log = driver.execute_script("return state.observationLog.length")
+    driver.execute_script(f"jumpTo({login_idx})")
 
-        # Wait for re-sieve cycle
-        WebDriverWait(driver, 20).until(
-            lambda d: d.execute_script("return state.observationLog.length") > pre_log
-        )
+    # Wait for re-sieve cycle to complete
+    WebDriverWait(driver, 25).until(
+        lambda d: d.execute_script("return state.observationLog.length") > pre_log
+    )
+    time.sleep(0.5)
 
-        # Should enter diff mode since page changed
-        time.sleep(1)
-        mode_text = get_text(driver, "mode-indicator")
-        # After explore click + re-sieve on a different page, diff or resolve mode should appear
-        assert "Diff" in mode_text or "Resolve" in mode_text or \
-            driver.execute_script("return state.mode") in ("diff", "resolve"), \
-            f"Expected diff/resolve mode after navigation click, got mode={mode_text!r}"
+    # The observation log's obs2.url must show the new URL (state.pageUrl stays
+    # as the old URL until the user accepts the diff — that's correct behavior)
+    obs2_url = driver.execute_script(
+        "return state.observationLog[state.observationLog.length-1].obs2.url"
+    )
+    assert obs2_url != pre_url, \
+        f"obs2.url should differ from pre-click URL after clicking nav-login, still: {obs2_url!r}"
+    assert "/login" in obs2_url, \
+        f"Expected obs2.url to show /login, got: {obs2_url!r}"
+
+    # Mode must be diff or resolve (not pass1 — that would mean diff pipeline didn't fire)
+    mode = driver.execute_script("return state.mode")
+    assert mode in ("diff", "resolve"), \
+        f"Expected diff or resolve mode after navigation click, got: {mode!r}"
+
+    # If in diff mode, verify classification is 'navigation' (URL changed)
+    if mode == "diff":
+        diff_class = driver.execute_script("return state.diffClass")
+        assert diff_class == "navigation", \
+            f"Expected diff classification 'navigation', got: {diff_class!r}"
 
 
 def test_o4c_explore_reentrant_guard(driver):
@@ -2216,37 +2238,45 @@ def test_visual_explore_mode_overlay(driver):
 
 
 def test_visual_explore_after_click(driver):
-    """Visual: After explore click, diff view appears showing page transition."""
+    """Visual: After explore click on a link from /about, diff view appears showing navigation."""
     judge = _get_judge()
     if not judge:
         print("    (skipped — no ANTHROPIC_API_KEY)")
         return
 
+    # Start on /about so clicking nav-home actually navigates
     driver.get(TL_URL)
     driver.execute_script("localStorage.clear()")
-    _navigate_and_sieve(driver)
+    clear_and_type(driver, "url-input", "http://localhost:3000/about")
+    click(driver, "btn-navigate")
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+    )
     _classify_n(driver, 3)
 
-    # Enable explore mode and click the submit button
+    # Enable explore mode and click the nav-login link (navigates from /about to /login)
     click(driver, "btn-explore-mode")
     time.sleep(0.3)
 
-    submit_idx = driver.execute_script("""
+    link_idx = driver.execute_script("""
         for (var i = 0; i < state.inventory.elements.length; i++) {
             if (state.inventory.elements[i].locators &&
-                state.inventory.elements[i].locators.testid === 'login-submit') {
+                state.inventory.elements[i].locators.testid === 'nav-login') {
                 return i;
             }
         }
         return -1;
     """)
 
-    if submit_idx < 0:
-        print("    (skipped — login-submit not found in inventory)")
+    if link_idx < 0:
+        print("    (skipped — nav-login not found in /about inventory)")
         return
 
+    pre_url = driver.execute_script("return state.pageUrl")
     pre_log = driver.execute_script("return state.observationLog.length")
-    driver.execute_script(f"jumpTo({submit_idx})")
+    driver.execute_script(f"jumpTo({link_idx})")
 
     # Wait for re-sieve to complete
     try:
@@ -2257,12 +2287,20 @@ def test_visual_explore_after_click(driver):
         print("    (skipped — explore click timed out)")
         return
 
+    # Verify the click actually navigated (obs2.url in the log, not state.pageUrl
+    # which stays as old URL until diff is accepted)
+    obs2_url = driver.execute_script(
+        "return state.observationLog[state.observationLog.length-1].obs2.url"
+    )
+    assert obs2_url != pre_url, \
+        f"obs2.url should differ from pre-click URL for visual test, still: {obs2_url!r}"
+
     time.sleep(0.5)
     screenshot = driver.get_screenshot_as_png()
     judge.assert_screenshot(screenshot, [
         critical("Is there a web application UI visible with a screenshot area and bottom panel?"),
-        critical("Is there a bottom panel showing diff information (with counts, change items, or a classification banner)?"),
-        advisory("Does the diff panel show counts for 'added', 'removed', or 'changed' elements?"),
+        critical("Is there a bottom panel showing diff information with non-zero counts for added or removed elements?"),
+        advisory("Does the diff classification banner mention 'navigation'?"),
         advisory("Is there a mode indicator showing 'Diff' or 'Resolve' text?"),
     ], test_name="o4c_explore_after_click")
 
@@ -2286,20 +2324,24 @@ def _session_files():
     return sorted(SESSIONS_DIR.glob("*.json"))
 
 def test_b6db_server_serves_ui(driver):
-    """GET / from node server returns the TL UI HTML."""
+    """GET / from node server returns the TL UI with functional elements."""
     driver.get(TL_URL)
-    wait_for(driver, "btn-sieve")
-    title_el = driver.find_element(By.TAG_NAME, "title")
-    assert title_el is not None
+    btn = wait_for(driver, "btn-sieve")
+    assert btn.is_displayed(), "Sieve button should be visible"
+    # Verify the API const was set (proves JS executed, not just HTML loaded)
+    api = driver.execute_script("return typeof API")
+    assert api == "string", f"API constant should be a string, got type: {api}"
 
 def test_b6db_save_endpoint_writes_file(driver):
-    """POST valid intermediate JSON to /save, verify file appears on disk."""
+    """POST valid intermediate JSON to /save, verify file content matches input."""
     _clear_sessions()
+    source_url = "http://localhost:3000/login"
+    timestamp = "2026-04-09T14:00:00Z"
     payload = json.dumps({
         "sieve-version": "1.0",
-        "source": {"url": "http://localhost:3000/login", "viewport": {"w": 1920, "h": 1080},
-                   "timestamp": "2026-04-09T14:00:00Z", "screenshot": None},
-        "elements": [],
+        "source": {"url": source_url, "viewport": {"w": 1920, "h": 1080},
+                   "timestamp": timestamp, "screenshot": None},
+        "elements": [{"sieve-id": "el-001", "tag": "input", "category": "typable"}],
         "metadata": {"cookies": [], "storage": {"localStorage": [], "sessionStorage": []}, "tabs": 1},
         "pass-1-complete": False,
         "pass-2-progress": 0
@@ -2313,11 +2355,18 @@ def test_b6db_save_endpoint_writes_file(driver):
         return JSON.parse(xhr.responseText);
     """, payload)
     assert "saved" in result, f"Expected 'saved' key, got: {result}"
+    # Filename should contain the URL slug
+    assert "login" in result["saved"], \
+        f"Filename should contain URL slug 'login', got: {result['saved']!r}"
     files = _session_files()
-    assert len(files) >= 1, f"Expected at least 1 session file, found {len(files)}"
-    # Verify content is valid JSON
+    assert len(files) == 1, f"Expected exactly 1 session file, found {len(files)}"
+    # Verify saved content matches what was sent
     data = json.loads(files[0].read_text())
-    assert data.get("sieve-version") == "1.0"
+    assert data["sieve-version"] == "1.0"
+    assert data["source"]["url"] == source_url
+    assert data["source"]["timestamp"] == timestamp
+    assert len(data["elements"]) == 1
+    assert data["elements"][0]["tag"] == "input"
     _clear_sessions()
 
 def test_b6db_save_endpoint_rejects_invalid(driver):
@@ -2332,10 +2381,10 @@ def test_b6db_save_endpoint_rejects_invalid(driver):
     assert status == 400, f"Expected 400, got {status}"
 
 def test_b6db_sessions_endpoint_lists_files(driver):
-    """POST a save, then GET /sessions returns the filename."""
+    """POST a save, then GET /sessions returns exactly that filename."""
     _clear_sessions()
-    # Save one file
-    driver.execute_script("""
+    # Save one file and capture its name
+    saved_name = driver.execute_script("""
         var xhr = new XMLHttpRequest();
         xhr.open('POST', '/save', false);
         xhr.setRequestHeader('Content-Type', 'application/json');
@@ -2344,8 +2393,9 @@ def test_b6db_sessions_endpoint_lists_files(driver):
             "source": {"url": "http://example.com/test", "timestamp": "2026-04-09T15:00:00Z"},
             "elements": [], "metadata": {}, "pass-1-complete": false, "pass-2-progress": 0
         }));
+        return JSON.parse(xhr.responseText).saved;
     """)
-    # List sessions
+    # List sessions — should contain exactly the file we just saved
     result = driver.execute_script("""
         var xhr = new XMLHttpRequest();
         xhr.open('GET', '/sessions', false);
@@ -2353,8 +2403,9 @@ def test_b6db_sessions_endpoint_lists_files(driver):
         return JSON.parse(xhr.responseText);
     """)
     assert isinstance(result, list), f"Expected list, got {type(result)}"
-    assert len(result) >= 1, f"Expected at least 1 session, got {len(result)}"
-    assert result[0].endswith(".json"), f"Expected .json file, got {result[0]}"
+    assert len(result) == 1, f"Expected exactly 1 session, got {len(result)}: {result}"
+    assert result[0] == saved_name, \
+        f"Sessions endpoint should return the saved filename {saved_name!r}, got: {result[0]!r}"
     _clear_sessions()
 
 def test_b6db_auto_save_on_classify(driver):
@@ -2382,11 +2433,16 @@ def test_b6db_auto_save_on_classify(driver):
     files = _session_files()
     assert len(files) >= 1, f"Expected auto-save file, found {len(files)}"
 
-    # Verify it's valid intermediate format
+    # Verify saved data reflects the actual UI state
     data = json.loads(files[0].read_text())
-    assert data.get("sieve-version") == "1.0"
-    assert "elements" in data
+    assert data["sieve-version"] == "1.0"
+    assert data["source"]["url"] == DEMO_LOGIN, \
+        f"Saved URL should be {DEMO_LOGIN}, got: {data['source']['url']!r}"
     assert len(data["elements"]) > 0, "Expected elements in saved file"
+    # At least one element should have the classification we just applied
+    categories = [el.get("category") for el in data["elements"]]
+    assert "clickable" in categories, \
+        f"Saved data should include our 'clickable' classification, got categories: {categories[:5]}"
     _clear_sessions()
 
 def test_b6db_auto_save_debounce(driver):
@@ -2418,6 +2474,12 @@ def test_b6db_auto_save_debounce(driver):
     files = _session_files()
     # Debounce should collapse to 1 save (same URL+timestamp = same filename overwritten)
     assert len(files) == 1, f"Expected 1 debounced file, found {len(files)}: {[f.name for f in files]}"
+    # The single file should contain all 3 classifications (not just the first)
+    data = json.loads(files[0].read_text())
+    categories = [el.get("category") for el in data["elements"]]
+    assert "clickable" in categories, "Debounced save should include 'clickable' classification"
+    assert "typable" in categories, "Debounced save should include 'typable' classification"
+    assert "readable" in categories, "Debounced save should include 'readable' classification"
     _clear_sessions()
 
 def test_b6db_saved_file_is_valid_intermediate(driver):
@@ -2452,8 +2514,11 @@ def test_b6db_saved_file_is_valid_intermediate(driver):
     _clear_sessions()
 
 def test_b6db_multiple_urls_separate_files(driver):
-    """Sieve two different URLs, verify different filenames."""
+    """Sieve two different URLs, verify separate files with correct content."""
     _clear_sessions()
+
+    url1 = "http://localhost:3000/login"
+    url2 = "http://localhost:3000/dashboard"
 
     # Save with URL 1
     driver.execute_script("""
@@ -2462,10 +2527,10 @@ def test_b6db_multiple_urls_separate_files(driver):
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.send(JSON.stringify({
             "sieve-version": "1.0",
-            "source": {"url": "http://localhost:3000/login", "timestamp": "2026-04-09T16:00:00Z"},
-            "elements": [], "metadata": {}, "pass-1-complete": false, "pass-2-progress": 0
+            "source": {"url": arguments[0], "timestamp": "2026-04-09T16:00:00Z"},
+            "elements": [{"tag": "input"}], "metadata": {}, "pass-1-complete": false, "pass-2-progress": 0
         }));
-    """)
+    """, url1)
 
     # Save with URL 2
     driver.execute_script("""
@@ -2474,18 +2539,24 @@ def test_b6db_multiple_urls_separate_files(driver):
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.send(JSON.stringify({
             "sieve-version": "1.0",
-            "source": {"url": "http://localhost:3000/dashboard", "timestamp": "2026-04-09T16:00:01Z"},
-            "elements": [], "metadata": {}, "pass-1-complete": false, "pass-2-progress": 0
+            "source": {"url": arguments[0], "timestamp": "2026-04-09T16:00:01Z"},
+            "elements": [{"tag": "div"}], "metadata": {}, "pass-1-complete": false, "pass-2-progress": 0
         }));
-    """)
+    """, url2)
 
     files = _session_files()
     assert len(files) == 2, f"Expected 2 files, found {len(files)}"
-    names = [f.name for f in files]
-    assert names[0] != names[1], f"Expected different filenames, got {names}"
-    # Check slugs are different
-    assert "login" in names[0] or "login" in names[1], f"Expected 'login' in one filename: {names}"
-    assert "dashboard" in names[0] or "dashboard" in names[1], f"Expected 'dashboard' in one filename: {names}"
+    # Read both files and verify each contains the right URL
+    contents = {f.name: json.loads(f.read_text()) for f in files}
+    urls_in_files = {d["source"]["url"] for d in contents.values()}
+    assert urls_in_files == {url1, url2}, \
+        f"Expected files for both URLs, got: {urls_in_files}"
+    # Verify filenames contain respective slugs
+    for name, data in contents.items():
+        if data["source"]["url"] == url1:
+            assert "login" in name, f"Login file should have 'login' in name: {name}"
+        else:
+            assert "dashboard" in name, f"Dashboard file should have 'dashboard' in name: {name}"
     _clear_sessions()
 
 
