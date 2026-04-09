@@ -459,6 +459,14 @@
 
   .diff-actions .btn { font-size: 12px; padding: 4px 10px; }
 
+  /* Explore mode */
+  .btn-explore-active {
+    background: #f97316 !important;
+    color: #000 !important;
+    border-color: #f97316 !important;
+    font-weight: 700;
+  }
+
   /* Error toast */
   #toast {
     position: fixed;
@@ -486,6 +494,7 @@
   <button class="btn" id="btn-export" data-testid="btn-export">Export</button>
   <button class="btn" id="btn-export-glossary" data-testid="btn-export-glossary" style="display:none">Export Glossary</button>
   <button class="btn" id="btn-load" data-testid="btn-load">Load</button>
+  <button class="btn" id="btn-explore-mode" data-testid="btn-explore-mode">Explore</button>
   <input type="file" id="file-input" accept=".json" style="display:none">
   <span id="status-indicator" data-testid="status-indicator">Ready</span>
   <span id="mode-indicator" data-testid="mode-indicator"></span>
@@ -577,6 +586,9 @@ let state = {
   diffClass: null,         // output of classifyDiff()
   diffSelectedIdx: null,   // selected item index in flat diff list
   _diffResolvedPairs: null, // resolved pairs from resolve mode (if any)
+  exploreMode: false,        // true = clicking overlay dispatches real clicks
+  observationLog: [],        // [{obs1, action, obs2}, ...]
+  _exploreInProgress: false, // re-entrancy guard
 };
 
 // ---- Persistence ----
@@ -588,6 +600,8 @@ function saveState() {
     mode: state.mode,
     glossaryNames: state.glossaryNames,
     pass2Cursor: state.pass2Cursor,
+    exploreMode: state.exploreMode,
+    observationLog: state.observationLog,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
 }
@@ -603,6 +617,8 @@ function loadState() {
       state.mode = saved.mode || 'pass1';
       state.glossaryNames = saved.glossaryNames || {};
       state.pass2Cursor = saved.pass2Cursor || 0;
+      state.exploreMode = saved.exploreMode || false;
+      state.observationLog = saved.observationLog || [];
     }
   } catch (e) { /* ignore corrupt storage */ }
 }
@@ -653,6 +669,16 @@ async function fetchNavigate(url) {
 async function fetchStatus() {
   const res = await fetch(API + '/status');
   if (!res.ok) throw new Error('Status request failed: ' + res.status);
+  return res.json();
+}
+
+async function fetchClick(selector) {
+  const res = await fetch(API + '/click', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ selector }),
+  });
+  if (!res.ok) throw new Error('Click request failed: ' + res.status);
   return res.json();
 }
 
@@ -942,6 +968,7 @@ function renderOverlay() {
   svg.setAttribute('width', dims.w);
   svg.setAttribute('height', dims.h);
   svg.setAttribute('viewBox', '0 0 ' + dims.w + ' ' + dims.h);
+  svg.style.cursor = state.exploreMode ? 'pointer' : '';
 
   const inPass2 = state.mode === 'pass2' || state.mode === 'review';
   const pass2Set = inPass2 ? new Set(state.pass2Order) : null;
@@ -998,6 +1025,27 @@ function renderOverlay() {
         stroke = '#666';
         strokeWidth = 1;
         strokeDash = '4,3';
+        fill = 'none';
+      }
+    }
+
+    // Explore mode overlay: orange tint for clickable, dimmed for non-clickable
+    if (state.exploreMode && state.mode !== 'resolve' && state.mode !== 'diff') {
+      var hasSelector = !!buildClickSelector(el);
+      if (isCurrent && hasSelector) {
+        stroke = '#f97316';
+        strokeWidth = 3;
+        strokeDash = '';
+        fill = 'rgba(249,115,22,0.15)';
+      } else if (hasSelector) {
+        stroke = '#f9731666';
+        strokeWidth = 1.5;
+        strokeDash = '';
+        fill = 'rgba(249,115,22,0.05)';
+      } else {
+        stroke = '#444';
+        strokeWidth = 1;
+        strokeDash = '3,3';
         fill = 'none';
       }
     }
@@ -1447,6 +1495,15 @@ function elementKey(el) {
   if (el.locators?.id && !isDynamicId(el.locators.id)) return 'id::' + el.locators.id;
   if (el.locators?.name) return 'name::' + el.locators.name;
   return 'composite::' + (el.region || '') + '::' + (el.tag || '') + '::' + (el.label || '');
+}
+
+function buildClickSelector(el) {
+  var loc = el.locators;
+  if (!loc) return null;
+  if (loc.testid) return '[data-testid="' + loc.testid + '"]';
+  if (loc.id && !isDynamicId(loc.id)) return '#' + CSS.escape(loc.id);
+  if (loc.name) return '[name="' + loc.name + '"]';
+  return null;
 }
 
 function matchElements(oldEls, newEls) {
@@ -2112,8 +2169,12 @@ function navigate(delta) {
   scrollToCurrentElement();
 }
 
-function jumpTo(index) {
+async function jumpTo(index) {
   if (!state.inventory?.elements?.length) return;
+  if (state.exploreMode && state.mode !== 'resolve' && state.mode !== 'diff') {
+    await doExploreClick(index);
+    return;
+  }
   state.currentIndex = index;
   if (state.mode === 'pass2') {
     var pos = state.pass2Order.indexOf(index);
@@ -2123,6 +2184,60 @@ function jumpTo(index) {
   saveState();
   renderOverlay();
   renderPanel();
+}
+
+async function doExploreClick(index) {
+  if (state._exploreInProgress) return;
+  var el = state.inventory.elements[index];
+  if (!el) return;
+
+  var selector = buildClickSelector(el);
+  if (!selector) {
+    showToast('No reliable selector for this element', 4000);
+    return;
+  }
+
+  state._exploreInProgress = true;
+  var statusEl = document.getElementById('status-indicator');
+  statusEl.textContent = 'Clicking...';
+
+  var obs1 = {
+    url: state.pageUrl,
+    elementCount: state.inventory.elements.length,
+    timestamp: Date.now(),
+  };
+
+  try {
+    await fetchClick(selector);
+
+    var action = {
+      type: 'click',
+      selector: selector,
+      elementLabel: el.label || el.tag || '?',
+      elementIndex: index,
+    };
+
+    statusEl.textContent = 'Re-sieving...';
+    await doSieve();
+
+    var obs2 = {
+      url: state.pageUrl,
+      elementCount: state.inventory?.elements?.length || 0,
+      timestamp: Date.now(),
+    };
+
+    state.observationLog.push({ obs1: obs1, action: action, obs2: obs2 });
+    saveState();
+  } catch (e) {
+    statusEl.textContent = 'Click failed';
+    if (e.message.includes('404') || e.message.includes('405')) {
+      showToast('Server does not support /click — upgrade sieve server', 6000);
+    } else {
+      showToast('Click failed: ' + e.message, 6000);
+    }
+  } finally {
+    state._exploreInProgress = false;
+  }
 }
 
 function scrollToCurrentElement() {
@@ -2370,6 +2485,14 @@ async function doExportGlossary() {
 // ---- Load ----
 document.getElementById('btn-load').addEventListener('click', function () {
   document.getElementById('file-input').click();
+});
+
+document.getElementById('btn-explore-mode').addEventListener('click', function () {
+  state.exploreMode = !state.exploreMode;
+  this.classList.toggle('btn-explore-active', state.exploreMode);
+  this.textContent = state.exploreMode ? 'Explore ON' : 'Explore';
+  renderOverlay();
+  saveState();
 });
 
 document.getElementById('file-input').addEventListener('change', async function (e) {
@@ -2644,6 +2767,13 @@ document.getElementById('btn-export-glossary').addEventListener('click', doExpor
 
 // Restore state on load
 loadState();
+
+// Restore explore mode button state
+if (state.exploreMode) {
+  var exploreBtn = document.getElementById('btn-explore-mode');
+  exploreBtn.classList.add('btn-explore-active');
+  exploreBtn.textContent = 'Explore ON';
+}
 
 // Try to get status on load
 fetchStatus()

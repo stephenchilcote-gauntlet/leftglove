@@ -10,7 +10,7 @@
 - [x] **cuo** — Sieve diff display
 - [x] **07k** — Write glossary integration
 - [x] **y7x** — Verify `sl run` + strict mode
-- [ ] **o4c** — Observation loop click
+- [x] **o4c** — Observation loop click
 - [ ] **b6d-b** — Auto-save wiring
 - [ ] **9m6** — End-to-end demo rehearsal
 
