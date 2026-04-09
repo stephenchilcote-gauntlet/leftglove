@@ -47,6 +47,17 @@ button[type="submit"] {
 
 .error { color: #cc0000; }
 
+.cta-button {
+  display: inline-block;
+  padding: 10px 20px;
+  background: #0066cc;
+  color: white;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
 footer {
   margin-top: 60px;
   padding: 16px 24px;

@@ -878,7 +878,7 @@ function renderDiffOverlay(svg) {
   // Unchanged elements — dimmed
   for (var u = 0; u < diff.unchanged.length; u++) {
     var ue = diff.unchanged[u];
-    var ub = newEls[ue.newIdx]?.box;
+    var ub = newEls[ue.newIdx]?.rect || newEls[ue.newIdx]?.box;
     if (!ub) continue;
     html += '<rect x="' + ub.x + '" y="' + ub.y + '" width="' + (ub.width || ub.w) + '" height="' + (ub.height || ub.h) + '"'
       + ' fill="none" stroke="#444" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>';
@@ -887,7 +887,7 @@ function renderDiffOverlay(svg) {
   // Added elements — green dashed
   for (var a = 0; a < diff.added.length; a++) {
     var ae = diff.added[a];
-    var ab = ae.el?.box;
+    var ab = ae.el?.rect || ae.el?.box;
     if (!ab) continue;
     var isSel = (selectedType === 'added' && selectedItemIdx === a);
     html += '<rect x="' + ab.x + '" y="' + ab.y + '" width="' + (ab.width || ab.w) + '" height="' + (ab.height || ab.h) + '"'
@@ -901,7 +901,7 @@ function renderDiffOverlay(svg) {
   // Removed elements — red dashed (use old bounding box)
   for (var r = 0; r < diff.removed.length; r++) {
     var re = diff.removed[r];
-    var rb = re.el?.box;
+    var rb = re.el?.rect || re.el?.box;
     if (!rb) continue;
     var isSel2 = (selectedType === 'removed' && selectedItemIdx === r);
     html += '<rect x="' + rb.x + '" y="' + rb.y + '" width="' + (rb.width || rb.w) + '" height="' + (rb.height || rb.h) + '"'
@@ -915,7 +915,7 @@ function renderDiffOverlay(svg) {
   // Changed elements — yellow solid
   for (var c = 0; c < diff.changed.length; c++) {
     var ce = diff.changed[c];
-    var cb = ce.newEl?.box;
+    var cb = ce.newEl?.rect || ce.newEl?.box;
     if (!cb) continue;
     var isSel3 = (selectedType === 'changed' && selectedItemIdx === c);
     html += '<rect x="' + cb.x + '" y="' + cb.y + '" width="' + (cb.width || cb.w) + '" height="' + (cb.height || cb.h) + '"'
@@ -1577,11 +1577,13 @@ function computeDiff(oldEls, newEls, matchResult) {
       changes.push('region: ' + (oldEl.region || '') + ' \u2192 ' + (newEl.region || ''));
     }
     // Compare bounding box (5px tolerance)
-    if (oldEl.box && newEl.box) {
-      var dx = Math.abs((oldEl.box.x || 0) - (newEl.box.x || 0));
-      var dy = Math.abs((oldEl.box.y || 0) - (newEl.box.y || 0));
-      var dw = Math.abs((oldEl.box.width || 0) - (newEl.box.width || 0));
-      var dh = Math.abs((oldEl.box.height || 0) - (newEl.box.height || 0));
+    var oldBox = oldEl.rect || oldEl.box;
+    var newBox = newEl.rect || newEl.box;
+    if (oldBox && newBox) {
+      var dx = Math.abs((oldBox.x || 0) - (newBox.x || 0));
+      var dy = Math.abs((oldBox.y || 0) - (newBox.y || 0));
+      var dw = Math.abs((oldBox.width || oldBox.w || 0) - (newBox.width || newBox.w || 0));
+      var dh = Math.abs((oldBox.height || oldBox.h || 0) - (newBox.height || newBox.h || 0));
       if (dx > 5 || dy > 5 || dw > 5 || dh > 5) {
         changes.push('moved/resized');
       }

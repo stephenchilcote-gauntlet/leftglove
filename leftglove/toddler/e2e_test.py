@@ -1507,20 +1507,30 @@ def test_visual_diff_mode(driver):
 
 
 def test_visual_diff_overlay(driver):
-    """Visual: Diff overlay shows colored rectangles on the screenshot area."""
+    """Visual: Navigate login→about, sieve both — diff overlay shows colored rects."""
     judge = _get_judge()
     if not judge:
         print("    (skipped — no ANTHROPIC_API_KEY)")
         return
 
-    # Navigate and sieve to get a real screenshot, then re-sieve for diff
+    # Sieve the login page first
     driver.get(TL_URL)
     driver.execute_script("localStorage.clear()")
     _navigate_and_sieve(driver)
-    _classify_n(driver, 2)
+    _classify_n(driver, 3)
     time.sleep(0.3)
 
-    # Re-sieve to trigger diff mode with real screenshot
+    # Navigate sieve browser to /about (different page → real diff)
+    clear_and_type(driver, "url-input", "http://localhost:3000/about")
+    click(driver, "btn-navigate")
+    WebDriverWait(driver, 20).until(
+        lambda d: d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text not in ("Navigating...", "Sieving...")
+    )
+    time.sleep(0.5)
+
+    # Re-sieve the about page — should trigger diff mode
     click(driver, "btn-sieve")
     time.sleep(1)
     WebDriverWait(driver, 20).until(
@@ -1533,10 +1543,11 @@ def test_visual_diff_overlay(driver):
     screenshot = driver.get_screenshot_as_png()
     judge.assert_screenshot(screenshot, [
         critical("Is there a web page screenshot visible in the main area of the application?"),
-        critical("Is there a bottom panel with diff information (counts, classification, or change list)?"),
-        advisory("Are there rectangular outlines drawn on the screenshot area, possibly in different colors?"),
-        advisory("Does the overall layout appear to have a dark theme with the screenshot on top and a panel below?"),
-    ], test_name="cuo_diff_overlay_real")
+        critical("Is there a bottom panel with diff information showing non-zero counts for added and/or removed elements?"),
+        critical("Are there colored rectangular outlines (green, red, or yellow) drawn on top of the screenshot, indicating added/removed/changed elements?"),
+        advisory("Does the diff classification banner mention 'navigation' (since the URL changed between pages)?"),
+        advisory("Is there a change list in the bottom panel with items labeled NEW or REMOVED?"),
+    ], test_name="cuo_diff_overlay_navigation")
 
 
 # ---------------------------------------------------------------------------
