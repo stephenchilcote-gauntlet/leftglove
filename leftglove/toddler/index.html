@@ -468,6 +468,7 @@
       <span id="classified-count" data-testid="classified-count"></span>
     </div>
   </div>
+  <div id="resolve-panel" style="display:none;flex-direction:column;width:100%;"></div>
 </div>
 
 <!-- Error toast -->
@@ -1001,10 +1002,22 @@ function renderPass2Panel() {
 
 function renderPanel() {
   updateModeIndicator();
+
+  // Toggle panel visibility between resolve and normal modes
+  var resolveDiv = document.getElementById('resolve-panel');
+  var panelInfo = document.getElementById('panel-info');
+  var panelControls = document.getElementById('panel-controls');
+
   if (state.mode === 'resolve') {
     renderResolvePanel();
     return;
   }
+
+  // Restore normal panels (in case we're leaving resolve mode)
+  resolveDiv.style.display = 'none';
+  panelInfo.style.display = '';
+  panelControls.style.display = '';
+
   if (state.mode === 'pass2' || state.mode === 'review') {
     renderPass2Panel();
     return;
@@ -1581,9 +1594,16 @@ function renderResolvePanel() {
   var oldEls = pending.oldInventory.elements;
   var newEls = pending.inventory.elements;
 
-  var panel = document.getElementById('panel');
+  var resolveDiv = document.getElementById('resolve-panel');
+  var panelInfo = document.getElementById('panel-info');
+  var panelControls = document.getElementById('panel-controls');
 
-  var html = '<div style="display:flex;flex-direction:column;width:100%;">';
+  // Show resolve panel, hide normal panels
+  panelInfo.style.display = 'none';
+  panelControls.style.display = 'none';
+  resolveDiv.style.display = 'flex';
+
+  var html = '';
 
   // Banner
   html += '<div class="resolve-banner" data-testid="resolve-banner">'
@@ -1695,9 +1715,7 @@ function renderResolvePanel() {
     + (allDone ? '' : ' disabled style="opacity:0.4"') + '>Done — apply matches</button>';
   html += '</div>';
 
-  html += '</div>';
-
-  panel.innerHTML = html;
+  resolveDiv.innerHTML = html;
 }
 
 function resolveNavGroup(delta) {
@@ -2029,9 +2047,11 @@ document.addEventListener('keydown', function (e) {
       resolveNavGroup(1);
       return;
     }
-    if (e.key >= '1' && e.key <= '9') {
+    // Use e.code (Digit1-Digit9) so Shift doesn't change the key on US/intl layouts
+    var digitMatch = e.code && e.code.match(/^Digit([1-9])$/);
+    if (digitMatch) {
       e.preventDefault();
-      var pos = parseInt(e.key) - 1;
+      var pos = parseInt(digitMatch[1]) - 1;
       if (e.shiftKey) {
         if (group && pos < group.newIdxs.length) resolveSelectNew(group.newIdxs[pos]);
       } else {
