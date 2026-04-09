@@ -460,6 +460,13 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   );
   await clearCaption(page);
 
+  // Accept the Act 5a diff before closing so the panel is clean
+  const mode5a = await page.evaluate(() => (window as any).state.mode);
+  if (mode5a === 'diff') {
+    await page.evaluate(() => (window as any).acceptDiff());
+    await pause(page, 500);
+  }
+
   // Closing caption
   await caption(page,
     'The sieve does for E2E testing what unit test frameworks did for functions — makes it so cheap and structured that there\'s no excuse not to do it.',

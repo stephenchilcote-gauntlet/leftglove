@@ -117,7 +117,7 @@ def main():
 
     # Find a monospace font
     font = None
-    font_size = 18
+    font_size = 24
     for font_path in [
         "/usr/share/fonts/TTF/JetBrainsMono-Regular.ttf",
         "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
