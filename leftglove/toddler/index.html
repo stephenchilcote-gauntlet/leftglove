@@ -1587,12 +1587,14 @@ function finishResolve() {
   var removedCount = ctx.matchResult.removed.length + ctx.removedOld.length;
   showToast(total + ' matched, ' + addedCount + ' added, ' + removedCount + ' removed');
 
-  renderScreenshot().then(function () {
-    renderOverlay();
-    renderPanel();
-    renderMetadata();
-    saveState();
-  });
+  // Render panel/overlay synchronously so mode indicator updates immediately.
+  // Screenshot loading is async but UI state shouldn't wait for it.
+  renderOverlay();
+  renderPanel();
+  renderMetadata();
+  saveState();
+
+  renderScreenshot().catch(function () { /* screenshot may be null in tests */ });
 }
 
 function renderResolvePanel() {

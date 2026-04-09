@@ -749,6 +749,265 @@ def test_qo2_resolve_ui_renders(driver):
     """)
 
 
+def test_qo2_resolve_full_flow(driver):
+    """Full resolve flow: inject ambiguity, pair elements, mark added, finish, verify propagation."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    # Inject ambiguous state: 2 old <li> elements (with classifications + names)
+    # matched against 3 new <li> elements. All share the same composite key.
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:10,w:200,h:30}},
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:50,w:200,h:30}},
+            ],
+        };
+        state.classifications = {0: 'clickable', 1: 'readable'};
+        state.glossaryNames = {0: {name: 'first-item', intent: 'List', source: 'human', notes: ''}};
+        state.mode = 'pass1';
+
+        var newInv = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:10,w:200,h:30}},
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:50,w:200,h:30}},
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:90,w:200,h:30}},
+            ],
+        };
+
+        var matchResult = matchElements(state.inventory.elements, newInv.elements);
+        var pendingSieve = {
+            inventory: newInv,
+            screenshotUrl: null,
+            screenshotDataUrl: null,
+            matchResult: matchResult,
+            oldInventory: state.inventory,
+            oldClassifications: Object.assign({}, state.classifications),
+            oldGlossaryNames: Object.assign({}, state.glossaryNames),
+        };
+        enterResolveMode(matchResult, pendingSieve);
+    """)
+    time.sleep(0.5)
+
+    # Verify we're in resolve mode
+    mode = get_text(driver, "mode-indicator")
+    assert "Resolve" in mode, f"Expected resolve mode, got: {mode!r}"
+
+    # Done button should be disabled
+    done_btn = driver.find_element(By.CSS_SELECTOR, '[data-testid="btn-resolve-done"]')
+    assert done_btn.get_attribute("disabled") is not None, "Done should be disabled initially"
+
+    # Step 1: Select old element 0, then pair with new element 0
+    driver.execute_script("resolveSelectOld(0)")
+    time.sleep(0.2)
+    driver.execute_script("resolveSelectNew(0)")
+    time.sleep(0.2)
+
+    # Verify the pair was created
+    pairs = driver.execute_script("return state.resolveContext.pairs")
+    assert len(pairs) == 1, f"Expected 1 pair after pairing, got {len(pairs)}"
+    assert pairs[0]["oldIdx"] == 0 and pairs[0]["newIdx"] == 0
+
+    # Step 2: Select old element 1, then pair with new element 1
+    driver.execute_script("resolveSelectOld(1)")
+    time.sleep(0.2)
+    driver.execute_script("resolveSelectNew(1)")
+    time.sleep(0.2)
+
+    pairs = driver.execute_script("return state.resolveContext.pairs")
+    assert len(pairs) == 2, f"Expected 2 pairs, got {len(pairs)}"
+
+    # Step 3: Mark new element 2 as added (it has no old counterpart to pair with)
+    driver.execute_script("resolveMarkNewAdded(2)")
+    time.sleep(0.2)
+
+    added = driver.execute_script("return state.resolveContext.addedNew")
+    assert 2 in added, f"Expected new element 2 in addedNew, got {added}"
+
+    # All elements resolved — Done should be enabled
+    all_resolved = driver.execute_script("return areAllGroupsResolved()")
+    assert all_resolved, "All groups should be resolved"
+
+    # Progress should show "All resolved"
+    progress = get_text(driver, "resolve-progress")
+    assert "All resolved" in progress, f"Expected 'All resolved', got: {progress!r}"
+
+    # The Done button should now be enabled (no disabled attribute)
+    done_btn = driver.find_element(By.CSS_SELECTOR, '[data-testid="btn-resolve-done"]')
+    assert done_btn.get_attribute("disabled") is None, "Done should be enabled after resolving all"
+
+    # Step 4: Click Done
+    driver.execute_script("finishResolve()")
+    time.sleep(0.5)
+
+    # Should be back in pass1 mode (pre-resolve mode was pass1)
+    mode_after = get_text(driver, "mode-indicator")
+    assert "Pass 1" in mode_after, f"Expected mode restored to Pass 1, got: {mode_after!r}"
+
+    # Verify resolve context is cleared
+    ctx = driver.execute_script("return state.resolveContext")
+    assert ctx is None, f"resolveContext should be null after finish, got: {ctx}"
+
+    # Verify classifications propagated:
+    # old[0] (clickable) → new[0], old[1] (readable) → new[1]
+    cls = driver.execute_script("return state.classifications")
+    assert cls.get("0") == "clickable", f"Expected cls[0]=clickable, got {cls}"
+    assert cls.get("1") == "readable", f"Expected cls[1]=readable, got {cls}"
+    # new[2] was marked added — no classification
+    assert "2" not in cls, f"Added element should have no classification: {cls}"
+
+    # Verify glossary name propagated: old[0] → new[0]
+    names = driver.execute_script("return state.glossaryNames")
+    assert names.get("0") is not None, f"Expected glossary name on new[0], got {names}"
+    assert names["0"]["name"] == "first-item"
+    assert names["0"]["intent"] == "List"
+    # new[1] had no glossary name on old[1]
+    assert "1" not in names, f"new[1] should have no glossary name: {names}"
+
+    # Verify inventory is the new one (3 elements)
+    el_count = driver.execute_script("return state.inventory.elements.length")
+    assert el_count == 3, f"Expected 3 elements in new inventory, got {el_count}"
+
+
+def test_qo2_resolve_undo_pair(driver):
+    """Test that undoing a pair re-enables the elements for re-pairing."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    # Inject 2-vs-2 ambiguity
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
+            ],
+        };
+        state.classifications = {0: 'clickable', 1: 'typable'};
+        state.glossaryNames = {};
+        state.mode = 'pass1';
+
+        var newInv = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
+            ],
+        };
+
+        var matchResult = matchElements(state.inventory.elements, newInv.elements);
+        var pendingSieve = {
+            inventory: newInv,
+            screenshotUrl: null,
+            screenshotDataUrl: null,
+            matchResult: matchResult,
+            oldInventory: state.inventory,
+            oldClassifications: Object.assign({}, state.classifications),
+            oldGlossaryNames: Object.assign({}, state.glossaryNames),
+        };
+        enterResolveMode(matchResult, pendingSieve);
+    """)
+    time.sleep(0.3)
+
+    # Pair old[0] → new[0]
+    driver.execute_script("resolveSelectOld(0); resolveSelectNew(0);")
+    time.sleep(0.2)
+    pairs = driver.execute_script("return state.resolveContext.pairs")
+    assert len(pairs) == 1
+
+    # Undo that pair
+    driver.execute_script("resolveUndoPair(0, 0)")
+    time.sleep(0.2)
+    pairs = driver.execute_script("return state.resolveContext.pairs")
+    assert len(pairs) == 0, f"Expected 0 pairs after undo, got {len(pairs)}"
+
+    # Now pair differently: old[0] → new[1], old[1] → new[0]
+    driver.execute_script("resolveSelectOld(0); resolveSelectNew(1);")
+    time.sleep(0.1)
+    driver.execute_script("resolveSelectOld(1); resolveSelectNew(0);")
+    time.sleep(0.2)
+
+    pairs = driver.execute_script("return state.resolveContext.pairs")
+    assert len(pairs) == 2, f"Expected 2 pairs after re-pairing, got {len(pairs)}"
+
+    # Finish and verify swapped propagation
+    driver.execute_script("finishResolve()")
+    time.sleep(0.3)
+
+    cls = driver.execute_script("return state.classifications")
+    # old[0] was 'clickable' → paired to new[1]
+    assert cls.get("1") == "clickable", f"Expected cls[1]=clickable (from old[0]), got {cls}"
+    # old[1] was 'typable' → paired to new[0]
+    assert cls.get("0") == "typable", f"Expected cls[0]=typable (from old[1]), got {cls}"
+
+
+def test_qo2_resolve_mark_all_removed_and_added(driver):
+    """Test resolving by marking all old as removed and all new as added (no pairing)."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    driver.execute_script("""
+        state.inventory = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+            ],
+        };
+        state.classifications = {0: 'clickable'};
+        state.glossaryNames = {0: {name: 'old-thing', intent: 'X', source: 'human', notes: ''}};
+        state.mode = 'pass1';
+
+        var newInv = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
+            ],
+        };
+
+        var matchResult = matchElements(state.inventory.elements, newInv.elements);
+        var pendingSieve = {
+            inventory: newInv,
+            screenshotUrl: null,
+            screenshotDataUrl: null,
+            matchResult: matchResult,
+            oldInventory: state.inventory,
+            oldClassifications: Object.assign({}, state.classifications),
+            oldGlossaryNames: Object.assign({}, state.glossaryNames),
+        };
+        enterResolveMode(matchResult, pendingSieve);
+    """)
+    time.sleep(0.3)
+
+    # Mark old[0] as removed, new[0] and new[1] as added
+    driver.execute_script("""
+        resolveMarkOldRemoved(0);
+        resolveMarkNewAdded(0);
+        resolveMarkNewAdded(1);
+    """)
+    time.sleep(0.2)
+
+    all_resolved = driver.execute_script("return areAllGroupsResolved()")
+    assert all_resolved, "Should be resolved after marking all"
+
+    driver.execute_script("finishResolve()")
+    time.sleep(0.3)
+
+    # Nothing should propagate — all old marked removed, all new marked added
+    cls = driver.execute_script("return state.classifications")
+    names = driver.execute_script("return state.glossaryNames")
+    assert len(cls) == 0, f"Expected no classifications (all removed/added), got {cls}"
+    assert len(names) == 0, f"Expected no glossary names, got {names}"
+
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -783,6 +1042,9 @@ TESTS = [
     ("qo2: resolve blocks navigate", test_qo2_resolve_blocks_navigate),
     ("qo2: resolve blocks load", test_qo2_resolve_blocks_load),
     ("qo2: resolve UI renders", test_qo2_resolve_ui_renders),
+    ("qo2: resolve full flow — pair + mark added + finish", test_qo2_resolve_full_flow),
+    ("qo2: resolve undo pair and re-pair", test_qo2_resolve_undo_pair),
+    ("qo2: resolve mark all removed/added", test_qo2_resolve_mark_all_removed_and_added),
 ]
 
 if __name__ == "__main__":
