@@ -10,7 +10,7 @@ dist/
 tests/artifacts/
 leftglove/toddler/sessions/*.json
 leftglove/toddler/demo/audio-clips/
-leftglove/toddler/demo/casts/
+leftglove/toddler/demo/casts/*.mp4
 leftglove/toddler/demo/segments/
 leftglove/toddler/demo/screenshots/
 leftglove/toddler/demo/test-results/

@@ -462,15 +462,8 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // Accept the Act 3a diff so Act 5a compares against the new baseline (88 elements)
   const modeBeforeAct5 = await page.evaluate(() => (state as any).mode);
-  const countBeforeAccept = await page.evaluate(() => (state as any).inventory?.elements?.length);
-  console.log(`[Act 5a] mode=${modeBeforeAct5}, inventory=${countBeforeAccept} elements`);
   if (modeBeforeAct5 === 'diff') {
     await page.evaluate(() => (window as any).acceptDiff());
-    const countAfterAccept = await page.evaluate(() => (state as any).inventory?.elements?.length);
-    const modeAfterAccept = await page.evaluate(() => (state as any).mode);
-    console.log(`[Act 5a] after acceptDiff: mode=${modeAfterAccept}, inventory=${countAfterAccept} elements`);
-  } else {
-    console.log(`[Act 5a] WARNING: mode was ${modeBeforeAct5}, not diff — skipped acceptDiff`);
   }
 
   await caption(page,

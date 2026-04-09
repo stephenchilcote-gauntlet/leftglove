@@ -198,6 +198,19 @@
             Donate Now
           </button>
 
+          <% if (locals.showRecurring) { %>
+          <!-- Recurring donation toggle (added by agent) -->
+          <div class="rounded-xl bg-green-50 p-4 ring-1 ring-green-200" data-testid="recurring-donation">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" data-testid="recurring-checkbox" />
+              <div>
+                <span class="text-sm font-medium text-gray-900">Make it monthly</span>
+                <p class="text-xs text-gray-500 mt-0.5">Set up a recurring monthly donation</p>
+              </div>
+            </label>
+          </div>
+          <% } %>
+
           <!-- Action buttons -->
           <div class="flex gap-2">
             <button class="flex-1 rounded-full border border-gray-300 px-6 py-2.5 text-sm font-medium hover:border-primary/50 transition-colors" data-testid="follow-button">
@@ -210,19 +223,6 @@
               </span>
             </button>
           </div>
-
-          <% if (locals.showRecurring) { %>
-          <!-- Recurring donation toggle (added by agent) -->
-          <div class="rounded-xl bg-green-soft p-4" data-testid="recurring-donation">
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" data-testid="recurring-checkbox" />
-              <div>
-                <span class="text-sm font-medium text-gray-900">Make it monthly</span>
-                <p class="text-xs text-gray-500 mt-0.5">Set up a recurring donation to provide sustained support</p>
-              </div>
-            </label>
-          </div>
-          <% } %>
 
           <hr class="border-gray-200" />
 

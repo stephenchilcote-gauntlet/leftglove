@@ -1,0 +1,32 @@
+[
+  {
+    "segment": "segment-4-mcp-vocabulary",
+    "clipId": "mcp-vocab",
+    "t": 200
+  },
+  {
+    "segment": "segment-4-mcp-vocabulary",
+    "clipId": "strict-mode",
+    "t": 14300
+  },
+  {
+    "segment": "segment-5-code-change",
+    "clipId": "code-change",
+    "t": 200
+  },
+  {
+    "segment": "segment-6-test-passes",
+    "clipId": "test-write",
+    "t": 200
+  },
+  {
+    "segment": "segment-6-test-passes",
+    "clipId": "test-pass",
+    "t": 9500
+  },
+  {
+    "segment": "segment-7-test-fails",
+    "clipId": "test-fail",
+    "t": 200
+  }
+]
