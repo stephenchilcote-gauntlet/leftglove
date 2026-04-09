@@ -9,13 +9,9 @@
  * Run: make demo-browser
  */
 import { defineConfig } from '@playwright/test';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  testDir: __dirname,
+  testDir: __dirname || '.',
   testMatch: ['browser-tour.spec.ts'],
   fullyParallel: false,
   retries: 0,

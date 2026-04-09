@@ -97,18 +97,28 @@ else
 fi
 
 # --- Health checks ---
-wait_for "demo app" "http://localhost:$DEMO_PORT/login"
-wait_for "TL UI"    "http://localhost:$TL_PORT/"
+wait_for "demo app" "http://localhost:$DEMO_PORT/healthz"
+wait_for "TL UI"    "http://localhost:$TL_PORT/healthz"
 wait_for "sieve"    "http://localhost:$SIEVE_PORT/status" 60
 
-# --- Ready ---
+# --- Commit verification ---
+EXPECTED_COMMIT="$(git -C "$LG_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+DEMO_COMMIT="$(curl -sf "http://localhost:$DEMO_PORT/healthz" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("commit","?"))' 2>/dev/null || echo '?')"
+TL_COMMIT="$(curl -sf "http://localhost:$TL_PORT/healthz" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("commit","?"))' 2>/dev/null || echo '?')"
+
 echo ""
 echo "============================================"
 echo "  All services ready"
 echo ""
-echo "  Demo app:  http://localhost:$DEMO_PORT"
-echo "  TL UI:     http://localhost:$TL_PORT?api=http://localhost:$SIEVE_PORT"
+echo "  Demo app:  http://localhost:$DEMO_PORT  (commit: $DEMO_COMMIT)"
+echo "  TL UI:     http://localhost:$TL_PORT?api=http://localhost:$SIEVE_PORT  (commit: $TL_COMMIT)"
 echo "  Sieve:     http://localhost:$SIEVE_PORT"
+echo "  Expected:  $EXPECTED_COMMIT"
+if [[ "$DEMO_COMMIT" != "$EXPECTED_COMMIT" ]] || [[ "$TL_COMMIT" != "$EXPECTED_COMMIT" ]]; then
+  echo ""
+  echo "  ⚠ COMMIT MISMATCH — services may be running stale code!"
+  echo "  Restart services to pick up latest changes."
+fi
 echo "============================================"
 echo ""
 echo "[demo-run] Press Ctrl+C to stop all services."

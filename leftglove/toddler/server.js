@@ -1,6 +1,13 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
+
+const COMMIT = (() => {
+  try { return execSync('git rev-parse --short HEAD', { cwd: __dirname }).toString().trim(); }
+  catch { return 'unknown'; }
+})();
+const STARTED = new Date().toISOString();
 
 const PORT = process.env.PORT || 8080;
 const SESSIONS_DIR = path.join(__dirname, 'sessions');
@@ -29,6 +36,13 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
+
+  // GET /healthz
+  if (req.method === 'GET' && req.url === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', commit: COMMIT, started: STARTED, service: 'toddler-ui' }));
+    return;
+  }
 
   // POST /save
   if (req.method === 'POST' && req.url === '/save') {

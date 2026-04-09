@@ -1,7 +1,14 @@
 const express = require('express');
 const cookieSession = require('cookie-session');
 const path = require('path');
+const { execSync } = require('child_process');
 const config = require('./config');
+
+const COMMIT = (() => {
+  try { return execSync('git rev-parse --short HEAD', { cwd: __dirname }).toString().trim(); }
+  catch { return 'unknown'; }
+})();
+const STARTED = new Date().toISOString();
 
 const app = express();
 
@@ -17,6 +24,10 @@ app.use(cookieSession({
 }));
 
 app.locals.config = config;
+
+app.get('/healthz', (req, res) => {
+  res.json({ status: 'ok', commit: COMMIT, started: STARTED, service: 'demo-app' });
+});
 
 app.use('/', require('./routes/index'));
 app.use('/', require('./routes/login'));
