@@ -392,6 +392,364 @@ def test_load_invalid_intermediate_shows_toast(driver):
         os.unlink(bad_path)
 
 # ---------------------------------------------------------------------------
+# qo2 — Element identity across observations
+# ---------------------------------------------------------------------------
+
+def _navigate_and_sieve(driver):
+    """Navigate to demo login page and run sieve. Returns when elements are loaded."""
+    driver.get(TL_URL)
+    wait_for(driver, "url-input")
+    time.sleep(0.5)
+
+    clear_and_type(driver, "url-input", DEMO_LOGIN)
+    click(driver, "btn-navigate")
+
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+    )
+
+def _classify_n(driver, n):
+    """Classify n elements as clickable via keyboard shortcut."""
+    body = driver.find_element(By.TAG_NAME, "body")
+    for _ in range(n):
+        body.send_keys("c")
+        time.sleep(0.1)
+
+
+def test_qo2_pure_isDynamicId(driver):
+    """Test isDynamicId function directly in browser JS."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+    results = driver.execute_script("""
+        return [
+            isDynamicId('a1b2c3d4-e5f6-7890-abcd-ef1234567890'),  // UUID
+            isDynamicId('12345'),                                    // numeric only
+            isDynamicId('abcdef0123456789a'),                        // long hex
+            isDynamicId('react-abc123'),                              // framework
+            isDynamicId('widget-123456'),                             // long number suffix
+            isDynamicId('login-email'),                               // stable — false
+            isDynamicId('btn-submit'),                                // stable — false
+            isDynamicId(null),                                        // null — false
+            isDynamicId(''),                                          // empty — false
+        ];
+    """)
+    expected = [True, True, True, True, True, False, False, False, False]
+    assert results == expected, f"isDynamicId results: {results} != {expected}"
+
+
+def test_qo2_pure_elementKey(driver):
+    """Test elementKey priority chain in browser JS."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+    results = driver.execute_script("""
+        return [
+            elementKey({locators: {testid: 'login-email', id: 'email'}, tag: 'input', label: 'Email', region: 'main'}),
+            elementKey({locators: {id: 'email'}, tag: 'input', label: 'Email', region: 'main'}),
+            elementKey({locators: {id: 'a1b2c3d4-e5f6-7890-abcd-0000'}, tag: 'div', label: 'X', region: 'main'}),
+            elementKey({locators: {name: 'username'}, tag: 'input', label: 'User', region: 'form'}),
+            elementKey({locators: {}, tag: 'button', label: 'Submit', region: 'main > form'}),
+        ];
+    """)
+    assert results[0] == "testid::login-email", f"testid should win: {results[0]}"
+    assert results[1] == "id::email", f"stable id: {results[1]}"
+    assert results[2].startswith("composite::"), f"dynamic id should fall through: {results[2]}"
+    assert results[3] == "name::username", f"name fallback: {results[3]}"
+    assert results[4] == "composite::main > form::button::Submit", f"composite: {results[4]}"
+
+
+def test_qo2_pure_matchElements(driver):
+    """Test matchElements with known inputs."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+    result = driver.execute_script("""
+        var oldEls = [
+            {locators: {testid: 'a'}, tag: 'input', label: 'A', region: 'r'},
+            {locators: {testid: 'b'}, tag: 'input', label: 'B', region: 'r'},
+            {locators: {testid: 'c'}, tag: 'input', label: 'C', region: 'r'},
+        ];
+        var newEls = [
+            {locators: {testid: 'b'}, tag: 'input', label: 'B', region: 'r'},
+            {locators: {testid: 'c'}, tag: 'input', label: 'C', region: 'r'},
+            {locators: {testid: 'd'}, tag: 'input', label: 'D', region: 'r'},
+        ];
+        var result = matchElements(oldEls, newEls);
+        return {
+            matchedCount: result.matched.length,
+            addedCount: result.added.length,
+            removedCount: result.removed.length,
+            ambiguousCount: result.ambiguous.length,
+            matchedKeys: result.matched.map(function(m) { return m.key; }).sort(),
+        };
+    """)
+    assert result["matchedCount"] == 2, f"Expected 2 matched, got {result['matchedCount']}"
+    assert result["addedCount"] == 1, f"Expected 1 added, got {result['addedCount']}"
+    assert result["removedCount"] == 1, f"Expected 1 removed, got {result['removedCount']}"
+    assert result["ambiguousCount"] == 0, f"Expected 0 ambiguous, got {result['ambiguousCount']}"
+    assert "testid::b" in result["matchedKeys"]
+    assert "testid::c" in result["matchedKeys"]
+
+
+def test_qo2_pure_matchElements_ambiguous(driver):
+    """Test matchElements detects ambiguity when multiple elements share a key."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+    result = driver.execute_script("""
+        var oldEls = [
+            {locators: {}, tag: 'li', label: 'Item', region: 'list'},
+            {locators: {}, tag: 'li', label: 'Item', region: 'list'},
+        ];
+        var newEls = [
+            {locators: {}, tag: 'li', label: 'Item', region: 'list'},
+            {locators: {}, tag: 'li', label: 'Item', region: 'list'},
+            {locators: {}, tag: 'li', label: 'Item', region: 'list'},
+        ];
+        var result = matchElements(oldEls, newEls);
+        return {
+            matchedCount: result.matched.length,
+            ambiguousCount: result.ambiguous.length,
+            ambiguousOldCount: result.ambiguous[0] ? result.ambiguous[0].oldIdxs.length : 0,
+            ambiguousNewCount: result.ambiguous[0] ? result.ambiguous[0].newIdxs.length : 0,
+        };
+    """)
+    assert result["matchedCount"] == 0, f"Expected 0 matched (all ambiguous), got {result['matchedCount']}"
+    assert result["ambiguousCount"] == 1, f"Expected 1 ambiguous group, got {result['ambiguousCount']}"
+    assert result["ambiguousOldCount"] == 2
+    assert result["ambiguousNewCount"] == 3
+
+
+def test_qo2_pure_propagateNames(driver):
+    """Test that propagateNames carries forward classifications and glossary names."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+    result = driver.execute_script("""
+        var matchResult = {
+            matched: [{oldIdx: 0, newIdx: 2, key: 'testid::a'}, {oldIdx: 1, newIdx: 0, key: 'testid::b'}],
+            added: [{newIdx: 1, key: 'testid::c'}],
+            removed: [],
+            ambiguous: [],
+        };
+        var oldCls = {0: 'clickable', 1: 'typable'};
+        var oldNames = {0: {name: 'submit', intent: 'Login', source: 'human', notes: ''}};
+        var result = propagateNames(matchResult, oldCls, oldNames);
+        return {cls: result.classifications, names: result.glossaryNames};
+    """)
+    # oldIdx 0 (clickable) → newIdx 2
+    assert result["cls"]["2"] == "clickable", f"Expected cls[2]=clickable, got {result['cls']}"
+    # oldIdx 1 (typable) → newIdx 0
+    assert result["cls"]["0"] == "typable", f"Expected cls[0]=typable, got {result['cls']}"
+    # newIdx 1 is added — should have no classification
+    assert "1" not in result["cls"], f"Added element should have no classification: {result['cls']}"
+    # Glossary name propagated: oldIdx 0 → newIdx 2
+    assert result["names"]["2"]["name"] == "submit"
+    assert result["names"]["2"]["intent"] == "Login"
+
+
+def test_qo2_resieve_propagates_classifications(driver):
+    """Real browser: sieve login, classify, re-sieve same page — classifications carry forward."""
+    _navigate_and_sieve(driver)
+
+    # Classify first 3 elements
+    _classify_n(driver, 3)
+    time.sleep(0.3)
+
+    count_before = get_text(driver, "classified-count")
+    assert "3" in count_before, f"Expected 3 classified before re-sieve, got: {count_before!r}"
+
+    # Re-sieve the same page
+    click(driver, "btn-sieve")
+
+    # Wait for sieve to complete
+    time.sleep(1)
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+    )
+
+    # Toast should show match results
+    toast = driver.find_element(By.ID, "toast")
+    toast_text = driver.execute_script("return arguments[0].textContent", toast)
+    assert "matched" in toast_text.lower(), f"Expected match toast, got: {toast_text!r}"
+
+    # Classifications should have been propagated
+    count_after = get_text(driver, "classified-count")
+    # At least some should carry forward (demo login page has testids → clean matches)
+    assert count_after.strip() != "" and "0 classified" not in count_after, \
+        f"Expected propagated classifications, got: {count_after!r}"
+
+
+def test_qo2_resieve_preserves_mode(driver):
+    """Re-sieve should not reset mode back to pass1 if we were further along."""
+    _navigate_and_sieve(driver)
+
+    # Classify all elements to reach pass2
+    body = driver.find_element(By.TAG_NAME, "body")
+    for _ in range(50):
+        btns = driver.find_elements(By.CSS_SELECTOR, '[data-testid="btn-start-pass2"]')
+        if btns and btns[0].is_displayed():
+            break
+        body.send_keys("c")
+        time.sleep(0.1)
+
+    click(driver, "btn-start-pass2")
+    time.sleep(0.3)
+    mode_before = get_text(driver, "mode-indicator")
+    assert "Pass 2" in mode_before
+
+    # Re-sieve
+    click(driver, "btn-sieve")
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+    )
+    time.sleep(0.5)
+
+    # Mode should still be pass2
+    mode_after = get_text(driver, "mode-indicator")
+    assert "Pass 2" in mode_after, f"Expected mode preserved as Pass 2, got: {mode_after!r}"
+
+
+def test_qo2_resolve_blocks_sieve(driver):
+    """Verify that sieve is blocked during resolve mode (via injected state)."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    # Inject resolve mode state directly
+    driver.execute_script("""
+        state.mode = 'resolve';
+        state.resolveContext = { allGroups: [], currentGroupIdx: 0, pairs: [], removedOld: [], addedNew: [] };
+    """)
+
+    click(driver, "btn-sieve")
+    time.sleep(0.5)
+
+    # Toast should appear with blocking message
+    toast = driver.find_element(By.ID, "toast")
+    toast_text = driver.execute_script("return arguments[0].textContent", toast)
+    assert "resolv" in toast_text.lower(), f"Expected resolve-blocking toast, got: {toast_text!r}"
+
+    # Clean up
+    driver.execute_script("state.mode = 'pass1'; state.resolveContext = null;")
+
+
+def test_qo2_resolve_blocks_navigate(driver):
+    """Verify that navigate is blocked during resolve mode."""
+    driver.get(TL_URL)
+    wait_for(driver, "url-input")
+
+    driver.execute_script("""
+        state.mode = 'resolve';
+        state.resolveContext = { allGroups: [], currentGroupIdx: 0, pairs: [], removedOld: [], addedNew: [] };
+    """)
+
+    clear_and_type(driver, "url-input", DEMO_LOGIN)
+    click(driver, "btn-navigate")
+    time.sleep(0.5)
+
+    toast = driver.find_element(By.ID, "toast")
+    toast_text = driver.execute_script("return arguments[0].textContent", toast)
+    assert "resolv" in toast_text.lower(), f"Expected resolve-blocking toast, got: {toast_text!r}"
+
+    driver.execute_script("state.mode = 'pass1'; state.resolveContext = null;")
+
+
+def test_qo2_resolve_blocks_load(driver):
+    """Verify that file load is blocked during resolve mode."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-load")
+
+    driver.execute_script("""
+        state.mode = 'resolve';
+        state.resolveContext = { allGroups: [], currentGroupIdx: 0, pairs: [], removedOld: [], addedNew: [] };
+    """)
+
+    _send_fixture(driver)
+    time.sleep(0.5)
+
+    toast = driver.find_element(By.ID, "toast")
+    toast_text = driver.execute_script("return arguments[0].textContent", toast)
+    assert "resolv" in toast_text.lower(), f"Expected resolve-blocking toast, got: {toast_text!r}"
+
+    driver.execute_script("state.mode = 'pass1'; state.resolveContext = null;")
+
+
+def test_qo2_resolve_ui_renders(driver):
+    """Inject ambiguous match state and verify resolve UI appears."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+
+    # Inject a pending sieve with ambiguous results
+    driver.execute_script("""
+        // Fake old inventory
+        state.inventory = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
+            ],
+        };
+        state.classifications = {0: 'readable', 1: 'readable'};
+        state.glossaryNames = {};
+
+        // Fake new inventory
+        var newInv = {
+            url: {raw: 'http://example.com'},
+            viewport: {w: 1920, h: 1080},
+            elements: [
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
+                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:40,w:100,h:20}},
+            ],
+        };
+
+        var matchResult = matchElements(state.inventory.elements, newInv.elements);
+        var pendingSieve = {
+            inventory: newInv,
+            screenshotUrl: null,
+            screenshotDataUrl: null,
+            matchResult: matchResult,
+            oldInventory: state.inventory,
+            oldClassifications: Object.assign({}, state.classifications),
+            oldGlossaryNames: Object.assign({}, state.glossaryNames),
+        };
+        enterResolveMode(matchResult, pendingSieve);
+    """)
+
+    time.sleep(0.5)
+
+    # Mode indicator should say Resolve
+    mode = get_text(driver, "mode-indicator")
+    assert "Resolve" in mode, f"Expected 'Resolve Matches' in mode indicator, got: {mode!r}"
+
+    # Resolve banner should be visible
+    banner = wait_visible(driver, "resolve-banner")
+    assert "group 1" in banner.text.lower(), f"Expected group info in banner, got: {banner.text!r}"
+
+    # Old and new element lists should be present
+    old_list = wait_for(driver, "resolve-old-list")
+    new_list = wait_for(driver, "resolve-new-list")
+    assert old_list is not None
+    assert new_list is not None
+
+    # Done button should be disabled (nothing resolved yet)
+    done_btn = driver.find_element(By.CSS_SELECTOR, '[data-testid="btn-resolve-done"]')
+    assert done_btn.get_attribute("disabled") is not None, "Done button should be disabled"
+
+    # Clean up
+    driver.execute_script("""
+        state.mode = 'pass1';
+        state.resolveContext = null;
+        state._pendingSieve = null;
+        state.inventory = null;
+        renderPanel();
+    """)
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -413,6 +771,18 @@ TESTS = [
     ("Load fixture — element detail populated", test_load_element_detail_populated),
     ("Load invalid JSON — shows toast", test_load_invalid_json_shows_toast),
     ("Load invalid intermediate — shows toast", test_load_invalid_intermediate_shows_toast),
+    # qo2 — Element identity
+    ("qo2: isDynamicId pure function", test_qo2_pure_isDynamicId),
+    ("qo2: elementKey pure function", test_qo2_pure_elementKey),
+    ("qo2: matchElements pure function", test_qo2_pure_matchElements),
+    ("qo2: matchElements detects ambiguity", test_qo2_pure_matchElements_ambiguous),
+    ("qo2: propagateNames pure function", test_qo2_pure_propagateNames),
+    ("qo2: re-sieve propagates classifications", test_qo2_resieve_propagates_classifications),
+    ("qo2: re-sieve preserves mode", test_qo2_resieve_preserves_mode),
+    ("qo2: resolve blocks sieve", test_qo2_resolve_blocks_sieve),
+    ("qo2: resolve blocks navigate", test_qo2_resolve_blocks_navigate),
+    ("qo2: resolve blocks load", test_qo2_resolve_blocks_load),
+    ("qo2: resolve UI renders", test_qo2_resolve_ui_renders),
 ]
 
 if __name__ == "__main__":
