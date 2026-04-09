@@ -11,7 +11,7 @@
 - [x] **07k** — Write glossary integration
 - [x] **y7x** — Verify `sl run` + strict mode
 - [x] **o4c** — Observation loop click
-- [ ] **b6d-b** — Auto-save wiring
+- [x] **b6d-b** — Auto-save wiring
 - [ ] **9m6** — End-to-end demo rehearsal
 
 ---

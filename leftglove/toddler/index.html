@@ -604,6 +604,33 @@ function saveState() {
     observationLog: state.observationLog,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  autoSave();
+}
+
+// ---- Auto-save to disk ----
+var _autoSaveTimer = null;
+var _autoSaveEndpoint = null; // set to '/save' if server detected
+
+function autoSave() {
+  if (!_autoSaveEndpoint) return;
+  if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(function () {
+    _autoSaveTimer = null;
+    var data = toIntermediate(state);
+    if (!data) return;
+    fetch(_autoSaveEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then(function (res) {
+      if (res.ok) return res.json();
+      throw new Error('Save failed: ' + res.status);
+    }).then(function (result) {
+      console.log('[auto-save] Saved:', result.saved);
+    }).catch(function (e) {
+      console.warn('[auto-save]', e.message);
+    });
+  }, 1500);
 }
 
 function loadState() {
@@ -2774,6 +2801,14 @@ if (state.exploreMode) {
   exploreBtn.classList.add('btn-explore-active');
   exploreBtn.textContent = 'Explore ON';
 }
+
+// Detect if auto-save server is available
+fetch('/save', { method: 'OPTIONS' }).then(function () {
+  _autoSaveEndpoint = '/save';
+  console.log('[auto-save] Server detected, auto-save enabled');
+}).catch(function () {
+  console.log('[auto-save] No save server, auto-save disabled');
+});
 
 // Try to get status on load
 fetchStatus()

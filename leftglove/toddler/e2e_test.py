@@ -2197,6 +2197,284 @@ def test_visual_explore_after_click(driver):
 
 
 # ---------------------------------------------------------------------------
+# b6d-b — Auto-save wiring
+# ---------------------------------------------------------------------------
+
+SESSIONS_DIR = Path(__file__).parent / "sessions"
+
+def _clear_sessions():
+    """Remove all .json files from sessions dir for test isolation."""
+    if SESSIONS_DIR.exists():
+        for f in SESSIONS_DIR.glob("*.json"):
+            f.unlink()
+
+def _session_files():
+    """List .json files in sessions dir."""
+    if not SESSIONS_DIR.exists():
+        return []
+    return sorted(SESSIONS_DIR.glob("*.json"))
+
+def test_b6db_server_serves_ui(driver):
+    """GET / from node server returns the TL UI HTML."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+    title_el = driver.find_element(By.TAG_NAME, "title")
+    assert title_el is not None
+
+def test_b6db_save_endpoint_writes_file(driver):
+    """POST valid intermediate JSON to /save, verify file appears on disk."""
+    _clear_sessions()
+    payload = json.dumps({
+        "sieve-version": "1.0",
+        "source": {"url": "http://localhost:3000/login", "viewport": {"w": 1920, "h": 1080},
+                   "timestamp": "2026-04-09T14:00:00Z", "screenshot": None},
+        "elements": [],
+        "metadata": {"cookies": [], "storage": {"localStorage": [], "sessionStorage": []}, "tabs": 1},
+        "pass-1-complete": False,
+        "pass-2-progress": 0
+    })
+    result = driver.execute_script("""
+        var payload = arguments[0];
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/save', false);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(payload);
+        return JSON.parse(xhr.responseText);
+    """, payload)
+    assert "saved" in result, f"Expected 'saved' key, got: {result}"
+    files = _session_files()
+    assert len(files) >= 1, f"Expected at least 1 session file, found {len(files)}"
+    # Verify content is valid JSON
+    data = json.loads(files[0].read_text())
+    assert data.get("sieve-version") == "1.0"
+    _clear_sessions()
+
+def test_b6db_save_endpoint_rejects_invalid(driver):
+    """POST garbage to /save returns 400."""
+    status = driver.execute_script("""
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/save', false);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send('not-json{{{');
+        return xhr.status;
+    """)
+    assert status == 400, f"Expected 400, got {status}"
+
+def test_b6db_sessions_endpoint_lists_files(driver):
+    """POST a save, then GET /sessions returns the filename."""
+    _clear_sessions()
+    # Save one file
+    driver.execute_script("""
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/save', false);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({
+            "sieve-version": "1.0",
+            "source": {"url": "http://example.com/test", "timestamp": "2026-04-09T15:00:00Z"},
+            "elements": [], "metadata": {}, "pass-1-complete": false, "pass-2-progress": 0
+        }));
+    """)
+    # List sessions
+    result = driver.execute_script("""
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/sessions', false);
+        xhr.send();
+        return JSON.parse(xhr.responseText);
+    """)
+    assert isinstance(result, list), f"Expected list, got {type(result)}"
+    assert len(result) >= 1, f"Expected at least 1 session, got {len(result)}"
+    assert result[0].endswith(".json"), f"Expected .json file, got {result[0]}"
+    _clear_sessions()
+
+def test_b6db_auto_save_on_classify(driver):
+    """Classify an element, wait for debounce, check sessions/ has a file."""
+    _clear_sessions()
+    driver.get(TL_URL)
+    wait_for(driver, "url-input")
+    time.sleep(0.5)
+
+    clear_and_type(driver, "url-input", DEMO_LOGIN)
+    click(driver, "btn-navigate")
+
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+    )
+
+    # Verify auto-save endpoint is detected
+    endpoint = driver.execute_script("return _autoSaveEndpoint")
+    assert endpoint == "/save", f"Expected auto-save endpoint '/save', got {endpoint!r}"
+
+    # Classify one element
+    click(driver, "cat-clickable")
+
+    # Wait for debounce (1.5s) + file write
+    time.sleep(3)
+
+    files = _session_files()
+    assert len(files) >= 1, f"Expected auto-save file, found {len(files)}"
+
+    # Verify it's valid intermediate format
+    data = json.loads(files[0].read_text())
+    assert data.get("sieve-version") == "1.0"
+    assert "elements" in data
+    assert len(data["elements"]) > 0, "Expected elements in saved file"
+    _clear_sessions()
+
+def test_b6db_auto_save_debounce(driver):
+    """Rapidly classify 3 elements, verify only 1 file after debounce."""
+    _clear_sessions()
+    driver.get(TL_URL)
+    wait_for(driver, "url-input")
+    time.sleep(0.5)
+
+    clear_and_type(driver, "url-input", DEMO_LOGIN)
+    click(driver, "btn-navigate")
+
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+    )
+
+    # Rapidly classify 3 elements within ~300ms
+    click(driver, "cat-clickable")
+    time.sleep(0.1)
+    click(driver, "cat-typable")
+    time.sleep(0.1)
+    click(driver, "cat-readable")
+
+    # Wait for debounce
+    time.sleep(3)
+
+    files = _session_files()
+    # Debounce should collapse to 1 save (same URL+timestamp = same filename overwritten)
+    assert len(files) == 1, f"Expected 1 debounced file, found {len(files)}: {[f.name for f in files]}"
+    _clear_sessions()
+
+def test_b6db_saved_file_is_valid_intermediate(driver):
+    """Saved file passes validateIntermediate() in the browser."""
+    _clear_sessions()
+    driver.get(TL_URL)
+    wait_for(driver, "url-input")
+    time.sleep(0.5)
+
+    clear_and_type(driver, "url-input", DEMO_LOGIN)
+    click(driver, "btn-navigate")
+
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+    )
+
+    click(driver, "cat-clickable")
+    time.sleep(3)  # wait for auto-save
+
+    files = _session_files()
+    assert len(files) >= 1, "No session file found"
+
+    # Load the saved file and validate in browser
+    saved_json = files[0].read_text()
+    errors = driver.execute_script("""
+        var data = JSON.parse(arguments[0]);
+        return validateIntermediate(data);
+    """, saved_json)
+    assert errors == [] or len(errors) == 0, f"Validation errors: {errors}"
+    _clear_sessions()
+
+def test_b6db_multiple_urls_separate_files(driver):
+    """Sieve two different URLs, verify different filenames."""
+    _clear_sessions()
+
+    # Save with URL 1
+    driver.execute_script("""
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/save', false);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({
+            "sieve-version": "1.0",
+            "source": {"url": "http://localhost:3000/login", "timestamp": "2026-04-09T16:00:00Z"},
+            "elements": [], "metadata": {}, "pass-1-complete": false, "pass-2-progress": 0
+        }));
+    """)
+
+    # Save with URL 2
+    driver.execute_script("""
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/save', false);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({
+            "sieve-version": "1.0",
+            "source": {"url": "http://localhost:3000/dashboard", "timestamp": "2026-04-09T16:00:01Z"},
+            "elements": [], "metadata": {}, "pass-1-complete": false, "pass-2-progress": 0
+        }));
+    """)
+
+    files = _session_files()
+    assert len(files) == 2, f"Expected 2 files, found {len(files)}"
+    names = [f.name for f in files]
+    assert names[0] != names[1], f"Expected different filenames, got {names}"
+    # Check slugs are different
+    assert "login" in names[0] or "login" in names[1], f"Expected 'login' in one filename: {names}"
+    assert "dashboard" in names[0] or "dashboard" in names[1], f"Expected 'dashboard' in one filename: {names}"
+    _clear_sessions()
+
+def test_b6db_graceful_without_server(driver):
+    """Auto-save endpoint detection handles missing server gracefully."""
+    # This test verifies that _autoSaveEndpoint is set (since we're running via node server)
+    # and that autoSave() with null endpoint is a no-op
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+    time.sleep(1)
+
+    # Simulate no server by temporarily nulling the endpoint
+    driver.execute_script("_autoSaveEndpoint = null")
+    # Calling autoSave should not throw
+    driver.execute_script("autoSave()")
+    time.sleep(0.5)
+    # No error means success — autoSave is a no-op when endpoint is null
+
+    # Restore
+    driver.execute_script("_autoSaveEndpoint = '/save'")
+
+def test_visual_b6db_no_error_after_save(driver):
+    """Visual: after auto-save completes, UI shows no error state."""
+    judge = _get_judge()
+    if not judge:
+        return
+
+    # Use fixture loading (more reliable than navigate+sieve after explore tests)
+    fixture_path = Path(__file__).parent / "fixtures" / "demo-login-labeled.json"
+    if not fixture_path.exists():
+        print("    (skipped — fixture file not found)")
+        return
+
+    driver.get(TL_URL)
+    wait_for(driver, "btn-sieve")
+    time.sleep(1)
+
+    fixture_json = fixture_path.read_text()
+    driver.execute_script("""
+        var data = JSON.parse(arguments[0]);
+        var errors = fromIntermediate(data);
+        if (Array.isArray(errors) && errors.length && typeof errors[0] === 'string') throw new Error(errors.join(', '));
+    """, fixture_json)
+    time.sleep(0.5)
+
+    # Classify one element to trigger auto-save
+    click(driver, "cat-clickable")
+    time.sleep(3)  # wait for auto-save debounce
+
+    screenshot = driver.get_screenshot_as_png()
+    judge.assert_screenshot(screenshot, [
+        critical("Is there a web application UI visible with a screenshot area and element overlays?"),
+        critical("Is the status indicator showing a normal state (not an error message)?"),
+        advisory("Are there no red error banners, error toasts, or broken layout visible?"),
+    ], test_name="b6db_no_error_after_save")
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -2206,6 +2484,7 @@ VISUAL_TESTS = [
     ("visual: diff overlay on real screenshot", test_visual_diff_overlay),
     ("visual: explore mode overlay", test_visual_explore_mode_overlay),
     ("visual: explore after click", test_visual_explore_after_click),
+    ("visual: b6d-b no error after save", test_visual_b6db_no_error_after_save),
 ]
 
 TESTS = [
@@ -2268,6 +2547,16 @@ TESTS = [
     ("o4c: re-entrant guard", test_o4c_explore_reentrant_guard),
     ("o4c: observation log structure", test_o4c_observation_log_structure),
     ("o4c: explore overlay visual feedback", test_o4c_explore_overlay_visual_feedback),
+    # b6d-b — Auto-save wiring
+    ("b6d-b: server serves UI", test_b6db_server_serves_ui),
+    ("b6d-b: save endpoint writes file", test_b6db_save_endpoint_writes_file),
+    ("b6d-b: save endpoint rejects invalid", test_b6db_save_endpoint_rejects_invalid),
+    ("b6d-b: sessions endpoint lists files", test_b6db_sessions_endpoint_lists_files),
+    ("b6d-b: auto-save on classify", test_b6db_auto_save_on_classify),
+    ("b6d-b: auto-save debounce", test_b6db_auto_save_debounce),
+    ("b6d-b: saved file is valid intermediate", test_b6db_saved_file_is_valid_intermediate),
+    ("b6d-b: multiple URLs separate files", test_b6db_multiple_urls_separate_files),
+    ("b6d-b: graceful without server", test_b6db_graceful_without_server),
 ]
 
 if __name__ == "__main__":
