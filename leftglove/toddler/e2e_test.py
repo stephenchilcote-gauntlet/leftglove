@@ -11,8 +11,11 @@ Run with:
   python3 leftglove/toddler/e2e_test.py
 """
 
+import argparse
+import base64
 import os
 import sys
+import threading
 import time
 import json
 import subprocess
@@ -55,6 +58,74 @@ PASS = "\033[32mPASS\033[0m"
 FAIL = "\033[31mFAIL\033[0m"
 
 failures = []
+
+# ---------------------------------------------------------------------------
+# Screencast recorder — CDP Page.startScreencast → ffmpeg mp4
+# ---------------------------------------------------------------------------
+
+class ScreencastRecorder:
+    """Records Chrome tab via CDP screencast, pipes frames to ffmpeg."""
+
+    def __init__(self, driver, output_path, fps=4):
+        self.driver = driver
+        self.output_path = str(output_path)
+        self.fps = fps
+        self._frames_dir = tempfile.mkdtemp(prefix="screencast_")
+        self._frame_count = 0
+        self._lock = threading.Lock()
+        self._running = False
+
+    def start(self):
+        self._running = True
+        # Use a polling approach — take screenshots at fixed interval.
+        # CDP screencast events aren't exposed via Selenium's execute_cdp_cmd
+        # in a callback-friendly way, so polling is more reliable.
+        self._poll_thread = threading.Thread(target=self._poll_loop, daemon=True)
+        self._poll_thread.start()
+        print(f"  [rec] Recording to {self.output_path} ({self.fps} fps)")
+
+    def _poll_loop(self):
+        interval = 1.0 / self.fps
+        while self._running:
+            try:
+                png = self.driver.get_screenshot_as_png()
+                with self._lock:
+                    frame_path = os.path.join(
+                        self._frames_dir,
+                        f"frame_{self._frame_count:06d}.png"
+                    )
+                    with open(frame_path, "wb") as f:
+                        f.write(png)
+                    self._frame_count += 1
+            except Exception:
+                pass  # driver might be navigating
+            time.sleep(interval)
+
+    def stop(self):
+        self._running = False
+        self._poll_thread.join(timeout=3)
+        with self._lock:
+            count = self._frame_count
+        if count == 0:
+            print("  [rec] No frames captured")
+            return
+        print(f"  [rec] Captured {count} frames, encoding...")
+        # ffmpeg: PNGs → mp4
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-framerate", str(self.fps),
+            "-i", os.path.join(self._frames_dir, "frame_%06d.png"),
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+            self.output_path,
+        ], capture_output=True)
+        print(f"  [rec] Saved: {self.output_path}")
+        # Clean up frames
+        import shutil
+        shutil.rmtree(self._frames_dir, ignore_errors=True)
+
+_recorder = None
 
 def check_services():
     """Verify all required services are running before starting tests."""
@@ -2538,6 +2609,13 @@ TESTS = [
 ]
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Toddler Loop E2E Tests")
+    parser.add_argument("--record", metavar="FILE",
+                        help="Record visual tests to mp4 (e.g. --record tests.mp4)")
+    parser.add_argument("--visual-only", action="store_true",
+                        help="Run only visual tests (skip functional)")
+    args = parser.parse_args()
+
     print("=== Toddler Loop E2E Tests ===\n")
 
     print("Checking services...")
@@ -2546,21 +2624,34 @@ if __name__ == "__main__":
 
     driver = make_driver()
     try:
-        print("Running tests...\n")
-        for name, fn in TESTS:
-            run_test(name, fn, driver)
+        if not args.visual_only:
+            print("Running tests...\n")
+            for name, fn in TESTS:
+                run_test(name, fn, driver)
 
         # Visual tests (optional — require ANTHROPIC_API_KEY)
         if _get_judge():
+            if args.record:
+                _recorder = ScreencastRecorder(
+                    driver,
+                    Path(args.record).resolve(),
+                    fps=4,
+                )
+                _recorder.start()
+
             print("\n  Running visual assertion tests (ANTHROPIC_API_KEY set)...\n")
             for name, fn in VISUAL_TESTS:
                 run_test(name, fn, driver)
+
+            if _recorder:
+                _recorder.stop()
         else:
             print(f"\n  Skipping {len(VISUAL_TESTS)} visual tests (ANTHROPIC_API_KEY not set)")
     finally:
         driver.quit()
 
-    total = len(TESTS) + (len(VISUAL_TESTS) if _get_judge() else 0)
+    ran_visual = bool(_get_judge())
+    total = (0 if args.visual_only else len(TESTS)) + (len(VISUAL_TESTS) if ran_visual else 0)
     print()
     if failures:
         print(f"FAILED: {len(failures)}/{total} tests")
