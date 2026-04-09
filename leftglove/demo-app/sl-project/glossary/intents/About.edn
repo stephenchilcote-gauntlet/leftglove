@@ -1,0 +1,39 @@
+;; Intent region: About
+;; The about page — static content, feature list, team section.
+
+{:intent "About"
+ :description "About page with app description and team info"
+ :elements
+ {:about-heading     {:desc "About page heading"
+                      :type :readable
+                      :bindings {:web {:testid "about-heading"}}}
+  :about-description {:desc "App description paragraph"
+                      :type :readable
+                      :bindings {:web {:testid "about-description"}}}
+  :features-heading  {:desc "Features section heading"
+                      :type :readable
+                      :bindings {:web {:testid "features-heading"}}}
+  :feature-list      {:desc "Feature bullet list"
+                      :type :readable
+                      :bindings {:web {:testid "feature-list"}}}
+  :team-heading      {:desc "Team section heading"
+                      :type :readable
+                      :bindings {:web {:testid "team-heading"}}}
+  :team-description  {:desc "Team description"
+                      :type :readable
+                      :bindings {:web {:testid "team-description"}}}
+  :cta-login         {:desc "Get Started CTA button"
+                      :type :clickable
+                      :bindings {:web {:testid "cta-login"}}}
+  :contact-link      {:desc "Contact email link"
+                      :type :clickable
+                      :bindings {:web {:testid "contact-link"}}}
+  :nav-home          {:desc "Home nav link"
+                      :type :clickable
+                      :bindings {:web {:testid "nav-home"}}}
+  :nav-login         {:desc "Login nav link"
+                      :type :clickable
+                      :bindings {:web {:testid "nav-login"}}}
+  :nav-about         {:desc "About nav link"
+                      :type :clickable
+                      :bindings {:web {:testid "nav-about"}}}}}

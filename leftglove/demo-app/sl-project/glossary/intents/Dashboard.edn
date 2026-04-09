@@ -1,0 +1,24 @@
+;; Intent region: Dashboard
+;; The dashboard page — welcome message, content, navigation.
+
+{:intent "Dashboard"
+ :description "Authenticated user dashboard"
+ :elements
+ {:welcome-msg       {:desc "Welcome greeting with user name"
+                      :type :readable
+                      :bindings {:web {:testid "welcome-msg"}}}
+  :dashboard-content {:desc "Main dashboard content area"
+                      :type :readable
+                      :bindings {:web {:testid "dashboard-content"}}}
+  :nav-home          {:desc "Home nav link"
+                      :type :clickable
+                      :bindings {:web {:testid "nav-home"}}}
+  :nav-dashboard     {:desc "Dashboard nav link"
+                      :type :clickable
+                      :bindings {:web {:testid "nav-dashboard"}}}
+  :nav-logout        {:desc "Logout nav link"
+                      :type :clickable
+                      :bindings {:web {:testid "nav-logout"}}}
+  :help-link         {:desc "Help link (opens new tab)"
+                      :type :clickable
+                      :bindings {:web {:testid "help-link"}}}}}

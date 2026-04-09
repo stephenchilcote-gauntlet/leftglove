@@ -1,0 +1,18 @@
+;; ShiftLefter project config — demo app under test
+;; y7x: end-to-end validation that glossary + features execute against the live app
+
+{:parser {:dialect "en"}
+
+ :runner {:step-paths ["steps/"]
+          :allow-pending? false}
+
+ :glossaries {:subjects "glossary/subjects.edn"
+              :verbs {:web "glossary/verbs-web.edn"}}
+
+ :interfaces {:web {:type :web
+                    :adapter :etaoin
+                    :config {:headless true}}}
+
+ :svo {:unknown-subject :error
+       :unknown-verb :warn
+       :unknown-interface :error}}

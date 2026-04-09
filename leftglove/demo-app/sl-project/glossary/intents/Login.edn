@@ -1,0 +1,27 @@
+;; Intent region: Login
+;; The login page — form fields, submit button, status message, navigation.
+
+{:intent "Login"
+ :description "Login page with email/password form"
+ :elements
+ {:email-input     {:desc "Email address field"
+                    :type :typable
+                    :bindings {:web {:testid "email-input"}}}
+  :password-input  {:desc "Password field"
+                    :type :typable
+                    :bindings {:web {:testid "password-input"}}}
+  :login-submit    {:desc "Sign In button"
+                    :type :clickable
+                    :bindings {:web {:testid "login-submit"}}}
+  :status-msg      {:desc "Status/error message display"
+                    :type :readable
+                    :bindings {:web {:testid "status-msg"}}}
+  :nav-home        {:desc "Home nav link"
+                    :type :clickable
+                    :bindings {:web {:testid "nav-home"}}}
+  :nav-login       {:desc "Login nav link"
+                    :type :clickable
+                    :bindings {:web {:testid "nav-login"}}}
+  :forgot-password {:desc "Forgot password link"
+                    :type :clickable
+                    :bindings {:web {:testid "forgot-password"}}}}}

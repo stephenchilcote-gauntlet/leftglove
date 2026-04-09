@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Demo app SL test runner — starts demo app, runs sl against it
+#
+# Usage:
+#   bin/demo-test              # full run: start app, dry-run, execute
+#   bin/demo-test --use-dev    # skip app startup, assume it's running
+#
+# Ports (override via env vars):
+#   DEMO_PORT — Demo app (default: 3000)
+#
+# Prerequisites:
+#   - SL CLI (sl) on PATH, or SL_DIR pointing to shiftlefter repo
+#   - Node.js for demo app
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LG_DIR="$(dirname "$SCRIPT_DIR")"
+SL_PROJECT="$LG_DIR/leftglove/demo-app/sl-project"
+SL_DIR="${SL_DIR:-$(dirname "$LG_DIR")/shiftlefter}"
+
+DEMO_PORT="${DEMO_PORT:-3000}"
+
+USE_DEV=false
+if [[ "${1:-}" == "--use-dev" ]]; then
+  USE_DEV=true
+fi
+
+# Resolve sl command
+if command -v sl &>/dev/null; then
+  SL_CMD="sl"
+elif [[ -x "$SL_DIR/bin/sl" ]]; then
+  SL_CMD="$SL_DIR/bin/sl"
+else
+  echo "[demo-test] ERROR: sl not found on PATH or at $SL_DIR/bin/sl"
+  echo "[demo-test] Set SL_DIR to the shiftlefter repo root."
+  exit 1
+fi
+
+# Track PIDs for cleanup
+PIDS=()
+cleanup() {
+  echo ""
+  echo "[demo-test] Cleaning up..."
+  if [[ ${#PIDS[@]} -gt 0 ]]; then
+    for pid in "${PIDS[@]}"; do
+      kill "$pid" 2>/dev/null && wait "$pid" 2>/dev/null || true
+    done
+  fi
+  echo "[demo-test] Done."
+}
+trap cleanup EXIT
+
+# --- Health check helper ---
+wait_for() {
+  local name="$1" url="$2" max_wait="${3:-30}"
+  local waited=0
+  echo -n "[demo-test] Waiting for $name at $url "
+  while ! curl -so /dev/null -w '%{http_code}' "$url" 2>/dev/null | grep -q '^[23]'; do
+    sleep 1
+    waited=$((waited + 1))
+    echo -n "."
+    if [[ $waited -ge $max_wait ]]; then
+      echo " TIMEOUT"
+      echo "[demo-test] ERROR: $name did not start within ${max_wait}s"
+      exit 1
+    fi
+  done
+  echo " OK"
+}
+
+if [[ "$USE_DEV" == "true" ]]; then
+  echo "[demo-test] --use-dev: assuming demo app already running on port $DEMO_PORT"
+else
+  # --- Start demo app ---
+  echo "[demo-test] Starting demo app on port $DEMO_PORT..."
+  cd "$LG_DIR/leftglove/demo-app"
+  PORT="$DEMO_PORT" node server.js &
+  PIDS+=($!)
+  cd "$LG_DIR"
+fi
+
+# --- Wait for demo app ---
+wait_for "demo app" "http://localhost:$DEMO_PORT/login"
+echo "[demo-test] Demo app healthy at http://localhost:$DEMO_PORT"
+echo ""
+
+# --- Phase 1: Dry run with strict mode ---
+echo "[demo-test] Phase 1: $SL_CMD run --dry-run --strict features/"
+cd "$SL_PROJECT"
+if $SL_CMD run --dry-run --strict features/; then
+  echo "[demo-test] PASS: dry-run strict mode"
+else
+  echo "[demo-test] FAIL: dry-run strict mode (exit $?)"
+  exit 1
+fi
+echo ""
+
+# --- Phase 2: Execute login feature ---
+echo "[demo-test] Phase 2: $SL_CMD run features/login.feature"
+if $SL_CMD run features/login.feature; then
+  echo "[demo-test] PASS: login.feature"
+else
+  echo "[demo-test] FAIL: login.feature (exit $?)"
+  exit 1
+fi
+echo ""
+
+echo "[demo-test] All tests passed."

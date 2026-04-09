@@ -1,0 +1,5 @@
+;; Web verbs for demo app testing
+;; SL defaults cover all current needs.
+
+{:type :web
+ :verbs {}}
