@@ -15,10 +15,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { test, type Page } from '@playwright/test';
 
-// __dirname is available natively in Playwright's CJS transform
-
 const TL_URL = 'http://localhost:8080?api=http://localhost:3333';
-const DEMO_LOGIN = 'http://localhost:3000/login';
+const DEMO_APP = 'http://localhost:3000';
 
 // ── Timing log ──────────────────────────────────────────────────────────────
 
@@ -187,7 +185,7 @@ async function pause(page: Page, ms = 1500) {
   await page.waitForTimeout(ms);
 }
 
-/** Wait for sieve to complete — matches first sieve (element count) or re-sieve (diff/resolve). */
+// Wait for sieve to complete — matches first sieve (element count) or re-sieve (diff/resolve).
 async function waitForSieve(page: Page, timeoutMs = 30000) {
   await page.waitForFunction(
     () => {
@@ -205,7 +203,7 @@ async function waitForSieve(page: Page, timeoutMs = 30000) {
   );
 }
 
-/** Load a fixture file by injecting JSON directly into fromIntermediate(). */
+// Load a fixture file by injecting JSON directly into fromIntermediate().
 async function loadFixture(page: Page, fixturePath: string) {
   const json = fs.readFileSync(fixturePath, 'utf-8');
   await page.evaluate(async (jsonStr) => {
@@ -221,6 +219,15 @@ async function loadFixture(page: Page, fixturePath: string) {
     (window as any).renderMetadata();
     (window as any).saveState();
   }, json);
+}
+
+// Toggle the recurring donation element on/off via the demo app API
+async function setRecurring(enabled: boolean) {
+  await fetch(`${DEMO_APP}/set-recurring`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
 }
 
 // ── Screenshot dir ──────────────────────────────────────────────────────────
@@ -240,7 +247,10 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   _t0 = Date.now();
 
   const FIXTURES = path.join(__dirname, '..', 'fixtures');
-  const loginLabeled = path.join(FIXTURES, 'demo-login-labeled.json');
+  const fundraiserLabeled = path.join(FIXTURES, 'demo-fundraiser-labeled.json');
+
+  // Ensure recurring donation is OFF at start
+  await setRecurring(false);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ACT 1 — THE SIEVE SEES EVERYTHING (~60s)
@@ -269,14 +279,14 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // Caption: intro
   await caption(page,
-    'This is a web application. We\'re going to show you what our system sees when it looks at it.',
+    'This is a fundraising page. We\'re going to show you what our system sees when it looks at it.',
     5500, 'intro',
   );
   await clearCaption(page);
 
   // -- Scene: Type URL and navigate (Navigate auto-sieves) --
   await cursorClick(page, '[data-testid="url-input"]');
-  await page.fill('[data-testid="url-input"]', DEMO_LOGIN);
+  await page.fill('[data-testid="url-input"]', DEMO_APP);
   await pause(page, 500);
   await cursorClick(page, '[data-testid="btn-navigate"]');
 
@@ -287,7 +297,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // Caption: sieve result
   await caption(page,
-    'The sieve filtered out the noise and found the meaningful elements. Classified in under a second. No screenshots sent to an LLM. Deterministic.',
+    'The sieve found the meaningful elements — donate button, amount input, progress bar, supporter comments. Deterministic. No LLM. No tokens burned.',
     10500, 'sieve-result',
     '[data-testid="status-indicator"]',
   );
@@ -295,13 +305,13 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // -- Scene: Rapid-fire classify --
   await caption(page,
-    'A human can classify an entire page in under a minute.',
+    'Clickable. Typable. Typable. Readable. A human can classify an entire page in under a minute.',
     8500, 'rapid-classify',
     '[data-testid="progress"]',
   );
 
   // Classify first 5 elements with keyboard shortcuts
-  const classifyKeys = ['c', 't', 't', 'c', 'x'];
+  const classifyKeys = ['c', 't', 't', 'r', 'x'];
   for (const key of classifyKeys) {
     await page.keyboard.press(key);
     await pause(page, 600);
@@ -312,11 +322,11 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // -- Scene: Load pre-labeled state --
   await caption(page,
-    'Here\'s the full classification. Every element named, located, typed. This becomes the glossary.',
+    'Here\'s the full classification. Every element named, located, typed. This becomes the glossary — the vocabulary that agents and tests are bound to.',
     9500, 'pre-labeled',
   );
 
-  await loadFixture(page, loginLabeled);
+  await loadFixture(page, fundraiserLabeled);
   await pause(page, 2000);
   await snap(page, 'act1-pre-labeled');
   await clearCaption(page);
@@ -324,18 +334,20 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ACT 3a — RE-SIEVE SHOWS NEW ELEMENT (~20s)
-  // (Between Act 2 terminal segment and this, the agent added a checkbox)
+  // (Between Act 2 terminal segment and this, the agent added a recurring toggle)
   // ═══════════════════════════════════════════════════════════════════════════
 
   // Caption: code change context
   await caption(page,
-    'The agent added a Remember Me checkbox. Let\'s see what the sieve thinks about the new version.',
+    'The agent added a recurring donation toggle. Let\'s see what the sieve thinks about the new version.',
     4000, 're-sieve-intro',
   );
   await clearCaption(page);
 
-  // Re-sieve (the demo app should have the checkbox by now if the terminal
-  // script ran the code change — for recording, we sieve whatever is live)
+  // Enable recurring donation element in the demo app
+  await setRecurring(true);
+
+  // Re-sieve — the page now has the recurring donation toggle
   await cursorClick(page, '[data-testid="btn-sieve"]');
 
   // Wait for diff or new sieve result
@@ -353,7 +365,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // Caption: new element found
   await caption(page,
-    'The sieve found a new element. One checkbox that wasn\'t there before. Everything else is unchanged.',
+    'The sieve found a new element — the recurring donation checkbox. Everything else is unchanged.',
     7000, 're-sieve',
     '[data-testid="diff-summary"]',
   );
@@ -362,7 +374,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ACT 5a — RE-SIEVE SHOWS ELEMENT GONE (~20s)
-  // (Between Act 4 terminal segment and this, the checkbox was removed)
+  // (Between Act 4 terminal segment and this, the recurring toggle was removed)
   // ═══════════════════════════════════════════════════════════════════════════
 
   // If there's a diff to accept first, accept it
@@ -373,10 +385,13 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   }
 
   await caption(page,
-    'Now someone removed the checkbox. Let\'s sieve again.',
+    'Now someone removed the recurring toggle. Let\'s sieve again.',
     6000, 'element-removed-intro',
   );
   await clearCaption(page);
+
+  // Disable recurring donation element
+  await setRecurring(false);
 
   await cursorClick(page, '[data-testid="btn-sieve"]');
   await page.waitForFunction(
@@ -392,7 +407,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   await snap(page, 'act5a-element-gone');
 
   await caption(page,
-    'Login.remember-me is gone. The glossary diff shows minus one entry.',
+    'Fundraiser.recurring-checkbox is gone. The glossary diff shows minus one entry. The customer can\'t set up monthly donations anymore.',
     8000, 'element-gone',
     '[data-testid="diff-summary"]',
   );

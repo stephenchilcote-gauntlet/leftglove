@@ -732,7 +732,7 @@ async function doSieve() {
         // Don't touch state.screenshotDataUrl yet — keep old screenshot consistent
         var pendingSieve = {
           inventory: inventory,
-          screenshotUrl: screenshot.blobUrl,
+          screenshotUrl: screenshot.dataUrl,
           screenshotDataUrl: screenshot.dataUrl,
           matchResult: matchResult,
           oldInventory: state.inventory,
@@ -747,7 +747,7 @@ async function doSieve() {
       // No ambiguity — enter diff mode for user review
       var pendingSieveDiff = {
         inventory: inventory,
-        screenshotUrl: screenshot.blobUrl,
+        screenshotUrl: screenshot.dataUrl,
         screenshotDataUrl: screenshot.dataUrl,
         matchResult: matchResult,
         oldInventory: state.inventory,
@@ -762,7 +762,7 @@ async function doSieve() {
       if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
 
       state.inventory = inventory;
-      state.screenshotUrl = screenshot.blobUrl;
+      state.screenshotUrl = screenshot.dataUrl;
       state.screenshotDataUrl = screenshot.dataUrl;
       state.pageUrl = inventory.url?.raw || inventory.url || null;
       state.classifications = {};
@@ -2400,18 +2400,10 @@ function fromIntermediate(data) {
   state.currentIndex = 0;
   state.screenshotDataUrl = data.source.screenshot || null;
 
-  // Restore screenshot
-  if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
+  // Restore screenshot — use data URL directly (works in Playwright recordings;
+  // blob URLs are context-bound and don't render in video capture)
   if (data.source.screenshot) {
-    // Convert data URL back to blob URL for the <img>
-    const parts = data.source.screenshot.match(/^data:([^;]+);base64,(.+)$/);
-    if (parts) {
-      const byteStr = atob(parts[2]);
-      const bytes = new Uint8Array(byteStr.length);
-      for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
-      const blob = new Blob([bytes], { type: parts[1] });
-      state.screenshotUrl = URL.createObjectURL(blob);
-    }
+    state.screenshotUrl = data.source.screenshot;
   } else {
     state.screenshotUrl = null;
   }

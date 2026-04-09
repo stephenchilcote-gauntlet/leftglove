@@ -1,8 +1,6 @@
 const express = require('express');
-const cookieSession = require('cookie-session');
 const path = require('path');
 const { execSync } = require('child_process');
-const config = require('./config');
 
 const COMMIT = (() => {
   try { return execSync('git rev-parse --short HEAD', { cwd: __dirname }).toString().trim(); }
@@ -15,27 +13,36 @@ const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(cookieSession({
-  name: 'demo-session',
-  keys: [config.sessionSecret],
-  maxAge: 30 * 60 * 1000,
-}));
 
-app.locals.config = config;
+// Toggle state for demo: controls whether the "recurring donation" element exists
+let showRecurring = false;
 
 app.get('/healthz', (req, res) => {
   res.json({ status: 'ok', commit: COMMIT, started: STARTED, service: 'demo-app' });
 });
 
-app.use('/', require('./routes/index'));
-app.use('/', require('./routes/login'));
-app.use('/', require('./routes/dashboard'));
-app.use('/', require('./routes/logout'));
-app.use('/', require('./routes/about'));
+// Main fundraiser page
+app.get('/', (req, res) => {
+  res.render('fundraiser', { showRecurring });
+});
+app.get('/fundraiser', (req, res) => {
+  res.render('fundraiser', { showRecurring });
+});
 
-const port = process.env.PORT || config.port;
+// Toggle API — used by demo script to add/remove the recurring donation element
+app.post('/toggle-recurring', (req, res) => {
+  showRecurring = !showRecurring;
+  res.json({ showRecurring });
+});
+app.post('/set-recurring', (req, res) => {
+  showRecurring = req.body.enabled === true;
+  res.json({ showRecurring });
+});
+
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Demo app running at http://localhost:${port}`);
 });

@@ -1,15 +1,15 @@
 [
   {
     "id": "intro",
-    "spoken": "This is a web application. We're going to show you what our system sees when it looks at it."
+    "spoken": "This is a fundraising page. We're going to show you what our system sees when it looks at it."
   },
   {
     "id": "sieve-result",
-    "spoken": "The sieve filtered out the noise and found seven meaningful elements. Classified in under a second. No screenshots sent to an LLM. No tokens burned. Deterministic."
+    "spoken": "The sieve found the meaningful elements. Donate button, amount input, progress bar, supporter comments. Deterministic. No LLM. No tokens burned."
   },
   {
     "id": "rapid-classify",
-    "spoken": "Typable. Typable. Clickable. Chrome. Skip. A human can classify an entire page in under a minute."
+    "spoken": "Clickable. Typable. Typable. Readable. Skip. A human can classify an entire page in under a minute."
   },
   {
     "id": "pre-labeled",
@@ -17,7 +17,7 @@
   },
   {
     "id": "mcp-vocab",
-    "spoken": "Now watch what happens when an agent connects through our MCP server. It doesn't see HTML. It sees the glossary. Login.email is a typable field. Login.submit is a clickable button."
+    "spoken": "Now watch what happens when an agent connects through our MCP server. It doesn't see HTML. It sees the glossary. Fundraiser.donate-button is clickable. Fundraiser.amount-input is typable."
   },
   {
     "id": "strict-mode",
@@ -25,7 +25,7 @@
   },
   {
     "id": "code-change",
-    "spoken": "Let's add a feature. The agent writes three lines of code to add a Remember Me checkbox to the login form."
+    "spoken": "Let's add a feature. The agent adds a recurring donation toggle to the donate sidebar."
   },
   {
     "id": "re-sieve-intro",
@@ -33,7 +33,7 @@
   },
   {
     "id": "re-sieve",
-    "spoken": "The sieve found a new element. One checkbox that wasn't there before. Everything else is unchanged."
+    "spoken": "The sieve found a new element. A recurring donation checkbox that wasn't there before. Everything else is unchanged."
   },
   {
     "id": "test-write",
@@ -45,15 +45,15 @@
   },
   {
     "id": "element-removed-intro",
-    "spoken": "Now watch what happens when someone breaks something. The checkbox is removed from the code."
+    "spoken": "Now watch what happens when someone breaks something. The recurring toggle is removed from the code."
   },
   {
     "id": "element-gone",
-    "spoken": "The sieve ran again. Login.remember-me is gone. Glossary diff: minus one entry."
+    "spoken": "The sieve ran again. Fundraiser.recurring-checkbox is gone. The customer can't set up monthly donations anymore. Glossary diff: minus one entry."
   },
   {
     "id": "test-fail",
-    "spoken": "The test fails. Not because of a flaky selector. The glossary says Login.remember-me should exist. The sieve says it doesn't. Misfit detected."
+    "spoken": "The test fails. Not because of a flaky selector. The glossary says recurring-checkbox should exist. The sieve says it doesn't. Misfit detected."
   },
   {
     "id": "closing",
