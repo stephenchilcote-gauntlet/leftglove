@@ -217,6 +217,8 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Compat: `doExport` download anchor not appended to DOM | Added `appendChild`/`removeChild` matching `doExportGlossary` — fixes Firefox | `7560262` |
 | Bug: empty pass2Order after reload when no glossary names | `loadState` restores pass2 mode from sidecar but `fromIntermediate` skips `buildPass2Order` when no names exist | `50886d2` |
 | UX: "Start Pass 2" shown when all elements are chrome/skip | Added guard: button hidden when no nameable elements exist, preventing dead-end pass2 state | `c83dfd7` |
+| Bug: unclassified elements leak into pass2Order after diff accept | `buildPass2Order` now filters `!cat` (not just chrome/skip); `acceptDiff` downgrades to pass1 when diff introduces unclassified elements | `62068b2` |
+| Structure: serialization mixed into 2000-line UI file | Extracted `toIntermediate`, `parseIntermediate`, `validateIntermediate` into `intermediate.js` (UMD module). `parseIntermediate` is pure — returns parsed fields without mutating global state. 30-case test suite covering validation, serialization, parsing, round-trip | `f6dbc79` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -229,30 +231,30 @@ After addressing the code review findings, audited for the same anti-patterns ac
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after ninth audit pass (reload edge cases, dead-end state):**
+**Updated estimate after tenth audit pass (diff→pass1 downgrade, serialization extraction):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
 | Finding #1 fix | 0.96 | Clean deletion, build verified. Demo segments updated to match |
-| Finding #2 fix | 0.96 | Mode round-trips via `_ui` sidecar; diff mode transient; sieve re-entrancy guarded; review-mode derivation centralized in `allPass2Named()`. acceptDiff now handles both upgrade and downgrade |
+| Finding #2 fix | 0.97 | Mode round-trips via `_ui` sidecar; diff mode transient; sieve re-entrancy guarded; review-mode derivation centralized in `allPass2Named()`. acceptDiff handles upgrade, downgrade, and pass1 fallback. Serialization now extracted with 30-case round-trip test suite |
 | Finding #3 decision | 0.55 | Code review rated High; I overrode based on vision docs. User may agree with reviewer |
 | Finding #5 fix | 0.90 | Shared lib works, dead script removed |
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
 | Finding #7 decision | 0.90 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar, Escape toggle works both ways |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
-| Structural refactors | 0.96 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + fromIntermediate single-pass + diff module extraction. All rendering paths consistent. app.js reduced from 2151 to 1985 lines |
-| Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement; intermediate format round-trip audited field-by-field |
+| Structural refactors | 0.97 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + diff module extraction + intermediate module extraction. Pure `parseIntermediate` eliminates state-mutation coupling. app.js reduced from 2151 to 1897 lines. 4 modules (glossary, diff, intermediate, app) with clear responsibilities |
+| Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement; `buildPass2Order` now rejects unclassified elements; intermediate format round-trip verified by 30-case unit tests |
 | Dead asset removal | 0.96 | Comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
-| Test suite quality | 0.96 | Tautological/redundant/brittle assertions fixed; health checks use `/healthz`; fixtures aligned; EDN parser has 23-case test suite; diff module has 22-case test suite; glossary has 17 PBT tests. 107 unit tests across 3 modules + e2e |
+| Test suite quality | 0.97 | 85 node:test cases + 17 PBT = 102 total across 4 modules. Intermediate round-trip tests verify every field. Tautological/redundant/brittle assertions fixed. Health checks use `/healthz`. Fixtures aligned |
 | Security | 0.98 | Full XSS audit: all innerHTML paths use `escapeHtml()`. CSS selectors escaped via `CSS.escape()`. No command injection. Error handling appropriate everywhere |
 | MCP server quality | 0.97 | Full audit of TypeScript codebase: clean architecture. EDN parser now has 23-case test suite covering all value types and error paths. `npm test` script added |
 | Cross-references | 0.98 | All 16 glossary testids verified present in views. Feature file element references verified against glossary. Demo script narration consistent with actual UI elements |
 | Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress` |
-| Unknown unknowns | 0.91 | Found 17 logic/correctness/UX bugs + 2 infra issues across 9 passes. Ninth pass found 2 more (empty pass2Order on reload, dead-end pass2 entry). Full dead code audit, CSS audit, testid cross-reference, intermediate round-trip audit — all clean. Gap: full e2e run |
+| Unknown unknowns | 0.92 | Found 18 logic/correctness/UX bugs + 2 infra issues across 10 passes. Tenth pass found unclassified-element leak into pass2Order. Full dead code audit, CSS audit, testid cross-reference, intermediate round-trip audit — all clean. Gap: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.96 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.98 × 0.96 × 0.96 × 0.98 × 0.97 × 0.98 × 0.97 × 0.91 ≈ 0.32 (32%)**
+**P(no objections) ≈ 0.96 × 0.97 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.97 × 0.98 × 0.96 × 0.97 × 0.98 × 0.97 × 0.98 × 0.97 × 0.92 ≈ 0.34 (34%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.59. Ninth pass found state-transition bugs by tracing the loadState↔fromIntermediate interaction and the pass1→pass2 transition with degenerate inputs. Static analysis is reaching diminishing returns — the code is clean across all modules, all 65 tests pass, all cross-references verified. Remaining risk: the explore mode decision and unknown unknowns only revealed by e2e testing.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.62. Tenth pass found a real state-transition bug (unclassified elements in pass2Order after diff) and completed the serialization extraction — the root cause of 4+ prior bugs was `fromIntermediate` mutating global state, now isolated behind pure `parseIntermediate`. All 102 tests pass across 4 modules. Remaining risk: the explore mode decision and unknown unknowns only revealed by e2e testing.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
