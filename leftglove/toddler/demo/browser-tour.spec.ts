@@ -416,6 +416,15 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   await clearCaption(page);
   await pause(page, 1500);
 
+  // Page-frames dir for split-screen sieve screenshots (used by terminal segments)
+  const screenshotDir = path.join(__dirname, 'page-frames');
+  await fs.mkdir(screenshotDir, { recursive: true });
+
+  // Capture sieve screenshot for code-change segment (classified page, pre-re-sieve)
+  const codeChangeRes = await fetch(`${SIEVE_URL}/screenshot`);
+  const codeChangeBuf = Buffer.from(await codeChangeRes.arrayBuffer());
+  await fs.writeFile(path.join(screenshotDir, 'code-change.png'), codeChangeBuf);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ACT 2 SETUP — Capture page screenshots for split-screen terminal segment
   // The actual interaction demo is in segment-4-interact.cast (terminal)
@@ -423,8 +432,6 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   // Save page screenshot BEFORE interactions (clean fundraiser page)
-  const screenshotDir = path.join(__dirname, 'page-frames');
-  await fs.mkdir(screenshotDir, { recursive: true });
 
   // Capture the page directly from the sieve (not the TL UI overlay)
   const beforeRes = await fetch(`${SIEVE_URL}/screenshot`);
@@ -475,6 +482,11 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   await setRecurring(true);
   await navigateSieveAndVerify(page, DEMO_APP, true);
 
+  // Capture sieve screenshot for test-passes segment (page WITH recurring toggle)
+  const testPassRes = await fetch(`${SIEVE_URL}/screenshot`);
+  const testPassBuf = Buffer.from(await testPassRes.arrayBuffer());
+  await fs.writeFile(path.join(screenshotDir, 'test-passes.png'), testPassBuf);
+
   // Re-sieve — the page now has the recurring donation toggle
   await cursorClick(page, '[data-testid="btn-sieve"]');
 
@@ -520,6 +532,11 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   // Disable recurring donation element and verify sieve Chrome sees removal
   await setRecurring(false);
   await navigateSieveAndVerify(page, DEMO_APP, false);
+
+  // Capture sieve screenshot for test-fails segment (page WITHOUT recurring toggle)
+  const testFailRes = await fetch(`${SIEVE_URL}/screenshot`);
+  const testFailBuf = Buffer.from(await testFailRes.arrayBuffer());
+  await fs.writeFile(path.join(screenshotDir, 'test-fails.png'), testFailBuf);
 
   await cursorClick(page, '[data-testid="btn-sieve"]');
   await page.waitForFunction(

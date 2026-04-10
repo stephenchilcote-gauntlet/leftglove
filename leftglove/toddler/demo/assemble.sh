@@ -115,33 +115,25 @@ mkdir -p "$SEGMENTS_DIR/page-frames"
 # Map each terminal segment to a browser timestamp for the page screenshot.
 # Center-crop the browser frame to 960×1080 to show just the fundraiser content.
 SEG_NAMES=( segment-5-code-change segment-6-test-passes segment-7-test-fails )
-# Page frame timestamps (from browser video) for split-screen context:
-# These are extracted from the NEW browser recording that includes Act 2.
-# Use python to read them dynamically from timing.json.
-read CODE_T PASS_T FAIL_T < <(python3 -c "
-import json
-with open('${TIMING_JSON}') as f:
-    events = json.load(f)
-by_clip = {e['clipId']: e['t']/1000.0 for e in events if e.get('clipId')}
-# code-change: show classified page (just before re-sieve)
-# test-pass: show page with recurring toggle (during re-sieve result)
-# test-fail: show page after element removed
-print(by_clip.get('pre-labeled', 35.0) + 5, by_clip.get('re-sieve', 56.0) + 3, by_clip.get('element-gone', 74.0) + 3)
-")
-SEG_TIMES=( "$CODE_T" "$PASS_T" "$FAIL_T" )
-# Note: segment-4 (MCP vocab/interaction) is now recorded live in the browser tour
+# Page frames are captured directly from the sieve browser (960×1080) during
+# the browser tour. Map segment names to the screenshot filenames.
+PAGE_FRAME_SOURCES=(
+  "page-frames/code-change.png"
+  "page-frames/test-passes.png"
+  "page-frames/test-fails.png"
+)
 
-# Extract page frames from browser video
-if [[ -n "$BROWSER_VIDEO" ]]; then
-  for i in "${!SEG_NAMES[@]}"; do
-    seg_name="${SEG_NAMES[$i]}"
-    ts="${SEG_TIMES[$i]}"
-    echo "  Extracting page frame for $seg_name at ${ts}s..."
-    ffmpeg -y -ss "$ts" -i "$BROWSER_VIDEO" -frames:v 1 \
-      -vf "scale=960:-1" -q:v 2 \
-      "$SEGMENTS_DIR/page-frames/${seg_name}.png" 2>/dev/null
-  done
-fi
+# Copy sieve screenshots to the page-frames dir used by cast-to-mp4
+for i in "${!SEG_NAMES[@]}"; do
+  seg_name="${SEG_NAMES[$i]}"
+  src="${PAGE_FRAME_SOURCES[$i]}"
+  if [[ -f "$src" ]]; then
+    cp "$src" "$SEGMENTS_DIR/page-frames/${seg_name}.png"
+    echo "  Page frame for $seg_name: $src ($(identify -format '%wx%h' "$src" 2>/dev/null))"
+  else
+    echo "  WARNING: $src not found — $seg_name will be terminal-only"
+  fi
+done
 
 # Re-render terminal casts with page image baked in (split-screen)
 for seg_name in "${SEG_NAMES[@]}"; do
