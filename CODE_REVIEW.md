@@ -251,6 +251,10 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: demo selectAmount CSS class swap fragile — orphaned hover classes | Use `classList.add/remove` instead of string replace | `0ae6c3e` |
 | Bug: donate-button had split handlers (inline onclick + addEventListener) | Consolidated to single listener | `0ae6c3e` |
 | Bug: `observe` MCP tool url parameter silently ignored | Navigate to URL before sieving | `e576312` |
+| Bug: recurring-donation.feature undefined step blocks all tests | Rewrite with built-in steps + GET /set-recurring endpoint | `d47957a` |
+| Bug: recurring-donation click order — checkbox behind overlay | Click checkbox before opening donate sheet | `d47957a` |
+| Bug: demo-run --no-sieve ignored with --use-dev | Respect flag in health check section | `d47957a` |
+| Bug: demo-test runs all features as one suite | Run features individually for isolation | `d47957a` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -271,7 +275,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Finding #2 fix | 0.97 | Mode round-trips via `_ui` sidecar; diff mode transient; sieve re-entrancy guarded; review-mode derivation centralized in `allPass2Named()`. acceptDiff handles upgrade, downgrade, and pass1 fallback. Serialization now extracted with 35-case round-trip test suite. Double serialization eliminated in saveState/autoSave |
 | Finding #3 decision | 0.55 | Code review rated High; I overrode based on vision docs. User may agree with reviewer |
 | Finding #4 fix | 0.93 | AST-based linter enforces whitelist of allowed Selenium methods. 21 tests recategorized. Pre-commit hook blocks violations. All 69 test references verified. `?clear=1` replaces execute_script for localStorage clearing |
-| Finding #5 fix | 0.90 | Shared lib works, dead script removed |
+| Finding #5 fix | 0.95 | Shared lib works, dead script removed. `--no-sieve` respected with `--use-dev`. demo-test runs features individually. recurring-donation.feature uses valid built-in steps |
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
 | Finding #7 decision | 0.92 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar. Escape toggle now guarded: pass2→review only when all named |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
@@ -285,11 +289,11 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress` |
 | State machine | 0.99 | All 9 mode transitions traced. Escape pass2→review guarded by `allPass2Named()`. `classify()` saves consistent state. `doExploreClick` guarded by `isModeBlocked()`. `acceptName` works in review mode. `acceptDiff` preserves cursor. Keyboard handler dispatch covers all 5 modes |
 | Server robustness | 0.97 | Directory traversal fix, error handler, async readdir. Demo CSS fixed. Donate handler consolidated |
-| Unknown unknowns | 0.95 | Found 38 bugs across 18 passes (31 app.js + 4 server/parser + 2 demo + 1 MCP). Deep architectural audit, full server audit, demo visual regression fix. 18 passes with diminishing returns. Gap: full e2e run |
+| Unknown unknowns | 0.95 | Found 42 bugs across 19 passes. Deep architectural audit, full server audit, demo visual regression fix, feature file + shell script fixes. 19 passes with diminishing returns. Gap: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.97 × 0.55 × 0.93 × 0.90 × 0.95 × 0.92 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.97 × 0.95 ≈ 0.38 (38%)**
+**P(no objections) ≈ 0.96 × 0.97 × 0.55 × 0.93 × 0.95 × 0.95 × 0.92 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.97 × 0.95 ≈ 0.40 (40%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.70. 113 tests pass across 4 modules. 100 commits since `before_loop`. State machine fully traced and verified. e2e test discipline now enforced by linter + pre-commit hook.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.73. 113 tests pass across 4 modules. 102 commits since `before_loop`. State machine fully traced and verified. e2e test discipline enforced by linter + pre-commit hook. Feature files use valid step definitions.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
