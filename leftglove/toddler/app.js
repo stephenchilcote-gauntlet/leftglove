@@ -1249,8 +1249,29 @@ function finishResolve() {
   var pending = state._pendingSieve;
   if (!ctx || !pending) return;
 
-  // Chain into diff mode — let user review changes before committing
-  enterDiffMode(ctx.matchResult, pending, ctx.pairs);
+  // Merge resolve decisions into matchResult so computeDiff sees them
+  var merged = {
+    matched: ctx.matchResult.matched.concat(ctx.pairs),
+    added: ctx.matchResult.added.concat(
+      ctx.addedNew.map(function (idx) {
+        var key = ctx.allGroups.reduce(function (found, g) {
+          return found || (g.newIdxs.indexOf(idx) >= 0 ? g.key : null);
+        }, null) || '';
+        return { newIdx: idx, key: key };
+      })
+    ),
+    removed: ctx.matchResult.removed.concat(
+      ctx.removedOld.map(function (idx) {
+        var key = ctx.allGroups.reduce(function (found, g) {
+          return found || (g.oldIdxs.indexOf(idx) >= 0 ? g.key : null);
+        }, null) || '';
+        return { oldIdx: idx, key: key };
+      })
+    ),
+    ambiguous: [],
+  };
+
+  enterDiffMode(merged, pending, ctx.pairs);
 }
 
 // ---- Diff Mode (cuo) ----
