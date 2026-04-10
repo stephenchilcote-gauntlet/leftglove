@@ -603,12 +603,16 @@ function saveState() {
       currentIndex: state.currentIndex,
       pass2Cursor: state.pass2Cursor,
       exploreMode: state.exploreMode,
+      observationLog: state.observationLog,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(lsCopy));
   } else {
     // No inventory yet — save minimal UI state so toggles survive refresh
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      _ui: { exploreMode: state.exploreMode },
+      _ui: {
+        exploreMode: state.exploreMode,
+        observationLog: state.observationLog,
+      },
     }));
   }
   autoSave();
@@ -648,6 +652,7 @@ function loadState() {
       state.exploreMode = saved._ui.exploreMode || false;
       state.currentIndex = saved._ui.currentIndex || 0;
       state.pass2Cursor = saved._ui.pass2Cursor || 0;
+      state.observationLog = saved._ui.observationLog || [];
     }
     // Restore full artifact if present
     if (saved['sieve-version']) {
