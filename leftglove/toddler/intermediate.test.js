@@ -355,4 +355,42 @@ describe('round-trip', function () {
     strictEqual(parsed.glossaryNames[0].name, 'a-btn');
     strictEqual(parsed.glossaryNames[1], undefined);
   });
+
+  it('round-trips element with minimal/null fields', function () {
+    var sparseEl = mkElement('Bare', {
+      'element-type': null,
+      locators: {},
+      state: { visible: true },
+      visibleText: null,
+      region: null,
+      form: null,
+      'aria-role': null,
+    });
+    var st = mkState();
+    st.inventory.elements = [sparseEl];
+    st.classifications = {};
+    st.glossaryNames = {};
+
+    var intermediate = toIntermediate(st);
+    var parsed = parseIntermediate(intermediate);
+    ok(!parsed.errors);
+    var el = parsed.inventory.elements[0];
+    strictEqual(el.tag, 'button');
+    strictEqual(el.label, 'Bare');
+    strictEqual(el['element-type'], null);
+    strictEqual(el.region, null);
+    strictEqual(el.form, null);
+    strictEqual(el['aria-role'], null);
+    strictEqual(el.visibleText, null);
+    deepStrictEqual(el.locators, {});
+  });
+
+  it('round-trips empty glossary names (no pass2 data)', function () {
+    var st = mkState({ glossaryNames: {} });
+    var intermediate = toIntermediate(st);
+    strictEqual(intermediate['pass-2-progress'], 0);
+    var parsed = parseIntermediate(intermediate);
+    ok(!parsed.errors);
+    deepStrictEqual(parsed.glossaryNames, {});
+  });
 });
