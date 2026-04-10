@@ -283,6 +283,8 @@ function renderScreenshot() {
     const img = document.getElementById('screenshot-img');
     const emptyState = document.getElementById('empty-state');
 
+    if (!state.screenshotUrl) { resolve(); return; }
+
     img.onload = function () {
       // Use viewport dims from sieve (CSS pixels) if available,
       // otherwise fall back to natural image dims.
@@ -298,6 +300,7 @@ function renderScreenshot() {
       emptyState.style.display = 'none';
       resolve();
     };
+    img.onerror = function () { resolve(); };
     img.src = state.screenshotUrl;
   });
 }
