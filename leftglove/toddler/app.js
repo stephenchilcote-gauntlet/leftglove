@@ -810,7 +810,7 @@ function startPass2() {
 }
 
 function acceptName() {
-  if (state.mode !== 'pass2') return;
+  if (state.mode !== 'pass2' && state.mode !== 'review') return;
   var nameInput = document.getElementById('name-input');
   var intentInput = document.getElementById('intent-input');
   var notesInput = document.getElementById('notes-input');
@@ -1184,6 +1184,9 @@ function acceptDiff() {
   var diff = state.diffResult;
   if (!pending || !diff) return;
 
+  // Save pre-diff cursor position for restoration
+  var preDiffCursor = state.pass2Cursor;
+
   // Propagate names from old → new
   var propagated = propagateNames(
     pending.matchResult,
@@ -1225,8 +1228,9 @@ function acceptDiff() {
       });
     } else {
       buildPass2Order();
-      state.pass2Cursor = 0;
-      if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[0];
+      // Try to preserve user's position in pass2 order
+      state.pass2Cursor = Math.min(preDiffCursor, Math.max(0, state.pass2Order.length - 1));
+      if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[state.pass2Cursor];
       // Sync mode with naming state: downgrade review→pass2 if unnamed elements
       // appeared, upgrade pass2→review if diff removed the last unnamed element
       if (allPass2Named()) {
@@ -1488,6 +1492,7 @@ async function jumpTo(index) {
 
 async function doExploreClick(index) {
   if (state._exploreInProgress || _sieveInProgress) return;
+  if (isModeBlocked()) { showModeBlockedToast(); return; }
   var el = state.inventory.elements[index];
   if (!el) return;
 
@@ -1854,7 +1859,8 @@ function metaPillGroup(label, cssClass, items) {
 
 function renderMetadata() {
   const strip = document.getElementById('metadata-strip');
-  const inv = state.inventory;
+  // In diff mode, show metadata from the pending (new) inventory
+  const inv = state._pendingSieve?.inventory || state.inventory;
   if (!inv) { strip.innerHTML = ''; return; }
 
   strip.innerHTML =
