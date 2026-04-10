@@ -201,7 +201,7 @@ def test_page_loads(driver):
     assert btn_nav.is_displayed(), "Navigate button should be visible"
     assert url_input.is_displayed(), "URL input should be visible"
     # Mode defaults to 'pass1' in state even before sieve
-    mode = driver.execute_script("return state.mode")
+    mode = driver.execute_script("return testAPI.getMode()")
     assert mode == "pass1", f"Initial state.mode should be 'pass1', got: {mode!r}"
 
 def test_status_prepopulates_url(driver):
@@ -255,7 +255,7 @@ def test_sieve_returns_elements(driver):
 
     # SVG overlay should have rects matching the element count
     rects = driver.find_elements(By.CSS_SELECTOR, '#overlay-svg rect')
-    elem_count = driver.execute_script("return state.inventory.elements.length")
+    elem_count = driver.execute_script("return testAPI.getElementCount()")
     assert len(rects) == elem_count, \
         f"Expected {elem_count} SVG rects (one per element), found {len(rects)}"
 
@@ -300,7 +300,7 @@ def test_element_detail_shows(driver):
 
     detail_text = get_text(driver, "element-detail")
     # Detail panel should show the tag of the first element
-    first_tag = driver.execute_script("return state.inventory.elements[0].tag")
+    first_tag = driver.execute_script("return testAPI.getElementTag(0)")
     assert first_tag.lower() in detail_text.lower(), \
         f"Element detail should contain tag '{first_tag}', got: {detail_text!r}"
 
@@ -329,7 +329,7 @@ def test_classify_element(driver):
     assert "1 classified" in new_count, \
         f"Expected '1 classified' after classifying one element, got: {new_count!r}"
     # Verify classification was actually stored in state
-    cls = driver.execute_script("return state.classifications[state.currentIndex - 1]")
+    cls = driver.execute_script("return testAPI.getClassification(testAPI.getCurrentIndex() - 1)")
     assert cls == "clickable", f"Expected classification 'clickable', got: {cls!r}"
 
 def test_pass1_complete_shows_start_pass2(driver):
@@ -433,7 +433,7 @@ def test_load_valid_fixture(driver):
     _send_fixture(driver)
     _wait_for_rects(driver)
     rects = driver.find_elements(By.CSS_SELECTOR, '#overlay-svg rect')
-    elem_count = driver.execute_script("return state.inventory.elements.length")
+    elem_count = driver.execute_script("return testAPI.getElementCount()")
     assert elem_count > 0, "Fixture should load elements into state"
     assert len(rects) == elem_count, \
         f"Expected {elem_count} SVG rects matching loaded elements, found {len(rects)}"
@@ -479,7 +479,7 @@ def test_load_element_detail_populated(driver):
     _wait_for_rects(driver)
     time.sleep(0.3)  # let renderPanel() settle
     detail_text = get_text(driver, "element-detail")
-    first_tag = driver.execute_script("return state.inventory.elements[state.currentIndex].tag")
+    first_tag = driver.execute_script("return testAPI.getCurrentElementTag()")
     assert first_tag.lower() in detail_text.lower(), \
         f"Loaded element detail should contain tag '{first_tag}', got: {detail_text!r}"
 
@@ -743,10 +743,7 @@ def test_qo2_resolve_blocks_sieve(driver):
     wait_for(driver, "btn-sieve")
 
     # Inject resolve mode state directly
-    driver.execute_script("""
-        state.mode = 'resolve';
-        state.resolveContext = { allGroups: [], currentGroupIdx: 0, pairs: [], removedOld: [], addedNew: [] };
-    """)
+    driver.execute_script("testAPI.injectTestState({mode: 'resolve', resolveContext: { allGroups: [], currentGroupIdx: 0, pairs: [], removedOld: [], addedNew: [] }})")
 
     click(driver, "btn-sieve")
     time.sleep(0.5)
@@ -757,7 +754,7 @@ def test_qo2_resolve_blocks_sieve(driver):
     assert "resolv" in toast_text.lower(), f"Expected resolve-blocking toast, got: {toast_text!r}"
 
     # Clean up
-    driver.execute_script("state.mode = 'pass1'; state.resolveContext = null;")
+    driver.execute_script("testAPI.resetToPass1()")
 
 
 def test_qo2_resolve_blocks_navigate(driver):
@@ -765,10 +762,7 @@ def test_qo2_resolve_blocks_navigate(driver):
     driver.get(TL_URL)
     wait_for(driver, "url-input")
 
-    driver.execute_script("""
-        state.mode = 'resolve';
-        state.resolveContext = { allGroups: [], currentGroupIdx: 0, pairs: [], removedOld: [], addedNew: [] };
-    """)
+    driver.execute_script("testAPI.injectTestState({mode: 'resolve', resolveContext: { allGroups: [], currentGroupIdx: 0, pairs: [], removedOld: [], addedNew: [] }})")
 
     clear_and_type(driver, "url-input", DEMO_LOGIN)
     click(driver, "btn-navigate")
@@ -778,7 +772,7 @@ def test_qo2_resolve_blocks_navigate(driver):
     toast_text = driver.execute_script("return arguments[0].textContent", toast)
     assert "resolv" in toast_text.lower(), f"Expected resolve-blocking toast, got: {toast_text!r}"
 
-    driver.execute_script("state.mode = 'pass1'; state.resolveContext = null;")
+    driver.execute_script("testAPI.resetToPass1()")
 
 
 def test_qo2_resolve_blocks_load(driver):
@@ -786,10 +780,7 @@ def test_qo2_resolve_blocks_load(driver):
     driver.get(TL_URL)
     wait_for(driver, "btn-load")
 
-    driver.execute_script("""
-        state.mode = 'resolve';
-        state.resolveContext = { allGroups: [], currentGroupIdx: 0, pairs: [], removedOld: [], addedNew: [] };
-    """)
+    driver.execute_script("testAPI.injectTestState({mode: 'resolve', resolveContext: { allGroups: [], currentGroupIdx: 0, pairs: [], removedOld: [], addedNew: [] }})")
 
     _send_fixture(driver)
     time.sleep(0.5)
@@ -798,7 +789,7 @@ def test_qo2_resolve_blocks_load(driver):
     toast_text = driver.execute_script("return arguments[0].textContent", toast)
     assert "resolv" in toast_text.lower(), f"Expected resolve-blocking toast, got: {toast_text!r}"
 
-    driver.execute_script("state.mode = 'pass1'; state.resolveContext = null;")
+    driver.execute_script("testAPI.resetToPass1()")
 
 
 def test_qo2_resolve_ui_renders(driver):
@@ -808,40 +799,28 @@ def test_qo2_resolve_ui_renders(driver):
 
     # Inject a pending sieve with ambiguous results
     driver.execute_script("""
-        // Fake old inventory
-        state.inventory = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
-            ],
-        };
-        state.classifications = {0: 'readable', 1: 'readable'};
-        state.glossaryNames = {};
-
-        // Fake new inventory
-        var newInv = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:40,w:100,h:20}},
-            ],
-        };
-
-        var matchResult = matchElements(state.inventory.elements, newInv.elements);
-        var pendingSieve = {
-            inventory: newInv,
-            screenshotUrl: null,
-
-            matchResult: matchResult,
-            oldInventory: state.inventory,
-            oldClassifications: Object.assign({}, state.classifications),
-            oldGlossaryNames: Object.assign({}, state.glossaryNames),
-        };
-        enterResolveMode(matchResult, pendingSieve);
+        testAPI.simulateResolve(
+            {
+                inventory: {
+                    url: {raw: 'http://example.com'},
+                    viewport: {w: 1920, h: 1080},
+                    elements: [
+                        {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                        {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
+                    ],
+                },
+                classifications: {0: 'readable', 1: 'readable'},
+            },
+            {
+                url: {raw: 'http://example.com'},
+                viewport: {w: 1920, h: 1080},
+                elements: [
+                    {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                    {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
+                    {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:40,w:100,h:20}},
+                ],
+            }
+        );
     """)
 
     time.sleep(0.5)
@@ -863,13 +842,7 @@ def test_qo2_resolve_ui_renders(driver):
     assert not done_btn.is_enabled(), "Done button should be disabled"
 
     # Clean up
-    driver.execute_script("""
-        state.mode = 'pass1';
-        state.resolveContext = null;
-        state._pendingSieve = null;
-        state.inventory = null;
-        renderPanel();
-    """)
+    driver.execute_script("testAPI.injectTestState({mode: 'pass1', resolveContext: null, _pendingSieve: null, inventory: null})")
 
 
 def test_qo2_resolve_full_flow(driver):
@@ -880,39 +853,29 @@ def test_qo2_resolve_full_flow(driver):
     # Inject ambiguous state: 2 old <li> elements (with classifications + names)
     # matched against 3 new <li> elements. All share the same composite key.
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:10,w:200,h:30}},
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:50,w:200,h:30}},
-            ],
-        };
-        state.classifications = {0: 'clickable', 1: 'readable'};
-        state.glossaryNames = {0: {name: 'first-item', intent: 'List', source: 'human', notes: ''}};
-        state.mode = 'pass1';
-
-        var newInv = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:10,w:200,h:30}},
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:50,w:200,h:30}},
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:90,w:200,h:30}},
-            ],
-        };
-
-        var matchResult = matchElements(state.inventory.elements, newInv.elements);
-        var pendingSieve = {
-            inventory: newInv,
-            screenshotUrl: null,
-
-            matchResult: matchResult,
-            oldInventory: state.inventory,
-            oldClassifications: Object.assign({}, state.classifications),
-            oldGlossaryNames: Object.assign({}, state.glossaryNames),
-        };
-        enterResolveMode(matchResult, pendingSieve);
+        testAPI.simulateResolve(
+            {
+                inventory: {
+                    url: {raw: 'http://example.com'},
+                    viewport: {w: 1920, h: 1080},
+                    elements: [
+                        {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:10,w:200,h:30}},
+                        {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:50,w:200,h:30}},
+                    ],
+                },
+                classifications: {0: 'clickable', 1: 'readable'},
+                glossaryNames: {0: {name: 'first-item', intent: 'List', source: 'human', notes: ''}},
+            },
+            {
+                url: {raw: 'http://example.com'},
+                viewport: {w: 1920, h: 1080},
+                elements: [
+                    {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:10,w:200,h:30}},
+                    {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:50,w:200,h:30}},
+                    {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:10,y:90,w:200,h:30}},
+                ],
+            }
+        );
     """)
     time.sleep(0.5)
 
@@ -931,7 +894,7 @@ def test_qo2_resolve_full_flow(driver):
     time.sleep(0.2)
 
     # Verify the pair was created
-    pairs = driver.execute_script("return state.resolveContext.pairs")
+    pairs = driver.execute_script("return testAPI.getResolveContext().pairs")
     assert len(pairs) == 1, f"Expected 1 pair after pairing, got {len(pairs)}"
     assert pairs[0]["oldIdx"] == 0 and pairs[0]["newIdx"] == 0
 
@@ -941,14 +904,14 @@ def test_qo2_resolve_full_flow(driver):
     driver.execute_script("resolveSelectNew(1)")
     time.sleep(0.2)
 
-    pairs = driver.execute_script("return state.resolveContext.pairs")
+    pairs = driver.execute_script("return testAPI.getResolveContext().pairs")
     assert len(pairs) == 2, f"Expected 2 pairs, got {len(pairs)}"
 
     # Step 3: Mark new element 2 as added (it has no old counterpart to pair with)
     driver.execute_script("resolveMarkNewAdded(2)")
     time.sleep(0.2)
 
-    added = driver.execute_script("return state.resolveContext.addedNew")
+    added = driver.execute_script("return testAPI.getResolveContext().addedNew")
     assert 2 in added, f"Expected new element 2 in addedNew, got {added}"
 
     # All elements resolved — Done should be enabled
@@ -972,7 +935,7 @@ def test_qo2_resolve_full_flow(driver):
     assert "Sieve Diff" in mode_after, f"Expected diff mode after resolve, got: {mode_after!r}"
 
     # Verify resolve context is cleared
-    ctx = driver.execute_script("return state.resolveContext")
+    ctx = driver.execute_script("return testAPI.getResolveContext()")
     assert ctx is None, f"resolveContext should be null after finish, got: {ctx}"
 
     # Diff panel should be visible with accept button
@@ -989,14 +952,14 @@ def test_qo2_resolve_full_flow(driver):
 
     # Verify classifications propagated:
     # old[0] (clickable) → new[0], old[1] (readable) → new[1]
-    cls = driver.execute_script("return state.classifications")
+    cls = driver.execute_script("return testAPI.getClassifications()")
     assert cls.get("0") == "clickable", f"Expected cls[0]=clickable, got {cls}"
     assert cls.get("1") == "readable", f"Expected cls[1]=readable, got {cls}"
     # new[2] was marked added — no classification
     assert "2" not in cls, f"Added element should have no classification: {cls}"
 
     # Verify glossary name propagated: old[0] → new[0]
-    names = driver.execute_script("return state.glossaryNames")
+    names = driver.execute_script("return testAPI.getGlossaryNames()")
     assert names.get("0") is not None, f"Expected glossary name on new[0], got {names}"
     assert names["0"]["name"] == "first-item"
     assert names["0"]["intent"] == "List"
@@ -1004,7 +967,7 @@ def test_qo2_resolve_full_flow(driver):
     assert "1" not in names, f"new[1] should have no glossary name: {names}"
 
     # Verify inventory is the new one (3 elements)
-    el_count = driver.execute_script("return state.inventory.elements.length")
+    el_count = driver.execute_script("return testAPI.getElementCount()")
     assert el_count == 3, f"Expected 3 elements in new inventory, got {el_count}"
 
 
@@ -1015,51 +978,40 @@ def test_qo2_resolve_undo_pair(driver):
 
     # Inject 2-vs-2 ambiguity
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
-            ],
-        };
-        state.classifications = {0: 'clickable', 1: 'typable'};
-        state.glossaryNames = {};
-        state.mode = 'pass1';
-
-        var newInv = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
-            ],
-        };
-
-        var matchResult = matchElements(state.inventory.elements, newInv.elements);
-        var pendingSieve = {
-            inventory: newInv,
-            screenshotUrl: null,
-
-            matchResult: matchResult,
-            oldInventory: state.inventory,
-            oldClassifications: Object.assign({}, state.classifications),
-            oldGlossaryNames: Object.assign({}, state.glossaryNames),
-        };
-        enterResolveMode(matchResult, pendingSieve);
+        testAPI.simulateResolve(
+            {
+                inventory: {
+                    url: {raw: 'http://example.com'},
+                    viewport: {w: 1920, h: 1080},
+                    elements: [
+                        {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                        {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
+                    ],
+                },
+                classifications: {0: 'clickable', 1: 'typable'},
+            },
+            {
+                url: {raw: 'http://example.com'},
+                viewport: {w: 1920, h: 1080},
+                elements: [
+                    {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                    {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
+                ],
+            }
+        );
     """)
     time.sleep(0.3)
 
     # Pair old[0] → new[0]
     driver.execute_script("resolveSelectOld(0); resolveSelectNew(0);")
     time.sleep(0.2)
-    pairs = driver.execute_script("return state.resolveContext.pairs")
+    pairs = driver.execute_script("return testAPI.getResolveContext().pairs")
     assert len(pairs) == 1
 
     # Undo that pair
     driver.execute_script("resolveUndoPair(0, 0)")
     time.sleep(0.2)
-    pairs = driver.execute_script("return state.resolveContext.pairs")
+    pairs = driver.execute_script("return testAPI.getResolveContext().pairs")
     assert len(pairs) == 0, f"Expected 0 pairs after undo, got {len(pairs)}"
 
     # Now pair differently: old[0] → new[1], old[1] → new[0]
@@ -1068,7 +1020,7 @@ def test_qo2_resolve_undo_pair(driver):
     driver.execute_script("resolveSelectOld(1); resolveSelectNew(0);")
     time.sleep(0.2)
 
-    pairs = driver.execute_script("return state.resolveContext.pairs")
+    pairs = driver.execute_script("return testAPI.getResolveContext().pairs")
     assert len(pairs) == 2, f"Expected 2 pairs after re-pairing, got {len(pairs)}"
 
     # Finish resolve → enters diff mode → accept to propagate
@@ -1081,7 +1033,7 @@ def test_qo2_resolve_undo_pair(driver):
     driver.execute_script("acceptDiff()")
     time.sleep(0.3)
 
-    cls = driver.execute_script("return state.classifications")
+    cls = driver.execute_script("return testAPI.getClassifications()")
     # old[0] was 'clickable' → paired to new[1]
     assert cls.get("1") == "clickable", f"Expected cls[1]=clickable (from old[0]), got {cls}"
     # old[1] was 'typable' → paired to new[0]
@@ -1094,37 +1046,27 @@ def test_qo2_resolve_mark_all_removed_and_added(driver):
     wait_for(driver, "btn-sieve")
 
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
-            ],
-        };
-        state.classifications = {0: 'clickable'};
-        state.glossaryNames = {0: {name: 'old-thing', intent: 'X', source: 'human', notes: ''}};
-        state.mode = 'pass1';
-
-        var newInv = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
-                {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
-            ],
-        };
-
-        var matchResult = matchElements(state.inventory.elements, newInv.elements);
-        var pendingSieve = {
-            inventory: newInv,
-            screenshotUrl: null,
-
-            matchResult: matchResult,
-            oldInventory: state.inventory,
-            oldClassifications: Object.assign({}, state.classifications),
-            oldGlossaryNames: Object.assign({}, state.glossaryNames),
-        };
-        enterResolveMode(matchResult, pendingSieve);
+        testAPI.simulateResolve(
+            {
+                inventory: {
+                    url: {raw: 'http://example.com'},
+                    viewport: {w: 1920, h: 1080},
+                    elements: [
+                        {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                    ],
+                },
+                classifications: {0: 'clickable'},
+                glossaryNames: {0: {name: 'old-thing', intent: 'X', source: 'human', notes: ''}},
+            },
+            {
+                url: {raw: 'http://example.com'},
+                viewport: {w: 1920, h: 1080},
+                elements: [
+                    {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:0,w:100,h:20}},
+                    {locators: {}, tag: 'li', label: 'Item', region: 'list', rect: {x:0,y:20,w:100,h:20}},
+                ],
+            }
+        );
     """)
     time.sleep(0.3)
 
@@ -1150,8 +1092,8 @@ def test_qo2_resolve_mark_all_removed_and_added(driver):
     time.sleep(0.3)
 
     # Nothing should propagate — all old marked removed, all new marked added
-    cls = driver.execute_script("return state.classifications")
-    names = driver.execute_script("return state.glossaryNames")
+    cls = driver.execute_script("return testAPI.getClassifications()")
+    names = driver.execute_script("return testAPI.getGlossaryNames()")
     assert len(cls) == 0, f"Expected no classifications (all removed/added), got {cls}"
     assert len(names) == 0, f"Expected no glossary names, got {names}"
 
@@ -1258,37 +1200,27 @@ def test_cuo_diff_mode_renders(driver):
     wait_for(driver, "btn-sieve")
 
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com/login'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:10,y:10,w:200,h:30}},
-                {locators: {testid: 'submit'}, tag: 'button', label: 'Login', region: 'form', rect: {x:10,y:50,w:100,h:30}},
-            ],
-        };
-        state.classifications = {0: 'typable', 1: 'clickable'};
-        state.mode = 'pass1';
-
-        var newInv = {
-            url: {raw: 'http://example.com/dashboard'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:10,y:10,w:200,h:30}},
-                {locators: {testid: 'welcome'}, tag: 'span', label: 'Welcome', region: 'header', rect: {x:200,y:5,w:150,h:25}},
-            ],
-        };
-
-        var matchResult = matchElements(state.inventory.elements, newInv.elements);
-        var pendingSieve = {
-            inventory: newInv,
-            screenshotUrl: null,
-
-            matchResult: matchResult,
-            oldInventory: state.inventory,
-            oldClassifications: Object.assign({}, state.classifications),
-            oldGlossaryNames: Object.assign({}, state.glossaryNames),
-        };
-        enterDiffMode(matchResult, pendingSieve, null);
+        testAPI.simulateDiff(
+            {
+                inventory: {
+                    url: {raw: 'http://example.com/login'},
+                    viewport: {w: 1920, h: 1080},
+                    elements: [
+                        {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:10,y:10,w:200,h:30}},
+                        {locators: {testid: 'submit'}, tag: 'button', label: 'Login', region: 'form', rect: {x:10,y:50,w:100,h:30}},
+                    ],
+                },
+                classifications: {0: 'typable', 1: 'clickable'},
+            },
+            {
+                url: {raw: 'http://example.com/dashboard'},
+                viewport: {w: 1920, h: 1080},
+                elements: [
+                    {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:10,y:10,w:200,h:30}},
+                    {locators: {testid: 'welcome'}, tag: 'span', label: 'Welcome', region: 'header', rect: {x:200,y:5,w:150,h:25}},
+                ],
+            }
+        );
     """)
     time.sleep(0.5)
 
@@ -1317,11 +1249,7 @@ def test_cuo_diff_blocks_sieve(driver):
     driver.get(TL_URL)
     wait_for(driver, "btn-sieve")
 
-    driver.execute_script("""
-        state.mode = 'diff';
-        state.diffResult = {added: [], removed: [], changed: [], unchanged: []};
-        state._pendingSieve = {inventory: {elements:[]}, oldInventory: {elements:[]}};
-    """)
+    driver.execute_script("testAPI.injectTestState({mode: 'diff', diffResult: {added: [], removed: [], changed: [], unchanged: []}, _pendingSieve: {inventory: {elements:[]}, oldInventory: {elements:[]}}})")
 
     click(driver, "btn-sieve")
     time.sleep(0.5)
@@ -1336,11 +1264,7 @@ def test_cuo_diff_blocks_navigate(driver):
     driver.get(TL_URL)
     wait_for(driver, "btn-sieve")
 
-    driver.execute_script("""
-        state.mode = 'diff';
-        state.diffResult = {added: [], removed: [], changed: [], unchanged: []};
-        state._pendingSieve = {inventory: {elements:[]}, oldInventory: {elements:[]}};
-    """)
+    driver.execute_script("testAPI.injectTestState({mode: 'diff', diffResult: {added: [], removed: [], changed: [], unchanged: []}, _pendingSieve: {inventory: {elements:[]}, oldInventory: {elements:[]}}})")
 
     clear_and_type(driver, "url-input", "http://example.com")
     click(driver, "btn-navigate")
@@ -1357,39 +1281,30 @@ def test_cuo_accept_diff_propagates(driver):
     wait_for(driver, "btn-sieve")
 
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com/page'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {testid: 'a'}, tag: 'input', label: 'Field A', region: 'form', rect: {x:0,y:0,w:100,h:20}},
-                {locators: {testid: 'b'}, tag: 'button', label: 'Btn B', region: 'form', rect: {x:0,y:30,w:100,h:20}},
-            ],
-        };
-        state.classifications = {0: 'typable', 1: 'clickable'};
-        state.glossaryNames = {0: {name: 'field-a', intent: 'Form', source: 'human', notes: ''}};
-        state.mode = 'pass2';
-
-        var newInv = {
-            url: {raw: 'http://example.com/page'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {testid: 'a'}, tag: 'input', label: 'Field A', region: 'form', rect: {x:0,y:0,w:100,h:20}},
-                {locators: {testid: 'b'}, tag: 'button', label: 'Btn B', region: 'form', rect: {x:0,y:30,w:100,h:20}},
-                {locators: {testid: 'c'}, tag: 'span', label: 'New thing', region: 'form', rect: {x:0,y:60,w:100,h:20}},
-            ],
-        };
-
-        var matchResult = matchElements(state.inventory.elements, newInv.elements);
-        var pendingSieve = {
-            inventory: newInv,
-            screenshotUrl: null,
-
-            matchResult: matchResult,
-            oldInventory: state.inventory,
-            oldClassifications: Object.assign({}, state.classifications),
-            oldGlossaryNames: Object.assign({}, state.glossaryNames),
-        };
-        enterDiffMode(matchResult, pendingSieve, null);
+        testAPI.simulateDiff(
+            {
+                inventory: {
+                    url: {raw: 'http://example.com/page'},
+                    viewport: {w: 1920, h: 1080},
+                    elements: [
+                        {locators: {testid: 'a'}, tag: 'input', label: 'Field A', region: 'form', rect: {x:0,y:0,w:100,h:20}},
+                        {locators: {testid: 'b'}, tag: 'button', label: 'Btn B', region: 'form', rect: {x:0,y:30,w:100,h:20}},
+                    ],
+                },
+                classifications: {0: 'typable', 1: 'clickable'},
+                glossaryNames: {0: {name: 'field-a', intent: 'Form', source: 'human', notes: ''}},
+                mode: 'pass2',
+            },
+            {
+                url: {raw: 'http://example.com/page'},
+                viewport: {w: 1920, h: 1080},
+                elements: [
+                    {locators: {testid: 'a'}, tag: 'input', label: 'Field A', region: 'form', rect: {x:0,y:0,w:100,h:20}},
+                    {locators: {testid: 'b'}, tag: 'button', label: 'Btn B', region: 'form', rect: {x:0,y:30,w:100,h:20}},
+                    {locators: {testid: 'c'}, tag: 'span', label: 'New thing', region: 'form', rect: {x:0,y:60,w:100,h:20}},
+                ],
+            }
+        );
     """)
     time.sleep(0.5)
 
@@ -1405,21 +1320,21 @@ def test_cuo_accept_diff_propagates(driver):
     assert "Pass 2" in mode_after, f"Expected Pass 2 restored, got: {mode_after!r}"
 
     # Classifications propagated
-    cls = driver.execute_script("return state.classifications")
+    cls = driver.execute_script("return testAPI.getClassifications()")
     assert cls.get("0") == "typable", f"Expected cls[0]=typable, got {cls}"
     assert cls.get("1") == "clickable", f"Expected cls[1]=clickable, got {cls}"
 
     # Glossary name propagated
-    names = driver.execute_script("return state.glossaryNames")
+    names = driver.execute_script("return testAPI.getGlossaryNames()")
     assert names.get("0") is not None, f"Expected name on [0], got {names}"
     assert names["0"]["name"] == "field-a"
 
     # New inventory has 3 elements
-    count = driver.execute_script("return state.inventory.elements.length")
+    count = driver.execute_script("return testAPI.getElementCount()")
     assert count == 3, f"Expected 3 elements, got {count}"
 
     # Diff state cleared
-    diff = driver.execute_script("return state.diffResult")
+    diff = driver.execute_script("return testAPI.getDiffResult()")
     assert diff is None, f"Expected diffResult null after accept, got {diff}"
 
 
@@ -1429,26 +1344,20 @@ def test_cuo_diff_keyboard_accept(driver):
     wait_for(driver, "btn-sieve")
 
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [{locators: {testid: 'x'}, tag: 'div', label: 'X', region: 'main', rect: {x:0,y:0,w:50,h:50}}],
-        };
-        state.classifications = {};
-        state.mode = 'pass1';
-
-        var newInv = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [{locators: {testid: 'x'}, tag: 'div', label: 'X', region: 'main', rect: {x:0,y:0,w:50,h:50}}],
-        };
-        var matchResult = matchElements(state.inventory.elements, newInv.elements);
-        var pendingSieve = {
-            inventory: newInv, screenshotUrl: null,
-            matchResult: matchResult, oldInventory: state.inventory,
-            oldClassifications: {}, oldGlossaryNames: {},
-        };
-        enterDiffMode(matchResult, pendingSieve, null);
+        testAPI.simulateDiff(
+            {
+                inventory: {
+                    url: {raw: 'http://example.com'},
+                    viewport: {w: 1920, h: 1080},
+                    elements: [{locators: {testid: 'x'}, tag: 'div', label: 'X', region: 'main', rect: {x:0,y:0,w:50,h:50}}],
+                },
+            },
+            {
+                url: {raw: 'http://example.com'},
+                viewport: {w: 1920, h: 1080},
+                elements: [{locators: {testid: 'x'}, tag: 'div', label: 'X', region: 'main', rect: {x:0,y:0,w:50,h:50}}],
+            }
+        );
     """)
     time.sleep(0.3)
 
@@ -1469,40 +1378,34 @@ def test_cuo_diff_item_selection(driver):
     wait_for(driver, "btn-sieve")
 
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {testid: 'a'}, tag: 'div', label: 'A', region: 'main', rect: {x:0,y:0,w:50,h:50}},
-            ],
-        };
-        state.classifications = {};
-        state.mode = 'pass1';
-
-        var newInv = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {locators: {testid: 'a'}, tag: 'div', label: 'A', region: 'main', rect: {x:0,y:0,w:50,h:50}},
-                {locators: {testid: 'b'}, tag: 'span', label: 'B', region: 'main', rect: {x:0,y:60,w:50,h:50}},
-                {locators: {testid: 'c'}, tag: 'p', label: 'C', region: 'main', rect: {x:0,y:120,w:50,h:50}},
-            ],
-        };
-        var matchResult = matchElements(state.inventory.elements, newInv.elements);
-        var pendingSieve = {
-            inventory: newInv, screenshotUrl: null,
-            matchResult: matchResult, oldInventory: state.inventory,
-            oldClassifications: {}, oldGlossaryNames: {},
-        };
-        enterDiffMode(matchResult, pendingSieve, null);
+        testAPI.simulateDiff(
+            {
+                inventory: {
+                    url: {raw: 'http://example.com'},
+                    viewport: {w: 1920, h: 1080},
+                    elements: [
+                        {locators: {testid: 'a'}, tag: 'div', label: 'A', region: 'main', rect: {x:0,y:0,w:50,h:50}},
+                    ],
+                },
+            },
+            {
+                url: {raw: 'http://example.com'},
+                viewport: {w: 1920, h: 1080},
+                elements: [
+                    {locators: {testid: 'a'}, tag: 'div', label: 'A', region: 'main', rect: {x:0,y:0,w:50,h:50}},
+                    {locators: {testid: 'b'}, tag: 'span', label: 'B', region: 'main', rect: {x:0,y:60,w:50,h:50}},
+                    {locators: {testid: 'c'}, tag: 'p', label: 'C', region: 'main', rect: {x:0,y:120,w:50,h:50}},
+                ],
+            }
+        );
     """)
     time.sleep(0.5)
 
     # Click first item in diff list
-    driver.execute_script("diffSelectItem(0)")
+    driver.execute_script("testAPI.diffSelectItem(0)")
     time.sleep(0.2)
 
-    sel = driver.execute_script("return state.diffSelectedIdx")
+    sel = driver.execute_script("return testAPI.getDiffSelectedIdx()")
     assert sel == 0, f"Expected selected index 0, got {sel}"
 
     # Press j to move down
@@ -1510,14 +1413,14 @@ def test_cuo_diff_item_selection(driver):
     body.send_keys("j")
     time.sleep(0.2)
 
-    sel = driver.execute_script("return state.diffSelectedIdx")
+    sel = driver.execute_script("return testAPI.getDiffSelectedIdx()")
     assert sel == 1, f"Expected selected index 1 after j, got {sel}"
 
     # Press k to move up
     body.send_keys("k")
     time.sleep(0.2)
 
-    sel = driver.execute_script("return state.diffSelectedIdx")
+    sel = driver.execute_script("return testAPI.getDiffSelectedIdx()")
     assert sel == 0, f"Expected selected index 0 after k, got {sel}"
 
 
@@ -1560,42 +1463,31 @@ def test_visual_diff_mode(driver):
 
     # Inject a diff state with mixed changes to get a rich visual
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com/login'},
-            viewport: {w: 1280, h: 900},
-            elements: [
-                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:100,y:200,w:300,h:40}},
-                {locators: {testid: 'pass'}, tag: 'input', label: 'Password', region: 'form', rect: {x:100,y:260,w:300,h:40}},
-                {locators: {testid: 'submit'}, tag: 'button', label: 'Login', region: 'form', rect: {x:100,y:320,w:100,h:35}},
-                {locators: {testid: 'help'}, tag: 'a', label: 'Help', region: 'nav', rect: {x:500,y:50,w:60,h:20}},
-            ],
-        };
-        state.screenshotDims = {w: 1280, h: 900};
-        state.classifications = {0: 'typable', 1: 'typable', 2: 'clickable', 3: 'clickable'};
-        state.glossaryNames = {};
-        state.mode = 'pass1';
-
-        var newInv = {
-            url: {raw: 'http://example.com/dashboard'},
-            viewport: {w: 1280, h: 900},
-            elements: [
-                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:100,y:200,w:300,h:40}},
-                {locators: {testid: 'submit'}, tag: 'button', label: 'Sign In', region: 'form', rect: {x:100,y:320,w:120,h:35}},
-                {locators: {testid: 'welcome'}, tag: 'h1', label: 'Welcome', region: 'main', rect: {x:100,y:100,w:400,h:50}},
-            ],
-        };
-
-        var matchResult = matchElements(state.inventory.elements, newInv.elements);
-        var pendingSieve = {
-            inventory: newInv,
-            screenshotUrl: null,
-
-            matchResult: matchResult,
-            oldInventory: state.inventory,
-            oldClassifications: Object.assign({}, state.classifications),
-            oldGlossaryNames: Object.assign({}, state.glossaryNames),
-        };
-        enterDiffMode(matchResult, pendingSieve, null);
+        testAPI.simulateDiff(
+            {
+                inventory: {
+                    url: {raw: 'http://example.com/login'},
+                    viewport: {w: 1280, h: 900},
+                    elements: [
+                        {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:100,y:200,w:300,h:40}},
+                        {locators: {testid: 'pass'}, tag: 'input', label: 'Password', region: 'form', rect: {x:100,y:260,w:300,h:40}},
+                        {locators: {testid: 'submit'}, tag: 'button', label: 'Login', region: 'form', rect: {x:100,y:320,w:100,h:35}},
+                        {locators: {testid: 'help'}, tag: 'a', label: 'Help', region: 'nav', rect: {x:500,y:50,w:60,h:20}},
+                    ],
+                },
+                screenshotDims: {w: 1280, h: 900},
+                classifications: {0: 'typable', 1: 'typable', 2: 'clickable', 3: 'clickable'},
+            },
+            {
+                url: {raw: 'http://example.com/dashboard'},
+                viewport: {w: 1280, h: 900},
+                elements: [
+                    {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:100,y:200,w:300,h:40}},
+                    {locators: {testid: 'submit'}, tag: 'button', label: 'Sign In', region: 'form', rect: {x:100,y:320,w:120,h:35}},
+                    {locators: {testid: 'welcome'}, tag: 'h1', label: 'Welcome', region: 'main', rect: {x:100,y:100,w:400,h:50}},
+                ],
+            }
+        );
     """)
     time.sleep(0.5)
 
@@ -1764,18 +1656,19 @@ def test_07k_export_glossary_button_visibility(driver):
 
     # Inject a named element and re-render
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {tag: 'input', label: 'Email', category: ':typable',
-                 locators: {testid: 'email'}, rect: {x:0,y:0,w:100,h:30}, region: 'form'}
-            ]
-        };
-        state.classifications = {0: 'typable'};
-        state.glossaryNames = {0: {name: 'email', intent: 'Login', source: 'human', notes: ''}};
-        state.mode = 'pass2';
-        renderPanel();
+        testAPI.injectTestState({
+            inventory: {
+                url: {raw: 'http://example.com'},
+                viewport: {w: 1920, h: 1080},
+                elements: [
+                    {tag: 'input', label: 'Email', category: ':typable',
+                     locators: {testid: 'email'}, rect: {x:0,y:0,w:100,h:30}, region: 'form'}
+                ]
+            },
+            classifications: {0: 'typable'},
+            glossaryNames: {0: {name: 'email', intent: 'Login', source: 'human', notes: ''}},
+            mode: 'pass2',
+        });
     """)
     time.sleep(0.3)
 
@@ -1792,23 +1685,25 @@ def test_07k_export_glossary_download_fallback(driver):
 
     # Set up state with named elements and an unreachable API
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com/login'},
-            viewport: {w: 1920, h: 1080},
-            elements: [
-                {tag: 'input', label: 'Email', category: ':typable',
-                 locators: {testid: 'email'}, rect: {x:0,y:0,w:100,h:30}, region: 'form'},
-                {tag: 'button', label: 'Submit', category: ':clickable',
-                 locators: {testid: 'submit'}, rect: {x:0,y:40,w:100,h:30}, region: 'form'},
-            ]
-        };
-        state.classifications = {0: 'typable', 1: 'clickable'};
-        state.glossaryNames = {
-            0: {name: 'email', intent: 'Login', source: 'human', notes: ''},
-            1: {name: 'submit', intent: 'Login', source: 'human', notes: ''},
-        };
-        state.mode = 'pass2';
-        state.pageUrl = 'http://example.com/login';
+        testAPI.injectTestState({
+            inventory: {
+                url: {raw: 'http://example.com/login'},
+                viewport: {w: 1920, h: 1080},
+                elements: [
+                    {tag: 'input', label: 'Email', category: ':typable',
+                     locators: {testid: 'email'}, rect: {x:0,y:0,w:100,h:30}, region: 'form'},
+                    {tag: 'button', label: 'Submit', category: ':clickable',
+                     locators: {testid: 'submit'}, rect: {x:0,y:40,w:100,h:30}, region: 'form'},
+                ]
+            },
+            classifications: {0: 'typable', 1: 'clickable'},
+            glossaryNames: {
+                0: {name: 'email', intent: 'Login', source: 'human', notes: ''},
+                1: {name: 'submit', intent: 'Login', source: 'human', notes: ''},
+            },
+            mode: 'pass2',
+            pageUrl: 'http://example.com/login',
+        });
     """)
     time.sleep(0.2)
 
@@ -1874,21 +1769,21 @@ def test_o4c_explore_toggle(driver):
     # Initially off
     text = get_text(driver, "btn-explore-mode")
     assert text.strip() == "Explore", f"Expected 'Explore', got: {text!r}"
-    mode = driver.execute_script("return state.exploreMode")
+    mode = driver.execute_script("return testAPI.getExploreMode()")
     assert mode is False, f"Expected exploreMode=false, got: {mode}"
 
     # Toggle on
     click(driver, "btn-explore-mode")
     text = get_text(driver, "btn-explore-mode")
     assert "ON" in text, f"Expected 'Explore ON', got: {text!r}"
-    mode = driver.execute_script("return state.exploreMode")
+    mode = driver.execute_script("return testAPI.getExploreMode()")
     assert mode is True
 
     # Toggle off
     click(driver, "btn-explore-mode")
     text = get_text(driver, "btn-explore-mode")
     assert text.strip() == "Explore", f"Expected 'Explore' after toggle off, got: {text!r}"
-    mode = driver.execute_script("return state.exploreMode")
+    mode = driver.execute_script("return testAPI.getExploreMode()")
     assert mode is False
 
 
@@ -1900,13 +1795,13 @@ def test_o4c_explore_persists_across_reload(driver):
     wait_for(driver, "btn-explore-mode")
 
     click(driver, "btn-explore-mode")
-    mode = driver.execute_script("return state.exploreMode")
+    mode = driver.execute_script("return testAPI.getExploreMode()")
     assert mode is True
 
     # Reload and check
     driver.get(TL_URL)
     wait_for(driver, "btn-explore-mode")
-    mode = driver.execute_script("return state.exploreMode")
+    mode = driver.execute_script("return testAPI.getExploreMode()")
     assert mode is True, "Explore mode should persist across reload"
     text = get_text(driver, "btn-explore-mode")
     assert "ON" in text, f"Button text should reflect persisted state: {text!r}"
@@ -1946,25 +1841,26 @@ def test_o4c_explore_click_no_selector_shows_toast(driver):
 
     # Inject inventory with one element that has no usable locators
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 1280, h: 900},
-            elements: [{
-                tag: 'div', label: '', region: 'body',
-                locators: {},
-                rect: {x: 100, y: 100, w: 200, h: 50}
-            }],
-        };
-        state.screenshotDims = {w: 1280, h: 900};
-        state.classifications = {};
-        state.mode = 'pass1';
-        state.exploreMode = true;
-        renderOverlay();
+        testAPI.injectTestState({
+            inventory: {
+                url: {raw: 'http://example.com'},
+                viewport: {w: 1280, h: 900},
+                elements: [{
+                    tag: 'div', label: '', region: 'body',
+                    locators: {},
+                    rect: {x: 100, y: 100, w: 200, h: 50}
+                }],
+            },
+            screenshotDims: {w: 1280, h: 900},
+            classifications: {},
+            mode: 'pass1',
+            exploreMode: true,
+        });
     """)
     time.sleep(0.3)
 
     # Click the rect in the overlay
-    driver.execute_script("jumpTo(0)")
+    driver.execute_script("testAPI.jumpTo(0)")
     time.sleep(0.5)
 
     toast = driver.find_element(By.CSS_SELECTOR, "#toast")
@@ -1978,7 +1874,7 @@ def test_o4c_explore_click_dispatches_and_resieves(driver):
     driver.execute_script("localStorage.clear()")
     _navigate_and_sieve(driver)
 
-    pre_url = driver.execute_script("return state.pageUrl")
+    pre_url = driver.execute_script("return testAPI.getPageUrl()")
     assert "/login" in pre_url, f"Should start on login page, got: {pre_url!r}"
 
     # Enable explore mode
@@ -1986,36 +1882,28 @@ def test_o4c_explore_click_dispatches_and_resieves(driver):
     time.sleep(0.3)
 
     # Find the forgot-password link — clicking it navigates without preconditions
-    link_idx = driver.execute_script("""
-        for (var i = 0; i < state.inventory.elements.length; i++) {
-            if (state.inventory.elements[i].locators &&
-                state.inventory.elements[i].locators.testid === 'forgot-password') {
-                return i;
-            }
-        }
-        return -1;
-    """)
+    link_idx = driver.execute_script("return testAPI.findElementIndexByTestId('forgot-password')")
     assert link_idx >= 0, "Should find forgot-password link in inventory"
 
-    pre_log_len = driver.execute_script("return state.observationLog.length")
+    pre_log_len = driver.execute_script("return testAPI.getObservationLogLength()")
 
     # Click the link via explore mode
-    driver.execute_script(f"jumpTo({link_idx})")
+    driver.execute_script(f"testAPI.jumpTo({link_idx})")
 
     # Wait for the re-sieve cycle to complete
     WebDriverWait(driver, 20).until(
-        lambda d: d.execute_script("return state.observationLog.length") > pre_log_len
+        lambda d: d.execute_script("return testAPI.getObservationLogLength()") > pre_log_len
     )
 
     # Verify the click actually navigated — URL should have changed
-    post_url = driver.execute_script("return state.pageUrl")
+    post_url = driver.execute_script("return testAPI.getPageUrl()")
     assert post_url != pre_url, \
         f"URL should have changed after clicking link, still: {post_url!r}"
     assert "forgot" in post_url.lower(), \
         f"Expected navigation to forgot-password page, got: {post_url!r}"
 
     # Verify observation log records the actual transition
-    entry = driver.execute_script("return state.observationLog[state.observationLog.length - 1]")
+    entry = driver.execute_script("return testAPI.getLastObservation()")
     assert entry["action"]["type"] == "click"
     assert "forgot-password" in entry["action"]["selector"]
     assert entry["obs1"]["url"] == pre_url, \
@@ -2046,19 +1934,19 @@ def test_o4c_explore_click_triggers_diff(driver):
     time.sleep(0.5)
 
     # If a diff/resolve appeared from prior state, accept it first
-    mode = driver.execute_script("return state.mode")
+    mode = driver.execute_script("return testAPI.getMode()")
     if mode in ("diff", "resolve"):
         if mode == "resolve":
             driver.execute_script("""
                 if (typeof finishResolve === 'function') finishResolve();
             """)
             time.sleep(0.5)
-        mode = driver.execute_script("return state.mode")
+        mode = driver.execute_script("return testAPI.getMode()")
         if mode == "diff":
             driver.execute_script("acceptDiff()")
             time.sleep(0.5)
 
-    pre_url = driver.execute_script("return state.pageUrl")
+    pre_url = driver.execute_script("return testAPI.getPageUrl()")
     assert "/about" in pre_url, f"Should start on /about, got: {pre_url!r}"
 
     # Classify a few elements so diff has old state to compare against
@@ -2068,30 +1956,22 @@ def test_o4c_explore_click_triggers_diff(driver):
     click(driver, "btn-explore-mode")
     time.sleep(0.3)
 
-    login_idx = driver.execute_script("""
-        for (var i = 0; i < state.inventory.elements.length; i++) {
-            if (state.inventory.elements[i].locators &&
-                state.inventory.elements[i].locators.testid === 'nav-login') {
-                return i;
-            }
-        }
-        return -1;
-    """)
+    login_idx = driver.execute_script("return testAPI.findElementIndexByTestId('nav-login')")
     assert login_idx >= 0, "Should find nav-login link in /about page inventory"
 
-    pre_log = driver.execute_script("return state.observationLog.length")
-    driver.execute_script(f"jumpTo({login_idx})")
+    pre_log = driver.execute_script("return testAPI.getObservationLogLength()")
+    driver.execute_script(f"testAPI.jumpTo({login_idx})")
 
     # Wait for re-sieve cycle to complete
     WebDriverWait(driver, 25).until(
-        lambda d: d.execute_script("return state.observationLog.length") > pre_log
+        lambda d: d.execute_script("return testAPI.getObservationLogLength()") > pre_log
     )
     time.sleep(0.5)
 
     # The observation log's obs2.url must show the new URL (state.pageUrl stays
     # as the old URL until the user accepts the diff — that's correct behavior)
     obs2_url = driver.execute_script(
-        "return state.observationLog[state.observationLog.length-1].obs2.url"
+        "return testAPI.getLastObservation().obs2.url"
     )
     assert obs2_url != pre_url, \
         f"obs2.url should differ from pre-click URL after clicking nav-login, still: {obs2_url!r}"
@@ -2099,13 +1979,13 @@ def test_o4c_explore_click_triggers_diff(driver):
         f"Expected obs2.url to show /login, got: {obs2_url!r}"
 
     # Mode must be diff or resolve (not pass1 — that would mean diff pipeline didn't fire)
-    mode = driver.execute_script("return state.mode")
+    mode = driver.execute_script("return testAPI.getMode()")
     assert mode in ("diff", "resolve"), \
         f"Expected diff or resolve mode after navigation click, got: {mode!r}"
 
     # If in diff mode, verify classification is 'navigation' (URL changed)
     if mode == "diff":
-        diff_class = driver.execute_script("return state.diffClass")
+        diff_class = driver.execute_script("return testAPI.getDiffClass()")
         assert diff_class == "navigation", \
             f"Expected diff classification 'navigation', got: {diff_class!r}"
 
@@ -2116,20 +1996,22 @@ def test_o4c_explore_reentrant_guard(driver):
     wait_for(driver, "btn-sieve")
 
     result = driver.execute_script("""
-        state._exploreInProgress = true;
-        state.inventory = {
-            elements: [{tag: 'a', locators: {testid: 'x'}, rect: {x:0,y:0,w:10,h:10}}],
-        };
-        state.exploreMode = true;
-        state.mode = 'pass1';
+        testAPI.injectTestState({
+            _exploreInProgress: true,
+            inventory: {
+                elements: [{tag: 'a', locators: {testid: 'x'}, rect: {x:0,y:0,w:10,h:10}}],
+            },
+            exploreMode: true,
+            mode: 'pass1',
+        });
         // jumpTo should return immediately due to guard
-        jumpTo(0);
-        return state._exploreInProgress;
+        testAPI.jumpTo(0);
+        return testAPI.isExploreInProgress();
     """)
     assert result is True, "Guard should prevent re-entrant explore click"
 
     # Reset
-    driver.execute_script("state._exploreInProgress = false")
+    driver.execute_script("testAPI.clearExploreInProgress()")
 
 
 def test_o4c_observation_log_structure(driver):
@@ -2138,18 +2020,20 @@ def test_o4c_observation_log_structure(driver):
     wait_for(driver, "btn-sieve")
 
     driver.execute_script("""
-        state.observationLog = [{
-            obs1: {url: 'http://a.com', elementCount: 10, timestamp: 1000},
-            action: {type: 'click', selector: '[data-testid="x"]', elementLabel: 'X', elementIndex: 0},
-            obs2: {url: 'http://b.com', elementCount: 8, timestamp: 2000},
-        }];
+        testAPI.injectTestState({
+            observationLog: [{
+                obs1: {url: 'http://a.com', elementCount: 10, timestamp: 1000},
+                action: {type: 'click', selector: '[data-testid="x"]', elementLabel: 'X', elementIndex: 0},
+                obs2: {url: 'http://b.com', elementCount: 8, timestamp: 2000},
+            }],
+        });
         saveState();
     """)
 
     # Reload and verify persistence
     driver.get(TL_URL)
     wait_for(driver, "btn-sieve")
-    log = driver.execute_script("return state.observationLog")
+    log = driver.execute_script("return testAPI.getObservationLog()")
     assert len(log) == 1
     entry = log[0]
     assert entry["obs1"]["url"] == "http://a.com"
@@ -2167,20 +2051,21 @@ def test_o4c_explore_overlay_visual_feedback(driver):
 
     # Inject inventory with elements (some with testid, some without)
     driver.execute_script("""
-        state.inventory = {
-            url: {raw: 'http://example.com'},
-            viewport: {w: 800, h: 600},
-            elements: [
-                {tag: 'button', label: 'Submit', locators: {testid: 'submit'}, rect: {x:100,y:100,w:200,h:40}, region: 'form'},
-                {tag: 'div', label: '', locators: {}, rect: {x:100,y:200,w:200,h:40}, region: 'body'},
-            ],
-        };
-        state.screenshotDims = {w: 800, h: 600};
-        state.classifications = {};
-        state.mode = 'pass1';
-        state.exploreMode = true;
-        state.currentIndex = 0;
-        renderOverlay();
+        testAPI.injectTestState({
+            inventory: {
+                url: {raw: 'http://example.com'},
+                viewport: {w: 800, h: 600},
+                elements: [
+                    {tag: 'button', label: 'Submit', locators: {testid: 'submit'}, rect: {x:100,y:100,w:200,h:40}, region: 'form'},
+                    {tag: 'div', label: '', locators: {}, rect: {x:100,y:200,w:200,h:40}, region: 'body'},
+                ],
+            },
+            screenshotDims: {w: 800, h: 600},
+            classifications: {},
+            mode: 'pass1',
+            exploreMode: true,
+            currentIndex: 0,
+        });
     """)
     time.sleep(0.3)
 
@@ -2201,7 +2086,7 @@ def test_o4c_explore_overlay_visual_feedback(driver):
         f"Current clickable element should have orange fill, got: {fills[0]!r}"
 
     # Toggle explore off — cursor should reset
-    driver.execute_script("state.exploreMode = false; renderOverlay();")
+    driver.execute_script("testAPI.setExploreMode(false)")
     time.sleep(0.1)
     cursor = driver.execute_script("""
         return document.getElementById('overlay-svg').style.cursor;
@@ -2259,28 +2144,20 @@ def test_visual_explore_after_click(driver):
     click(driver, "btn-explore-mode")
     time.sleep(0.3)
 
-    link_idx = driver.execute_script("""
-        for (var i = 0; i < state.inventory.elements.length; i++) {
-            if (state.inventory.elements[i].locators &&
-                state.inventory.elements[i].locators.testid === 'nav-login') {
-                return i;
-            }
-        }
-        return -1;
-    """)
+    link_idx = driver.execute_script("return testAPI.findElementIndexByTestId('nav-login')")
 
     if link_idx < 0:
         print("    (skipped — nav-login not found in /about inventory)")
         return
 
-    pre_url = driver.execute_script("return state.pageUrl")
-    pre_log = driver.execute_script("return state.observationLog.length")
-    driver.execute_script(f"jumpTo({link_idx})")
+    pre_url = driver.execute_script("return testAPI.getPageUrl()")
+    pre_log = driver.execute_script("return testAPI.getObservationLogLength()")
+    driver.execute_script(f"testAPI.jumpTo({link_idx})")
 
     # Wait for re-sieve to complete
     try:
         WebDriverWait(driver, 25).until(
-            lambda d: d.execute_script("return state.observationLog.length") > pre_log
+            lambda d: d.execute_script("return testAPI.getObservationLogLength()") > pre_log
         )
     except Exception:
         print("    (skipped — explore click timed out)")
@@ -2289,7 +2166,7 @@ def test_visual_explore_after_click(driver):
     # Verify the click actually navigated (obs2.url in the log, not state.pageUrl
     # which stays as old URL until diff is accepted)
     obs2_url = driver.execute_script(
-        "return state.observationLog[state.observationLog.length-1].obs2.url"
+        "return testAPI.getLastObservation().obs2.url"
     )
     assert obs2_url != pre_url, \
         f"obs2.url should differ from pre-click URL for visual test, still: {obs2_url!r}"

@@ -1924,6 +1924,79 @@ window.testAPI = {
   getDiffResult: function () { return state.diffResult; },
   getDiffClass: function () { return state.diffClass; },
   getDiffSelectedIdx: function () { return state.diffSelectedIdx; },
+  getCurrentIndex: function () { return state.currentIndex; },
+  findElementIndexByTestId: function (testid) {
+    if (!state.inventory || !state.inventory.elements) return -1;
+    for (var i = 0; i < state.inventory.elements.length; i++) {
+      if (state.inventory.elements[i].locators &&
+          state.inventory.elements[i].locators.testid === testid) return i;
+    }
+    return -1;
+  },
+  getClassification: function (i) { return state.classifications[i] || null; },
+  getLastObservation: function () {
+    if (!state.observationLog.length) return null;
+    return JSON.parse(JSON.stringify(state.observationLog[state.observationLog.length - 1]));
+  },
+  // Test fixture loader — sets internal state for test setup.
+  // Accepts an object with any combination of: inventory, classifications,
+  // glossaryNames, mode, exploreMode, pageUrl, currentIndex, observationLog,
+  // resolveContext, diffResult, _pendingSieve, _exploreInProgress.
+  injectTestState: function (fixture) {
+    if (fixture.inventory !== undefined) state.inventory = fixture.inventory;
+    if (fixture.classifications !== undefined) state.classifications = fixture.classifications;
+    if (fixture.glossaryNames !== undefined) state.glossaryNames = fixture.glossaryNames;
+    if (fixture.mode !== undefined) state.mode = fixture.mode;
+    if (fixture.exploreMode !== undefined) state.exploreMode = fixture.exploreMode;
+    if (fixture.pageUrl !== undefined) state.pageUrl = fixture.pageUrl;
+    if (fixture.currentIndex !== undefined) state.currentIndex = fixture.currentIndex;
+    if (fixture.observationLog !== undefined) state.observationLog = fixture.observationLog;
+    if (fixture.resolveContext !== undefined) state.resolveContext = fixture.resolveContext;
+    if (fixture.diffResult !== undefined) state.diffResult = fixture.diffResult;
+    if (fixture._pendingSieve !== undefined) state._pendingSieve = fixture._pendingSieve;
+    if (fixture._exploreInProgress !== undefined) state._exploreInProgress = fixture._exploreInProgress;
+    if (fixture._preResolveMode !== undefined) state._preResolveMode = fixture._preResolveMode;
+    if (fixture._preDiffMode !== undefined) state._preDiffMode = fixture._preDiffMode;
+    if (fixture.screenshotDims !== undefined) state.screenshotDims = fixture.screenshotDims;
+    renderOverlay();
+    renderPanel();
+  },
+  // Test scenario builders — wrap internal functions for e2e test setup
+  simulateResolve: function (oldState, newInventory) {
+    state.inventory = oldState.inventory;
+    state.classifications = oldState.classifications || {};
+    state.glossaryNames = oldState.glossaryNames || {};
+    state.mode = oldState.mode || 'pass1';
+    var matchResult = matchElements(state.inventory.elements, newInventory.elements);
+    var pendingSieve = {
+      inventory: newInventory,
+      screenshotUrl: oldState.screenshotUrl || null,
+      matchResult: matchResult,
+      oldInventory: state.inventory,
+      oldClassifications: Object.assign({}, state.classifications),
+      oldGlossaryNames: Object.assign({}, state.glossaryNames),
+    };
+    enterResolveMode(matchResult, pendingSieve);
+  },
+  simulateDiff: function (oldState, newInventory, screenshotUrl) {
+    state.inventory = oldState.inventory;
+    state.classifications = oldState.classifications || {};
+    state.glossaryNames = oldState.glossaryNames || {};
+    state.mode = oldState.mode || 'pass1';
+    if (oldState.screenshotDims) state.screenshotDims = oldState.screenshotDims;
+    var matchResult = matchElements(state.inventory.elements, newInventory.elements);
+    var pendingSieve = {
+      inventory: newInventory,
+      screenshotUrl: screenshotUrl || null,
+      matchResult: matchResult,
+      oldInventory: state.inventory,
+      oldClassifications: Object.assign({}, state.classifications),
+      oldGlossaryNames: Object.assign({}, state.glossaryNames),
+    };
+    enterDiffMode(matchResult, pendingSieve, screenshotUrl || null);
+  },
+  jumpTo: function (index) { jumpTo(index); },
+  diffSelectItem: function (index) { diffSelectItem(index); },
   // Controlled mutators — these go through proper state transitions
   resetToPass1: function () {
     if (state.mode === 'resolve') { state.resolveContext = null; state._pendingSieve = null; }
@@ -1943,6 +2016,7 @@ window.testAPI = {
     renderOverlay();
     saveState();
   },
+  isExploreInProgress: function () { return !!state._exploreInProgress; },
   clearExploreInProgress: function () { state._exploreInProgress = false; },
 };
 
