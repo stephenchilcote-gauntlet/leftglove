@@ -42,16 +42,16 @@ function saveState() {
   var data = toIntermediate(state);
   if (data) {
     // Strip screenshot from localStorage copy to avoid size limits
-    var lsCopy = JSON.parse(JSON.stringify(data));
-    lsCopy.source.screenshot = null;
+    // (toIntermediate returns a fresh object — safe to mutate)
+    data.source.screenshot = null;
     // Sidecar: UI-only state (not part of the artifact)
-    lsCopy._ui = {
+    data._ui = {
       currentIndex: state.currentIndex,
       pass2Cursor: state.pass2Cursor,
       exploreMode: state.exploreMode,
       observationLog: state.observationLog,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(lsCopy));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } else {
     // No inventory yet — save minimal UI state so toggles survive refresh
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
