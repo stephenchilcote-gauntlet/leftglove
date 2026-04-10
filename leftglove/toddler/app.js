@@ -1192,6 +1192,7 @@ function acceptDiff() {
   state._preDiffMode = null;
 
   // Rebuild pass2 order if returning to pass2 or review
+  _lastPass2Rendered = -1; // force panel rebuild — element data replaced by diff
   if (state.mode === 'pass2' || state.mode === 'review') {
     buildPass2Order();
     state.pass2Cursor = 0;
@@ -1695,7 +1696,9 @@ function doExport() {
   const a = document.createElement('a');
   a.href = url;
   a.download = 'toddler-session-' + Date.now() + '.json';
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
@@ -1774,6 +1777,7 @@ document.getElementById('file-input').addEventListener('change', async function 
       showToast('Load failed: ' + errors.join('; '));
       return;
     }
+    _lastPass2Rendered = -1; // force panel rebuild — element data replaced
     const n = state.inventory ? state.inventory.elements.length : 0;
     document.getElementById('status-indicator').textContent =
       n + ' element' + (n !== 1 ? 's' : '') + ' (loaded)';
