@@ -131,8 +131,8 @@ def check_services():
     """Verify all required services are running before starting tests."""
     for name, url in [
         ("sieve server", SIEVE_STATUS),
-        ("demo app", "http://localhost:3000/login"),
-        ("TL UI", "http://localhost:8080"),
+        ("demo app", "http://localhost:3000/healthz"),
+        ("TL UI", "http://localhost:8080/healthz"),
     ]:
         try:
             urllib.request.urlopen(url, timeout=3)
