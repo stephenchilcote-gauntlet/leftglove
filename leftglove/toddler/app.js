@@ -1748,41 +1748,27 @@ function fromIntermediate(data) {
   const errors = validateIntermediate(data);
   if (errors.length) return errors;
 
-  // Rebuild inventory in the shape the UI expects
-  const inventory = {
-    url: { raw: data.source.url },
-    viewport: data.source.viewport,
-    cookies: data.metadata.cookies,
-    storage: data.metadata.storage,
-    tabs: data.metadata.tabs,
-    elements: data.elements.map(function (el) {
-      return {
-        tag: el.tag,
-        'element-type': el['element-type'],
-        label: el.label,
-        category: ':' + el.category,
-        locators: el.locators,
-        state: el.state,
-        visibleText: el['visible-text'] || null,
-        rect: el.rect,
-        region: el.region,
-        form: el.form,
-        'aria-role': el['aria-role'],
-      };
-    }),
-  };
-
-  // Rebuild classifications from elements with human-sourced categories
-  const classifications = {};
+  // Single pass: rebuild inventory elements, classifications, and glossary names
+  var elements = [];
+  var classifications = {};
+  var glossaryNames = {};
   data.elements.forEach(function (el, i) {
+    elements.push({
+      tag: el.tag,
+      'element-type': el['element-type'],
+      label: el.label,
+      category: ':' + el.category,
+      locators: el.locators,
+      state: el.state,
+      visibleText: el['visible-text'] || null,
+      rect: el.rect,
+      region: el.region,
+      form: el.form,
+      'aria-role': el['aria-role'],
+    });
     if (el['category-source'] === 'human') {
       classifications[i] = el.category;
     }
-  });
-
-  // Rebuild glossary names from elements
-  var glossaryNames = {};
-  data.elements.forEach(function (el, i) {
     if (el['glossary-name'] && el['glossary-source'] === 'human') {
       glossaryNames[i] = {
         name: el['glossary-name'],
@@ -1792,6 +1778,15 @@ function fromIntermediate(data) {
       };
     }
   });
+
+  const inventory = {
+    url: { raw: data.source.url },
+    viewport: data.source.viewport,
+    cookies: data.metadata.cookies,
+    storage: data.metadata.storage,
+    tabs: data.metadata.tabs,
+    elements: elements,
+  };
 
   // Hydrate state
   state.inventory = inventory;
