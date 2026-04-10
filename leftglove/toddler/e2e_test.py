@@ -1168,14 +1168,14 @@ def test_cuo_pure_computeDiff(driver):
 
     result = driver.execute_script("""
         var oldEls = [
-            {tag: 'input', label: 'Email', region: 'form', box: {x:10,y:10,width:200,height:30}, visibleText: ''},
-            {tag: 'button', label: 'Login', region: 'form', box: {x:10,y:50,width:100,height:30}, visibleText: 'Login'},
-            {tag: 'a', label: 'Help', region: 'nav', box: {x:300,y:10,width:50,height:20}, visibleText: 'Help'},
+            {tag: 'input', label: 'Email', region: 'form', rect: {x:10,y:10,w:200,h:30}, visibleText: ''},
+            {tag: 'button', label: 'Login', region: 'form', rect: {x:10,y:50,w:100,h:30}, visibleText: 'Login'},
+            {tag: 'a', label: 'Help', region: 'nav', rect: {x:300,y:10,w:50,h:20}, visibleText: 'Help'},
         ];
         var newEls = [
-            {tag: 'input', label: 'Email', region: 'form', box: {x:10,y:10,width:200,height:30}, visibleText: ''},
-            {tag: 'button', label: 'Sign In', region: 'form', box: {x:10,y:50,width:100,height:30}, visibleText: 'Sign In'},
-            {tag: 'span', label: 'Welcome', region: 'header', box: {x:400,y:5,width:100,height:20}, visibleText: 'Welcome'},
+            {tag: 'input', label: 'Email', region: 'form', rect: {x:10,y:10,w:200,h:30}, visibleText: ''},
+            {tag: 'button', label: 'Sign In', region: 'form', rect: {x:10,y:50,w:100,h:30}, visibleText: 'Sign In'},
+            {tag: 'span', label: 'Welcome', region: 'header', rect: {x:400,y:5,w:100,h:20}, visibleText: 'Welcome'},
         ];
         var matchResult = {
             matched: [{oldIdx:0, newIdx:0, key:'name::email'}, {oldIdx:1, newIdx:1, key:'id::login-btn'}],
@@ -1263,8 +1263,8 @@ def test_cuo_diff_mode_renders(driver):
             url: {raw: 'http://example.com/login'},
             viewport: {w: 1920, h: 1080},
             elements: [
-                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', box: {x:10,y:10,width:200,height:30}},
-                {locators: {testid: 'submit'}, tag: 'button', label: 'Login', region: 'form', box: {x:10,y:50,width:100,height:30}},
+                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:10,y:10,w:200,h:30}},
+                {locators: {testid: 'submit'}, tag: 'button', label: 'Login', region: 'form', rect: {x:10,y:50,w:100,h:30}},
             ],
         };
         state.classifications = {0: 'typable', 1: 'clickable'};
@@ -1274,8 +1274,8 @@ def test_cuo_diff_mode_renders(driver):
             url: {raw: 'http://example.com/dashboard'},
             viewport: {w: 1920, h: 1080},
             elements: [
-                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', box: {x:10,y:10,width:200,height:30}},
-                {locators: {testid: 'welcome'}, tag: 'span', label: 'Welcome', region: 'header', box: {x:200,y:5,width:150,height:25}},
+                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:10,y:10,w:200,h:30}},
+                {locators: {testid: 'welcome'}, tag: 'span', label: 'Welcome', region: 'header', rect: {x:200,y:5,w:150,h:25}},
             ],
         };
 
@@ -1362,8 +1362,8 @@ def test_cuo_accept_diff_propagates(driver):
             url: {raw: 'http://example.com/page'},
             viewport: {w: 1920, h: 1080},
             elements: [
-                {locators: {testid: 'a'}, tag: 'input', label: 'Field A', region: 'form', box: {x:0,y:0,width:100,height:20}},
-                {locators: {testid: 'b'}, tag: 'button', label: 'Btn B', region: 'form', box: {x:0,y:30,width:100,height:20}},
+                {locators: {testid: 'a'}, tag: 'input', label: 'Field A', region: 'form', rect: {x:0,y:0,w:100,h:20}},
+                {locators: {testid: 'b'}, tag: 'button', label: 'Btn B', region: 'form', rect: {x:0,y:30,w:100,h:20}},
             ],
         };
         state.classifications = {0: 'typable', 1: 'clickable'};
@@ -1374,9 +1374,9 @@ def test_cuo_accept_diff_propagates(driver):
             url: {raw: 'http://example.com/page'},
             viewport: {w: 1920, h: 1080},
             elements: [
-                {locators: {testid: 'a'}, tag: 'input', label: 'Field A', region: 'form', box: {x:0,y:0,width:100,height:20}},
-                {locators: {testid: 'b'}, tag: 'button', label: 'Btn B', region: 'form', box: {x:0,y:30,width:100,height:20}},
-                {locators: {testid: 'c'}, tag: 'span', label: 'New thing', region: 'form', box: {x:0,y:60,width:100,height:20}},
+                {locators: {testid: 'a'}, tag: 'input', label: 'Field A', region: 'form', rect: {x:0,y:0,w:100,h:20}},
+                {locators: {testid: 'b'}, tag: 'button', label: 'Btn B', region: 'form', rect: {x:0,y:30,w:100,h:20}},
+                {locators: {testid: 'c'}, tag: 'span', label: 'New thing', region: 'form', rect: {x:0,y:60,w:100,h:20}},
             ],
         };
 
@@ -1433,7 +1433,7 @@ def test_cuo_diff_keyboard_accept(driver):
         state.inventory = {
             url: {raw: 'http://example.com'},
             viewport: {w: 1920, h: 1080},
-            elements: [{locators: {testid: 'x'}, tag: 'div', label: 'X', region: 'main', box: {x:0,y:0,width:50,height:50}}],
+            elements: [{locators: {testid: 'x'}, tag: 'div', label: 'X', region: 'main', rect: {x:0,y:0,w:50,h:50}}],
         };
         state.classifications = {};
         state.mode = 'pass1';
@@ -1441,7 +1441,7 @@ def test_cuo_diff_keyboard_accept(driver):
         var newInv = {
             url: {raw: 'http://example.com'},
             viewport: {w: 1920, h: 1080},
-            elements: [{locators: {testid: 'x'}, tag: 'div', label: 'X', region: 'main', box: {x:0,y:0,width:50,height:50}}],
+            elements: [{locators: {testid: 'x'}, tag: 'div', label: 'X', region: 'main', rect: {x:0,y:0,w:50,h:50}}],
         };
         var matchResult = matchElements(state.inventory.elements, newInv.elements);
         var pendingSieve = {
@@ -1474,7 +1474,7 @@ def test_cuo_diff_item_selection(driver):
             url: {raw: 'http://example.com'},
             viewport: {w: 1920, h: 1080},
             elements: [
-                {locators: {testid: 'a'}, tag: 'div', label: 'A', region: 'main', box: {x:0,y:0,width:50,height:50}},
+                {locators: {testid: 'a'}, tag: 'div', label: 'A', region: 'main', rect: {x:0,y:0,w:50,h:50}},
             ],
         };
         state.classifications = {};
@@ -1484,9 +1484,9 @@ def test_cuo_diff_item_selection(driver):
             url: {raw: 'http://example.com'},
             viewport: {w: 1920, h: 1080},
             elements: [
-                {locators: {testid: 'a'}, tag: 'div', label: 'A', region: 'main', box: {x:0,y:0,width:50,height:50}},
-                {locators: {testid: 'b'}, tag: 'span', label: 'B', region: 'main', box: {x:0,y:60,width:50,height:50}},
-                {locators: {testid: 'c'}, tag: 'p', label: 'C', region: 'main', box: {x:0,y:120,width:50,height:50}},
+                {locators: {testid: 'a'}, tag: 'div', label: 'A', region: 'main', rect: {x:0,y:0,w:50,h:50}},
+                {locators: {testid: 'b'}, tag: 'span', label: 'B', region: 'main', rect: {x:0,y:60,w:50,h:50}},
+                {locators: {testid: 'c'}, tag: 'p', label: 'C', region: 'main', rect: {x:0,y:120,w:50,h:50}},
             ],
         };
         var matchResult = matchElements(state.inventory.elements, newInv.elements);
@@ -1565,10 +1565,10 @@ def test_visual_diff_mode(driver):
             url: {raw: 'http://example.com/login'},
             viewport: {w: 1280, h: 900},
             elements: [
-                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', box: {x:100,y:200,width:300,height:40}},
-                {locators: {testid: 'pass'}, tag: 'input', label: 'Password', region: 'form', box: {x:100,y:260,width:300,height:40}},
-                {locators: {testid: 'submit'}, tag: 'button', label: 'Login', region: 'form', box: {x:100,y:320,width:100,height:35}},
-                {locators: {testid: 'help'}, tag: 'a', label: 'Help', region: 'nav', box: {x:500,y:50,width:60,height:20}},
+                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:100,y:200,w:300,h:40}},
+                {locators: {testid: 'pass'}, tag: 'input', label: 'Password', region: 'form', rect: {x:100,y:260,w:300,h:40}},
+                {locators: {testid: 'submit'}, tag: 'button', label: 'Login', region: 'form', rect: {x:100,y:320,w:100,h:35}},
+                {locators: {testid: 'help'}, tag: 'a', label: 'Help', region: 'nav', rect: {x:500,y:50,w:60,h:20}},
             ],
         };
         state.screenshotDims = {w: 1280, h: 900};
@@ -1580,9 +1580,9 @@ def test_visual_diff_mode(driver):
             url: {raw: 'http://example.com/dashboard'},
             viewport: {w: 1280, h: 900},
             elements: [
-                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', box: {x:100,y:200,width:300,height:40}},
-                {locators: {testid: 'submit'}, tag: 'button', label: 'Sign In', region: 'form', box: {x:100,y:320,width:120,height:35}},
-                {locators: {testid: 'welcome'}, tag: 'h1', label: 'Welcome', region: 'main', box: {x:100,y:100,width:400,height:50}},
+                {locators: {testid: 'email'}, tag: 'input', label: 'Email', region: 'form', rect: {x:100,y:200,w:300,h:40}},
+                {locators: {testid: 'submit'}, tag: 'button', label: 'Sign In', region: 'form', rect: {x:100,y:320,w:120,h:35}},
+                {locators: {testid: 'welcome'}, tag: 'h1', label: 'Welcome', region: 'main', rect: {x:100,y:100,w:400,h:50}},
             ],
         };
 
