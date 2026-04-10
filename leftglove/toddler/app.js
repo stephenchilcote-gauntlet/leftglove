@@ -350,6 +350,7 @@ function renderDiffOverlay(svg) {
   var dims = state.screenshotDims;
   svg.setAttribute('width', dims.w);
   svg.setAttribute('height', dims.h);
+  svg.setAttribute('viewBox', '0 0 ' + dims.w + ' ' + dims.h);
 
   var html = '';
   var selectedType = null;
