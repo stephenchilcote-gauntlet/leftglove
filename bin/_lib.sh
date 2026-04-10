@@ -26,7 +26,7 @@ wait_for() {
   local label="$1" name="$2" url="$3" max_wait="${4:-30}"
   local waited=0
   echo -n "[$label] Waiting for $name at $url "
-  while ! curl -so /dev/null -w '%{http_code}' "$url" 2>/dev/null | grep -q '^[23]'; do
+  while ! curl -so /dev/null --connect-timeout 2 --max-time 3 -w '%{http_code}' "$url" 2>/dev/null | grep -q '^[23]'; do
     sleep 1
     waited=$((waited + 1))
     echo -n "."
