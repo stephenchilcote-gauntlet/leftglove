@@ -194,6 +194,8 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: empty sieve result clobbers existing work | Diff path now activates whenever existing work exists, regardless of new element count | `4b70f64` |
 | Defensive: undefined elements array in diff overlay/enterDiffMode | Added `|| []` fallback for `inventory.elements` | `4b70f64` |
 | Display: status shows "undefined elements" for empty sieve | Fixed to show "0 elements" | `4b70f64` |
+| Data: `visibleText` lost on intermediate round-trip | Added `visible-text` to toIntermediate/fromIntermediate — prevents false "text changed" diffs after reload | `07e7792` |
+| Stale: comment references removed `fetchStatus` function | Updated to match actual code | `9409bad` |
 
 ### Bayesian Analysis: P(no objections)
 
@@ -209,15 +211,15 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Finding #7 decision | 0.90 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar, Escape toggle works both ways |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
 | Structural refactors | 0.95 | DRY extractions + state model simplification + overlay restructure + mode centralization. All rendering paths consistent |
-| Data fidelity | 0.95 | Element state preserved; state diff works; resolved elements appear in diff; mode transitions consistent; race guarded; empty sieve handled gracefully |
+| Data fidelity | 0.96 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; mode transitions consistent; race guarded; empty sieve handled gracefully |
 | Dead asset removal | 0.96 | Fourth-pass comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
 | Test suite quality | 0.93 | Tautological assertions fixed; health checks use `/healthz`; fixtures aligned; 65 tests across 8 modules well-organized |
 | Security | 0.97 | Full XSS audit: all innerHTML paths use `escapeHtml()`. No command injection. Error handling appropriate everywhere |
-| Unknown unknowns | 0.86 | Found 7 bugs across 4 passes (4 mode, 1 resolve-to-diff, 1 race, 1 empty-sieve). Strongly diminishing returns. Gap remains: full e2e run |
+| Unknown unknowns | 0.87 | Found 8 bugs across 4 passes (4 mode, 1 resolve-to-diff, 1 race, 1 empty-sieve, 1 visibleText round-trip). Strongly diminishing returns. Gap remains: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.95 × 0.95 × 0.96 × 0.93 × 0.97 × 0.86 ≈ 0.27 (27%)**
+**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.95 × 0.96 × 0.96 × 0.93 × 0.97 × 0.87 ≈ 0.28 (28%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.49. Fourth pass raised several factors marginally (persistence 0.94→0.95, data fidelity 0.93→0.95, unknown unknowns 0.83→0.86) via the empty-sieve edge case fix and allPass2Named centralization. Security audit (0.97) is a new positive factor.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.50. Fourth pass raised several factors (data fidelity 0.95→0.96 via visibleText fix, unknown unknowns 0.86→0.87). Security audit (0.97) is a strong positive. The probability ceiling without resolving the explore mode question is approximately 50%.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
