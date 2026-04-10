@@ -675,7 +675,7 @@ async function fetchScreenshot() {
   if (!res.ok) throw new Error('Screenshot request failed: ' + res.status);
   const blob = await res.blob();
   var dataUrl = await blobToDataUrl(blob);
-  return { blobUrl: URL.createObjectURL(blob), dataUrl: dataUrl };
+  return { dataUrl: dataUrl };
 }
 
 function blobToDataUrl(blob) {
@@ -2393,15 +2393,11 @@ function fromIntermediate(data) {
     }
   });
 
-  // Determine mode from data
-  var pass1Done = data['pass-1-complete'];
-  var hasNames = Object.keys(glossaryNames).length > 0;
-
   // Hydrate state
   state.inventory = inventory;
   state.classifications = classifications;
   state.glossaryNames = glossaryNames;
-  state.mode = hasNames ? 'pass2' : (pass1Done ? 'pass1' : 'pass1');
+  state.mode = Object.keys(glossaryNames).length > 0 ? 'pass2' : 'pass1';
   state.pageUrl = data.source.url;
   state.currentIndex = 0;
   state.screenshotDataUrl = data.source.screenshot || null;
