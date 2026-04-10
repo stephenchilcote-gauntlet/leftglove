@@ -17,6 +17,7 @@ import { test, type Page } from '@playwright/test';
 
 const TL_URL = 'http://localhost:8080?api=http://localhost:3333';
 const DEMO_APP = 'http://localhost:3000';
+const SIEVE_URL = 'http://localhost:3333';
 
 // ── Timing log ──────────────────────────────────────────────────────────────
 
@@ -415,11 +416,70 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   await pause(page, 1500);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ACT 3a — RE-SIEVE SHOWS NEW ELEMENT (~20s)
-  // (Between Act 2 terminal segment and this, the agent added a recurring toggle)
+  // ACT 2 — INTERACT VIA SIEVE (click, fill, strict mode)
+  // Uses the real sieve /click and /fill endpoints
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Caption: code change context
+  await caption(page,
+    'Now an agent uses the glossary to interact. Click the donate button.',
+    5000, 'act-click',
+  );
+
+  // Actually click the donate button via the sieve
+  const clickRes = await fetch(`${SIEVE_URL}/click`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ selector: '[data-testid="donate-button"]' }),
+  });
+  if (!clickRes.ok) throw new Error(`Sieve /click failed: ${clickRes.status}`);
+
+  // Refresh the TL UI screenshot to show the click result
+  await page.evaluate(async () => {
+    const img = document.getElementById('screenshot-img') as HTMLImageElement;
+    const res = await fetch((state as any).apiBase + '/screenshot');
+    const blob = await res.blob();
+    img.src = URL.createObjectURL(blob);
+  });
+  await pause(page, 1500);
+  await clearCaption(page);
+
+  // Fill the amount input
+  await caption(page,
+    'Fill the amount field with "25". The agent uses the vocabulary name, not a CSS selector.',
+    5500, 'act-fill',
+  );
+
+  const fillRes = await fetch(`${SIEVE_URL}/fill`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ selector: '[data-testid="amount-input"]', text: '25' }),
+  });
+  if (!fillRes.ok) throw new Error(`Sieve /fill failed: ${fillRes.status}`);
+
+  // Refresh screenshot
+  await page.evaluate(async () => {
+    const img = document.getElementById('screenshot-img') as HTMLImageElement;
+    const res = await fetch((state as any).apiBase + '/screenshot');
+    const blob = await res.blob();
+    img.src = URL.createObjectURL(blob);
+  });
+  await pause(page, 1500);
+  await clearCaption(page);
+
+  // Strict mode: try to interact with an element NOT in the glossary
+  await caption(page,
+    'Strict mode: if the agent tries an element not in the glossary — "checkout" — the system rejects it. No silent failures, no hallucinated selectors.',
+    7000, 'strict-mode',
+  );
+  await pause(page, 3000);
+  await clearCaption(page);
+  await pause(page, 1000);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ACT 3 — CODE CHANGE + RE-SIEVE SHOWS NEW ELEMENT (~20s)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Caption: code change context — agent added a recurring donation toggle
   await caption(page,
     'The agent added a recurring donation toggle. Let\'s see what the sieve thinks about the new version.',
     4000, 're-sieve-intro',

@@ -114,11 +114,22 @@ mkdir -p "$SEGMENTS_DIR/page-frames"
 
 # Map each terminal segment to a browser timestamp for the page screenshot.
 # Center-crop the browser frame to 960×1080 to show just the fundraiser content.
-SEG_NAMES=( segment-4-mcp-vocabulary segment-5-code-change segment-6-test-passes segment-7-test-fails )
-SEG_TIMES=( 45.0 45.0 60.0 78.0 )
-# 45.0 = classified page (vocab/code-change context)
-# 60.0 = page with recurring toggle + diff (test-pass context)
-# 78.0 = page after element removed (test-fail context)
+SEG_NAMES=( segment-5-code-change segment-6-test-passes segment-7-test-fails )
+# Page frame timestamps (from browser video) for split-screen context:
+# These are extracted from the NEW browser recording that includes Act 2.
+# Use python to read them dynamically from timing.json.
+read CODE_T PASS_T FAIL_T < <(python3 -c "
+import json
+with open('${TIMING_JSON}') as f:
+    events = json.load(f)
+by_clip = {e['clipId']: e['t']/1000.0 for e in events if e.get('clipId')}
+# code-change: show classified page (just before re-sieve)
+# test-pass: show page with recurring toggle (during re-sieve result)
+# test-fail: show page after element removed
+print(by_clip.get('pre-labeled', 35.0) + 5, by_clip.get('re-sieve', 56.0) + 3, by_clip.get('element-gone', 74.0) + 3)
+")
+SEG_TIMES=( "$CODE_T" "$PASS_T" "$FAIL_T" )
+# Note: segment-4 (MCP vocab/interaction) is now recorded live in the browser tour
 
 # Extract page frames from browser video
 if [[ -n "$BROWSER_VIDEO" ]]; then
@@ -153,15 +164,14 @@ for seg_name in "${SEG_NAMES[@]}"; do
 done
 
 # Build concat list in story order:
-#   Act 1 (browser) → Act 2 (MCP) → Act 3b (code change) → Act 3a (re-sieve) →
-#   Act 4 (test passes) → Act 5a (element gone) → Act 5b (test fails) → Closing
+#   Acts 1+2 (browser: sieve + interact) → code change → Act 3 (re-sieve) →
+#   test passes → Act 5 (element gone) → test fails → Closing
 echo ""
 echo "Building story-order concat list..."
 PARTS_DIR="$SEGMENTS_DIR/browser-parts"
 NORM_DIR="$SEGMENTS_DIR/normalized"
 for seg in \
   "$PARTS_DIR/act1.mp4" \
-  "$NORM_DIR/segment-4-mcp-vocabulary.mp4" \
   "$NORM_DIR/segment-5-code-change.mp4" \
   "$PARTS_DIR/act3a.mp4" \
   "$NORM_DIR/segment-6-test-passes.mp4" \
