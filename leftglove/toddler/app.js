@@ -295,7 +295,9 @@ function renderScreenshot() {
       // otherwise fall back to natural image dims.
       // Screenshot is captured at device pixel ratio (e.g. 2x on Retina)
       // but sieve rects are in CSS pixels — must match coordinate spaces.
-      const vp = state.inventory?.viewport;
+      // During diff mode, state.inventory is the OLD inventory — use pending inventory's viewport.
+      var vp = (state._pendingSieve && state._pendingSieve.inventory.viewport)
+        || (state.inventory && state.inventory.viewport);
       const w = vp?.w || img.naturalWidth;
       const h = vp?.h || img.naturalHeight;
       state.screenshotDims = { w: w, h: h };
@@ -1156,8 +1158,10 @@ function enterDiffMode(matchResult, pendingSieve, resolvedPairs) {
   state._pendingSieve = pendingSieve;
   state.mode = 'diff';
 
-  // Show new screenshot in diff mode
+  // Show new screenshot in diff mode, with matching viewport dimensions
   state.screenshotUrl = pendingSieve.screenshotUrl;
+  var newVp = pendingSieve.inventory.viewport;
+  if (newVp) state.screenshotDims = { w: newVp.w, h: newVp.h };
 
   // Clean up resolve state
   state.resolveContext = null;
