@@ -215,6 +215,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Data: `doExport`/`doExportGlossary` during diff/resolve mode | Added `isModeBlocked()` guards — diff has old inventory but new screenshot | `503f2ef` |
 | Bug: stale pass2 panel after file import or diff accept | Reset `_lastPass2Rendered` when element data is replaced by import or diff | `7560262` |
 | Compat: `doExport` download anchor not appended to DOM | Added `appendChild`/`removeChild` matching `doExportGlossary` — fixes Firefox | `7560262` |
+| Bug: empty pass2Order after reload when no glossary names | `loadState` restores pass2 mode from sidecar but `fromIntermediate` skips `buildPass2Order` when no names exist | `50886d2` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
