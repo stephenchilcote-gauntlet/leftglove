@@ -571,6 +571,21 @@ function renderOverlay() {
   svg.innerHTML = html;
 }
 
+function locatorStr(el) {
+  if (!el.locators) return '';
+  return Object.entries(el.locators)
+    .filter(function (kv) { return kv[1]; })
+    .map(function (kv) { return kv[0] + '=' + kv[1]; })
+    .join(', ');
+}
+
+function fieldHtml(label, value, style) {
+  return '<div><span class="field-label">' + label + '</span> '
+    + '<span class="field-value' + (style ? '' : '') + '"'
+    + (style ? ' style="' + style + '"' : '') + '>'
+    + escapeHtml(value) + '</span></div>';
+}
+
 function updateModeIndicator() {
   var mi = document.getElementById('mode-indicator');
   if (!mi) return;
@@ -593,36 +608,21 @@ function renderPass2Panel() {
 
   // Element info (left side) — always update
   if (el) {
-    var locatorStr = '';
-    if (el.locators) {
-      locatorStr = Object.entries(el.locators)
-        .filter(function (kv) { return kv[1]; })
-        .map(function (kv) { return kv[0] + '=' + kv[1]; })
-        .join(', ');
-    }
+    var locs = locatorStr(el);
     var glossary = state.glossaryNames[state.currentIndex];
-    var nameDisplay = glossary
-      ? '<div><span class="field-label">glossary name</span> '
-        + '<span class="field-value" style="color:#4ade80">'
-        + escapeHtml((glossary.intent ? glossary.intent + '.' : '') + glossary.name)
-        + '</span></div>'
-      : '';
+    var cat = state.classifications[state.currentIndex];
 
     detail.innerHTML =
-      '<div><span class="field-label">tag</span> '
-        + '<span class="field-value">' + escapeHtml(el.tag || '—') + '</span></div>'
-      + '<div><span class="field-label">label</span> '
-        + '<span class="field-value label-text">"' + escapeHtml(el.label || '—') + '"</span></div>'
-      + '<div><span class="field-label">region</span> '
-        + '<span class="field-value">' + escapeHtml(el.region || '—') + '</span></div>'
-      + (locatorStr
-        ? '<div><span class="field-label">locators</span> '
-          + '<span class="field-value">' + escapeHtml(locatorStr) + '</span></div>'
-        : '')
-      + '<div><span class="field-label">classification</span> '
-        + '<span class="field-value" style="color:' + (CATEGORY_COLORS[state.classifications[state.currentIndex]] || '#fff')
-        + '">' + (state.classifications[state.currentIndex] || '—') + '</span></div>'
-      + nameDisplay;
+      fieldHtml('tag', el.tag || '—')
+      + fieldHtml('label', '"' + (el.label || '—') + '"', 'color:#fbbf24')
+      + fieldHtml('region', el.region || '—')
+      + (locs ? fieldHtml('locators', locs) : '')
+      + fieldHtml('classification', cat || '—', 'color:' + (CATEGORY_COLORS[cat] || '#fff'))
+      + (glossary
+        ? fieldHtml('glossary name',
+            (glossary.intent ? glossary.intent + '.' : '') + glossary.name,
+            'color:#4ade80')
+        : '');
   }
 
   // Controls (right side) — only rebuild when element changes to avoid clobbering input
@@ -719,35 +719,18 @@ function renderPanel() {
 
   // Element info
   if (el) {
-    let locatorStr = '';
-    if (el.locators) {
-      locatorStr = Object.entries(el.locators)
-        .filter(([, v]) => v)
-        .map(([k, v]) => k + '=' + v)
-        .join(', ');
-    }
+    var locs = locatorStr(el);
+    var elType = el['element-type'] || el.elementType;
 
     detail.innerHTML =
-      '<div><span class="field-label">tag</span> '
-        + '<span class="field-value">' + escapeHtml(el.tag || '—') + '</span>'
-        + (el['element-type'] || el.elementType
-          ? ' <span class="field-value" style="color:#888">type=' + escapeHtml(el['element-type'] || el.elementType) + '</span>'
-          : '')
-        + '</div>'
-      + '<div><span class="field-label">label</span> '
-        + '<span class="field-value label-text">"' + escapeHtml(el.label || '—') + '"</span></div>'
-      + '<div><span class="field-label">region</span> '
-        + '<span class="field-value">' + escapeHtml(el.region || '—') + '</span></div>'
-      + (locatorStr
-        ? '<div><span class="field-label">locators</span> '
-          + '<span class="field-value">' + escapeHtml(locatorStr) + '</span></div>'
-        : '')
-      + '<div><span class="field-label">sieve category</span> '
-        + '<span class="field-value">' + escapeHtml(String(el.category || '—').replace(/^:/, '')) + '</span></div>'
+      fieldHtml('tag', el.tag || '—')
+      + (elType ? fieldHtml('type', elType, 'color:#888') : '')
+      + fieldHtml('label', '"' + (el.label || '—') + '"', 'color:#fbbf24')
+      + fieldHtml('region', el.region || '—')
+      + (locs ? fieldHtml('locators', locs) : '')
+      + fieldHtml('sieve category', String(el.category || '—').replace(/^:/, ''))
       + (classification
-        ? '<div><span class="field-label">your classification</span> '
-          + '<span class="field-value" style="color:' + (CATEGORY_COLORS[classification] || '#fff')
-          + '">' + classification + '</span></div>'
+        ? fieldHtml('your classification', classification, 'color:' + (CATEGORY_COLORS[classification] || '#fff'))
         : '');
   }
 
