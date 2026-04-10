@@ -164,6 +164,24 @@ describe('computeDiff', function () {
     strictEqual(diff.unchanged.length, 1);
   });
 
+  it('detects visible text changes', function () {
+    var old = [{ tag: 'p', label: 'A', region: 'main', visibleText: 'Hello', rect: { x: 0, y: 0, w: 100, h: 20 }, state: { visible: true } }];
+    var neu = [{ tag: 'p', label: 'A', region: 'main', visibleText: 'World', rect: { x: 0, y: 0, w: 100, h: 20 }, state: { visible: true } }];
+    var matchResult = { matched: [{ oldIdx: 0, newIdx: 0, key: 'k' }], added: [], removed: [] };
+    var diff = computeDiff(old, neu, matchResult);
+    strictEqual(diff.changed.length, 1);
+    strictEqual(diff.changed[0].changes[0], 'text changed');
+  });
+
+  it('detects state changes (disabled, checked)', function () {
+    var old = [{ tag: 'input', label: 'A', region: 'main', rect: { x: 0, y: 0, w: 100, h: 20 }, state: { visible: true, disabled: false } }];
+    var neu = [{ tag: 'input', label: 'A', region: 'main', rect: { x: 0, y: 0, w: 100, h: 20 }, state: { visible: true, disabled: true } }];
+    var matchResult = { matched: [{ oldIdx: 0, newIdx: 0, key: 'k' }], added: [], removed: [] };
+    var diff = computeDiff(old, neu, matchResult);
+    strictEqual(diff.changed.length, 1);
+    strictEqual(diff.changed[0].changes[0].includes('disabled'), true);
+  });
+
   it('includes added and removed from matchResult', function () {
     var old = [mkEl('Gone')];
     var neu = [mkEl('New')];
