@@ -797,6 +797,7 @@ function startPass2() {
     state.pass2Cursor = 0;
     state.currentIndex = state.pass2Order[0];
   }
+  _lastPass2Rendered = -1;
   saveState();
   renderOverlay();
   renderPanel();
