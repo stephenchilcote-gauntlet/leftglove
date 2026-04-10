@@ -115,6 +115,14 @@ function loadState() {
 }
 
 // ---- Mode helpers ----
+function allPass2Named() {
+  if (state.pass2Order.length === 0) return false;
+  for (var i = 0; i < state.pass2Order.length; i++) {
+    if (!state.glossaryNames[state.pass2Order[i]]) return false;
+  }
+  return true;
+}
+
 function isModeBlocked() {
   return state.mode === 'resolve' || state.mode === 'diff';
 }
@@ -800,11 +808,7 @@ function acceptName() {
   saveState();
 
   // Check if all pass2 elements are named
-  var allNamed = true;
-  for (var i = 0; i < state.pass2Order.length; i++) {
-    if (!state.glossaryNames[state.pass2Order[i]]) { allNamed = false; break; }
-  }
-  if (allNamed) {
+  if (allPass2Named()) {
     state.mode = 'review';
     _lastPass2Rendered = -1;
     saveState();
@@ -1356,13 +1360,8 @@ function acceptDiff() {
     state.pass2Cursor = 0;
     if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[0];
     // If returning to review but diff added unnamed elements, downgrade to pass2
-    if (state.mode === 'review') {
-      for (var ri = 0; ri < state.pass2Order.length; ri++) {
-        if (!state.glossaryNames[state.pass2Order[ri]]) {
-          state.mode = 'pass2';
-          break;
-        }
-      }
+    if (state.mode === 'review' && !allPass2Named()) {
+      state.mode = 'pass2';
     }
   }
 
@@ -1807,11 +1806,7 @@ function fromIntermediate(data) {
     state.mode = 'pass2';
     buildPass2Order();
     // If all pass2 elements have names, go to review
-    var allNamed = true;
-    for (var ni = 0; ni < state.pass2Order.length; ni++) {
-      if (!glossaryNames[state.pass2Order[ni]]) { allNamed = false; break; }
-    }
-    if (allNamed && state.pass2Order.length > 0) state.mode = 'review';
+    if (allPass2Named()) state.mode = 'review';
     var pos = state.pass2Order.indexOf(state.currentIndex);
     state.pass2Cursor = pos >= 0 ? pos : 0;
   } else {
