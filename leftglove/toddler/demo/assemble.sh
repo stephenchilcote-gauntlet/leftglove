@@ -163,6 +163,33 @@ for seg_name in "${SEG_NAMES[@]}"; do
   fi
 done
 
+# ── Segment 4 (interact): split-screen with page images that change ────────
+PAGE_FRAMES_DIR="page-frames"
+INTERACT_CAST="$CASTS_DIR/segment-4-interact.cast"
+INTERACT_DST="$SEGMENTS_DIR/normalized/segment-4-interact.mp4"
+if [[ -f "$INTERACT_CAST" ]]; then
+  INTERACT_PAGES=()
+  # Page images captured by browser tour at each interaction step
+  if [[ -f "$PAGE_FRAMES_DIR/interact-before.png" ]]; then
+    INTERACT_PAGES+=("0:$PAGE_FRAMES_DIR/interact-before.png")
+  fi
+  if [[ -f "$PAGE_FRAMES_DIR/interact-after-click.png" ]]; then
+    INTERACT_PAGES+=("3.6:$PAGE_FRAMES_DIR/interact-after-click.png")
+  fi
+  if [[ -f "$PAGE_FRAMES_DIR/interact-after-fill.png" ]]; then
+    INTERACT_PAGES+=("8.8:$PAGE_FRAMES_DIR/interact-after-fill.png")
+  fi
+
+  if [[ ${#INTERACT_PAGES[@]} -gt 0 ]]; then
+    echo "  Split-screen: segment-4-interact (${#INTERACT_PAGES[@]} page images)..."
+    python3 cast-to-mp4.py "$INTERACT_CAST" "$INTERACT_DST" --fps 15 \
+      --page-images "${INTERACT_PAGES[@]}"
+  else
+    echo "  Terminal only: segment-4-interact (no page images found)..."
+    python3 cast-to-mp4.py "$INTERACT_CAST" "$INTERACT_DST" --fps 15
+  fi
+fi
+
 # Build concat list in story order:
 #   Acts 1+2 (browser: sieve + interact) → code change → Act 3 (re-sieve) →
 #   test passes → Act 5 (element gone) → test fails → Closing
@@ -172,6 +199,7 @@ PARTS_DIR="$SEGMENTS_DIR/browser-parts"
 NORM_DIR="$SEGMENTS_DIR/normalized"
 for seg in \
   "$PARTS_DIR/act1.mp4" \
+  "$NORM_DIR/segment-4-interact.mp4" \
   "$NORM_DIR/segment-5-code-change.mp4" \
   "$PARTS_DIR/act3a.mp4" \
   "$NORM_DIR/segment-6-test-passes.mp4" \

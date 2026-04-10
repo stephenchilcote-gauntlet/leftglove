@@ -1,5 +1,20 @@
 [
   {
+    "segment": "segment-4-interact",
+    "clipId": "act-click",
+    "t": 200
+  },
+  {
+    "segment": "segment-4-interact",
+    "clipId": "act-fill",
+    "t": 5500
+  },
+  {
+    "segment": "segment-4-interact",
+    "clipId": "strict-mode",
+    "t": 11000
+  },
+  {
     "segment": "segment-5-code-change",
     "clipId": "code-change",
     "t": 200

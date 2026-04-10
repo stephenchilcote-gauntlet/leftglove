@@ -94,6 +94,8 @@ def main():
     parser.add_argument("--width", type=int, default=1920)
     parser.add_argument("--height", type=int, default=1080)
     parser.add_argument("--page-image", help="Page screenshot for split-screen (left half)")
+    parser.add_argument("--page-images", nargs="*",
+                        help="Multiple page images with timestamps: 'time:path' (e.g. '0:before.png 3.5:after.png')")
     args = parser.parse_args()
 
     # Parse cast file
@@ -156,18 +158,28 @@ def main():
 
     # Split-screen mode: page on left, terminal on right
     page_img = None
-    if args.page_image:
+    page_img_timeline = []  # [(time_s, PIL.Image), ...] for multi-image mode
+    half_w = args.width // 2
+
+    if args.page_images:
+        for spec in args.page_images:
+            t_str, path = spec.split(":", 1)
+            img = Image.open(path).convert("RGB").resize((half_w, args.height), Image.LANCZOS)
+            page_img_timeline.append((float(t_str), img))
+        page_img_timeline.sort(key=lambda x: x[0])
+        page_img = page_img_timeline[0][1]  # initial image
+        term_area_w = half_w
+        print(f"  Split-screen: {len(page_img_timeline)} page images, terminal {half_w}×{args.height}")
+    elif args.page_image:
         page_img = Image.open(args.page_image).convert("RGB")
-        half_w = args.width // 2
         page_img = page_img.resize((half_w, args.height), Image.LANCZOS)
-        # Terminal fits in the right half
         term_area_w = half_w
         print(f"  Split-screen: page {half_w}×{args.height} | terminal {half_w}×{args.height}")
     else:
         term_area_w = args.width
 
     # Re-fit font if terminal area changed (split-screen shrinks it)
-    if args.page_image:
+    if args.page_image or args.page_images:
         font_size = 24
         while font_size >= 10:
             if font_path_found:
@@ -186,8 +198,7 @@ def main():
     print(f"  Font size: {font_size}px, char: {char_w}×{char_h}, term: {term_w}×{term_h}")
 
     # Center the terminal in its area (full frame or right half)
-    if args.page_image:
-        half_w = args.width // 2
+    if args.page_image or args.page_images:
         pad_x = half_w + (half_w - term_w) // 2
     else:
         pad_x = (args.width - term_w) // 2
@@ -214,7 +225,16 @@ def main():
 
             # Render terminal frame (with optional page image on left)
             img = render_frame(screen, args.width, args.height, font, char_w, char_h, pad_x, pad_y)
-            if page_img is not None:
+            if page_img_timeline:
+                # Pick the latest page image whose timestamp <= frame_time
+                current_page = page_img_timeline[0][1]
+                for t, pimg in page_img_timeline:
+                    if t <= frame_time:
+                        current_page = pimg
+                    else:
+                        break
+                img.paste(current_page, (0, 0))
+            elif page_img is not None:
                 img.paste(page_img, (0, 0))
             img.save(f"{tmpdir}/frame_{frame_num:06d}.png")
 

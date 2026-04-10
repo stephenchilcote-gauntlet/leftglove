@@ -11,7 +11,8 @@
 // Output: test-results/browser-tour-{hash}/video.webm
 //         audio-clips/timing.json
 
-import * as fs from 'fs';
+import * as fsSync from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import { test, type Page } from '@playwright/test';
 
@@ -316,7 +317,7 @@ async function navigateSieveAndVerify(page: Page, url: string, expectRecurring: 
 // ── Screenshot dir ──────────────────────────────────────────────────────────
 
 const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
-fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+fsSync.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
 async function snap(page: Page, name: string) {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, `${name}.png`) });
@@ -416,16 +417,21 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   await pause(page, 1500);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ACT 2 — INTERACT VIA SIEVE (click, fill, strict mode)
-  // Uses the real sieve /click and /fill endpoints
+  // ACT 2 SETUP — Capture page screenshots for split-screen terminal segment
+  // The actual interaction demo is in segment-4-interact.cast (terminal)
+  // with these screenshots composited on the left side.
   // ═══════════════════════════════════════════════════════════════════════════
 
-  await caption(page,
-    'Now an agent uses the glossary to interact. Click the donate button.',
-    5000, 'act-click',
-  );
+  // Save page screenshot BEFORE interactions (clean fundraiser page)
+  const screenshotDir = path.join(__dirname, 'page-frames');
+  await fs.mkdir(screenshotDir, { recursive: true });
 
-  // Actually click the donate button via the sieve
+  // Capture the page directly from the sieve (not the TL UI overlay)
+  const beforeRes = await fetch(`${SIEVE_URL}/screenshot`);
+  const beforeBuf = Buffer.from(await beforeRes.arrayBuffer());
+  await fs.writeFile(path.join(screenshotDir, 'interact-before.png'), beforeBuf);
+
+  // Click the donate button via the sieve
   const clickRes = await fetch(`${SIEVE_URL}/click`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -433,22 +439,12 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   });
   if (!clickRes.ok) throw new Error(`Sieve /click failed: ${clickRes.status}`);
 
-  // Refresh the TL UI screenshot to show the click result
-  await page.evaluate(async () => {
-    const img = document.getElementById('screenshot-img') as HTMLImageElement;
-    const res = await fetch((state as any).apiBase + '/screenshot');
-    const blob = await res.blob();
-    img.src = URL.createObjectURL(blob);
-  });
-  await pause(page, 1500);
-  await clearCaption(page);
+  // Capture AFTER click (donate sheet should be open)
+  const afterClickRes = await fetch(`${SIEVE_URL}/screenshot`);
+  const afterClickBuf = Buffer.from(await afterClickRes.arrayBuffer());
+  await fs.writeFile(path.join(screenshotDir, 'interact-after-click.png'), afterClickBuf);
 
   // Fill the amount input
-  await caption(page,
-    'Fill the amount field with "25". The agent uses the vocabulary name, not a CSS selector.',
-    5500, 'act-fill',
-  );
-
   const fillRes = await fetch(`${SIEVE_URL}/fill`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -456,23 +452,12 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
   });
   if (!fillRes.ok) throw new Error(`Sieve /fill failed: ${fillRes.status}`);
 
-  // Refresh screenshot
-  await page.evaluate(async () => {
-    const img = document.getElementById('screenshot-img') as HTMLImageElement;
-    const res = await fetch((state as any).apiBase + '/screenshot');
-    const blob = await res.blob();
-    img.src = URL.createObjectURL(blob);
-  });
-  await pause(page, 1500);
-  await clearCaption(page);
+  // Capture AFTER fill (amount field shows "25")
+  const afterFillRes = await fetch(`${SIEVE_URL}/screenshot`);
+  const afterFillBuf = Buffer.from(await afterFillRes.arrayBuffer());
+  await fs.writeFile(path.join(screenshotDir, 'interact-after-fill.png'), afterFillBuf);
 
-  // Strict mode: try to interact with an element NOT in the glossary
-  await caption(page,
-    'Strict mode: if the agent tries an element not in the glossary — "checkout" — the system rejects it. No silent failures, no hallucinated selectors.',
-    7000, 'strict-mode',
-  );
-  await pause(page, 3000);
-  await clearCaption(page);
+  // Brief pause, then transition to Act 3
   await pause(page, 1000);
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -573,8 +558,8 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // ── Write timing log ──────────────────────────────────────────────────────
   const audioDir = path.join(__dirname, 'audio-clips');
-  fs.mkdirSync(audioDir, { recursive: true });
-  fs.writeFileSync(
+  fsSync.mkdirSync(audioDir, { recursive: true });
+  fsSync.writeFileSync(
     path.join(audioDir, 'timing.json'),
     JSON.stringify(timingLog, null, 2),
   );
