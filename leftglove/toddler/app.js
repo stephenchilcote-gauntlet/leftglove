@@ -1057,6 +1057,17 @@ function computeDiff(oldEls, newEls, matchResult) {
     if ((oldEl.visibleText || '') !== (newEl.visibleText || '')) {
       changes.push('text changed');
     }
+    // Compare element state (disabled, checked, expanded, selected)
+    if (oldEl.state && newEl.state) {
+      var stateChanges = [];
+      for (var sk in newEl.state) {
+        if (newEl.state[sk] !== oldEl.state[sk]) stateChanges.push(sk);
+      }
+      for (var sk2 in oldEl.state) {
+        if (!(sk2 in newEl.state) && oldEl.state[sk2] !== undefined) stateChanges.push(sk2);
+      }
+      if (stateChanges.length) changes.push('state: ' + stateChanges.join(', '));
+    }
 
     if (changes.length > 0) {
       changed.push({ oldIdx: m.oldIdx, newIdx: m.newIdx, key: m.key, oldEl: oldEl, newEl: newEl, changes: changes });
@@ -1660,7 +1671,7 @@ function toIntermediate(st) {
       'element-type': el['element-type'] || null,
       'label': el.label || null,
       'locators': el.locators || {},
-      'state': { 'visible': true, 'disabled': false },
+      'state': el.state || { 'visible': true, 'disabled': false },
       'rect': { 'x': rect.x, 'y': rect.y, 'w': rect.w, 'h': rect.h },
       'region': el.region || null,
       'form': el.form || null,
@@ -1713,6 +1724,7 @@ function fromIntermediate(data) {
         label: el.label,
         category: ':' + el.category,
         locators: el.locators,
+        state: el.state,
         rect: el.rect,
         region: el.region,
         form: el.form,
