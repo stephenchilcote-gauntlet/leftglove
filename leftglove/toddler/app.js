@@ -1683,6 +1683,7 @@ function validateIntermediate(data) {
 
 // ---- Export ----
 function doExport() {
+  if (isModeBlocked()) { showModeBlockedToast(); return; }
   const data = toIntermediate(state);
   if (!data) {
     showToast('Nothing to export — run Sieve first.');
@@ -1699,6 +1700,7 @@ function doExport() {
 }
 
 async function doExportGlossary() {
+  if (isModeBlocked()) { showModeBlockedToast(); return; }
   const data = toIntermediate(state);
   if (!data) {
     showToast('Nothing to export — run Sieve first.');
