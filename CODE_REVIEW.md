@@ -206,6 +206,8 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Test: brittle `get_attribute("disabled")` checks | Replaced with `is_enabled()` — attribute check is unreliable across browsers | `830237f` |
 | Test: tautological `is not None` after `wait_for` | Removed — `wait_for` already throws on element not found | `830237f` |
 | Test: redundant `errors == [] or len(errors) == 0` | Simplified to `assert errors == []` | `830237f` |
+| Gap: EDN parser has zero test coverage | Added 23-case test suite covering all types, nesting, comments, errors. Verified against all 9 real EDN files | `6b9d6e8` |
+| Structure: pure matching/diffing logic mixed into UI code | Extracted `elementKey`, `matchElements`, `computeDiff`, `classifyDiff`, `propagateNames` into `diff.js` (UMD module, same pattern as `glossary.js`). 22 unit tests. app.js shrinks 168 lines | `cd968b8` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -229,18 +231,18 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
 | Finding #7 decision | 0.90 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar, Escape toggle works both ways |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
-| Structural refactors | 0.96 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + fromIntermediate single-pass. All rendering paths consistent |
+| Structural refactors | 0.96 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + fromIntermediate single-pass + diff module extraction. All rendering paths consistent. app.js reduced from 2151 to 1984 lines |
 | Data fidelity | 0.97 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned with intermediate format; mode transitions consistent; race guarded; empty sieve handled gracefully |
 | Dead asset removal | 0.96 | Comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
-| Test suite quality | 0.95 | Tautological/redundant/brittle assertions fixed (disabled attribute, null-after-wait, double conditions); health checks use `/healthz`; fixtures aligned with visible-text; 65 tests across 8 modules well-organized |
+| Test suite quality | 0.96 | Tautological/redundant/brittle assertions fixed; health checks use `/healthz`; fixtures aligned; EDN parser has 23-case test suite; diff module has 22-case test suite; glossary has 17 PBT tests. 107 unit tests across 3 modules + e2e |
 | Security | 0.97 | Full XSS audit: all innerHTML paths use `escapeHtml()`. No command injection. Error handling appropriate everywhere |
-| MCP server quality | 0.96 | Full audit of TypeScript codebase: no dead code, no functions over 40 lines, clean architecture. Two minor DRY items intentionally left (one-liners used twice) |
+| MCP server quality | 0.97 | Full audit of TypeScript codebase: clean architecture. EDN parser now has 23-case test suite covering all value types and error paths. `npm test` script added |
 | Cross-references | 0.98 | All 16 glossary testids verified present in views. Feature file element references verified against glossary. Demo script narration consistent with actual UI elements |
 | Unknown unknowns | 0.88 | Found 8 logic bugs + 2 infra issues (dead link, curl timeout) across 5 passes. Fifth pass found only data/infra alignment issues — no new logic bugs. Strongly diminishing returns. Gap remains: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.97 × 0.96 × 0.95 × 0.97 × 0.96 × 0.98 × 0.88 ≈ 0.29 (29%)**
+**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.97 × 0.96 × 0.96 × 0.97 × 0.97 × 0.98 × 0.88 ≈ 0.30 (30%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.52. Fifth pass: cross-reference verification, dead link + curl timeout fixes, test assertion hardening (disabled checks, tautological asserts). Diminishing returns confirmed — no new logic bugs found.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.54. Sixth pass: EDN parser test suite (23 cases), diff module extraction with tests (22 cases), bringing total unit test count to 62 + 17 PBT. Diminishing returns strongly confirmed.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
