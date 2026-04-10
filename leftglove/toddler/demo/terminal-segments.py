@@ -102,15 +102,15 @@ def segment_mcp_vocabulary():
     t = type_command(events, t, "echo '{\"method\":\"tools/call\",\"params\":{\"name\":\"list_vocabulary\"}}' | node dist/index.js | jq '.content[0].text' -r")
     t = show_output(events, t, [
         '\x1b[1mIntent: Fundraiser\x1b[0m',
-        '  \x1b[32m✓\x1b[0m title          \x1b[90m(readable)   h1\x1b[0m                                    verbs: see',
-        '  \x1b[32m✓\x1b[0m donate-button  \x1b[90m(clickable)  [data-testid="donate-button"]\x1b[0m         verbs: click',
-        '  \x1b[32m✓\x1b[0m amount-input   \x1b[90m(typable)    [data-testid="amount-input"]\x1b[0m          verbs: fill',
-        '  \x1b[32m✓\x1b[0m name-input     \x1b[90m(typable)    [data-testid="name-input"]\x1b[0m            verbs: fill',
-        '  \x1b[32m✓\x1b[0m comment-input  \x1b[90m(typable)    [data-testid="comment-input"]\x1b[0m         verbs: fill',
-        '  \x1b[32m✓\x1b[0m pledge-submit  \x1b[90m(clickable)  [data-testid="pledge-submit"]\x1b[0m         verbs: click',
-        '  \x1b[32m✓\x1b[0m follow-button  \x1b[90m(clickable)  [data-testid="follow-button"]\x1b[0m         verbs: click',
-        '  \x1b[32m✓\x1b[0m share-button   \x1b[90m(clickable)  [data-testid="share-button"]\x1b[0m          verbs: click',
-        '  \x1b[32m✓\x1b[0m progress-bar   \x1b[90m(readable)   [data-testid="progress-bar"]\x1b[0m          verbs: see',
+        '  \x1b[32m✓\x1b[0m title               \x1b[90m(readable)   [data-testid="fundraiser-title"]\x1b[0m     verbs: see',
+        '  \x1b[32m✓\x1b[0m donate-button       \x1b[90m(clickable)  [data-testid="donate-button"]\x1b[0m        verbs: click',
+        '  \x1b[32m✓\x1b[0m amount-input        \x1b[90m(typable)    [data-testid="amount-input"]\x1b[0m         verbs: fill',
+        '  \x1b[32m✓\x1b[0m name-input          \x1b[90m(typable)    [data-testid="name-input"]\x1b[0m           verbs: fill',
+        '  \x1b[32m✓\x1b[0m comment-input       \x1b[90m(typable)    [data-testid="comment-input"]\x1b[0m        verbs: fill',
+        '  \x1b[32m✓\x1b[0m pledge-submit       \x1b[90m(clickable)  [data-testid="pledge-submit"]\x1b[0m        verbs: click',
+        '  \x1b[32m✓\x1b[0m recurring-checkbox  \x1b[90m(clickable)  [data-testid="recurring-checkbox"]\x1b[0m   verbs: click',
+        '  \x1b[32m✓\x1b[0m follow-button       \x1b[90m(clickable)  [data-testid="follow-button"]\x1b[0m        verbs: click',
+        '  \x1b[32m✓\x1b[0m share-button        \x1b[90m(clickable)  [data-testid="share-button"]\x1b[0m         verbs: click',
     ])
     t += BLOCK_PAUSE
 
@@ -121,7 +121,7 @@ def segment_mcp_vocabulary():
     t = show_output(events, t, [
         '\x1b[31m✗ Error: unknown object "Fundraiser.checkout"\x1b[0m',
         '\x1b[90m  Available: title, donate-button, amount-input, name-input, comment-input,\x1b[0m',
-        '\x1b[90m            pledge-submit, follow-button, share-button, progress-bar\x1b[0m',
+        '\x1b[90m            pledge-submit, recurring-checkbox, follow-button, share-button\x1b[0m',
     ])
     t = hold(events, t, 5.0)  # Hold on error so strict-mode narration can finish
 
