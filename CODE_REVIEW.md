@@ -197,10 +197,23 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Data: `visibleText` lost on intermediate round-trip | Added `visible-text` to toIntermediate/fromIntermediate — prevents false "text changed" diffs after reload | `07e7792` |
 | Stale: comment references removed `fetchStatus` function | Updated to match actual code | `9409bad` |
 | Stale: terminal demo shows progress-bar (not in glossary), wrong title binding | Updated to match Fundraiser.edn: recurring-checkbox, fundraiser-title testid | `ba53d11` |
+| Structure: 160-line keydown handler | Extracted into 4 per-mode functions; dispatcher is now 7 lines | `37a55e0` |
+| Perf: `fromIntermediate` iterates elements 3× | Consolidated to single pass building inventory, classifications, and glossary | `c2b0309` |
+| Data: fixture files missing `visible-text` field | Added `"visible-text": null` to all 39 elements across 4 fixtures | `320d439` |
+| Test: redundant `val and len(val) > 0` assertion | Simplified to `assert val` (non-empty string is always len > 0) | `320d439` |
+
+### Evaluated, Not Refactored (fifth pass)
+
+| Pattern | Decision | Reasoning |
+|---------|----------|-----------|
+| renderDiffOverlay 3 loops | **Kept** | Different data shapes (unchanged/added/changed use different rect accessors and label logic). A unified helper would need 7+ params — premature abstraction |
+| EDN parser parseMap/parseVector | **Kept** | Map reads key-value pairs, vector reads singles — structurally different despite similar loop shape |
+| Error message extraction in MCP tools | **Kept** | One-liner (`err instanceof Error ? err.message : String(err)`) used only twice — not worth a helper |
+| e2e test setup duplication | **Left** | 12 tests duplicate navigate-and-sieve pattern vs existing `_navigate_and_sieve` helper. But test refactoring was explicitly deferred (finding #4) |
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after fourth audit pass (edge cases, mode centralization, XSS audit):**
+**Updated estimate after fifth audit pass (structural refactors, fixture alignment, MCP audit):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
@@ -211,16 +224,17 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
 | Finding #7 decision | 0.90 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar, Escape toggle works both ways |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
-| Structural refactors | 0.95 | DRY extractions + state model simplification + overlay restructure + mode centralization. All rendering paths consistent |
-| Data fidelity | 0.96 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; mode transitions consistent; race guarded; empty sieve handled gracefully |
-| Dead asset removal | 0.96 | Fourth-pass comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
-| Test suite quality | 0.93 | Tautological assertions fixed; health checks use `/healthz`; fixtures aligned; 65 tests across 8 modules well-organized |
+| Structural refactors | 0.96 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + fromIntermediate single-pass. All rendering paths consistent |
+| Data fidelity | 0.97 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned with intermediate format; mode transitions consistent; race guarded; empty sieve handled gracefully |
+| Dead asset removal | 0.96 | Comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
+| Test suite quality | 0.94 | Tautological/redundant assertions fixed; health checks use `/healthz`; fixtures aligned with visible-text; 65 tests across 8 modules well-organized |
 | Security | 0.97 | Full XSS audit: all innerHTML paths use `escapeHtml()`. No command injection. Error handling appropriate everywhere |
-| Unknown unknowns | 0.87 | Found 8 bugs across 4 passes (4 mode, 1 resolve-to-diff, 1 race, 1 empty-sieve, 1 visibleText round-trip). Strongly diminishing returns. Gap remains: full e2e run |
+| MCP server quality | 0.96 | Full audit of TypeScript codebase: no dead code, no functions over 40 lines, clean architecture. Two minor DRY items intentionally left (one-liners used twice) |
+| Unknown unknowns | 0.88 | Found 8 bugs across 5 passes. Fifth pass found only data alignment issues (fixtures, assertions) — no new logic bugs. Strongly diminishing returns. Gap remains: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.95 × 0.96 × 0.96 × 0.93 × 0.97 × 0.87 ≈ 0.28 (28%)**
+**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.97 × 0.96 × 0.94 × 0.97 × 0.96 × 0.88 ≈ 0.29 (29%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.50. Fourth pass raised several factors (data fidelity 0.95→0.96 via visibleText fix, unknown unknowns 0.86→0.87). Security audit (0.97) is a strong positive. The probability ceiling without resolving the explore mode question is approximately 50%.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.52. Fifth pass improvements: structural refactors 0.95→0.96 (keydown+fromIntermediate), data fidelity 0.96→0.97 (fixture alignment), test quality 0.93→0.94 (redundant assertion), new MCP factor 0.96, unknown unknowns 0.87→0.88. The probability ceiling without resolving the explore mode question is approximately 52%.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
