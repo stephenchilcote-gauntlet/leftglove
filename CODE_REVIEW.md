@@ -222,10 +222,13 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: diff overlay uses stale viewport dimensions | `enterDiffMode` now sets `screenshotDims` from pending inventory viewport; `renderScreenshot` checks `_pendingSieve` for correct viewport during diff mode | `49526eb` |
 | UX: diff→pass1 downgrade starts at element 0 | When `acceptDiff` downgrades to pass1 due to unclassified elements, start at first unclassified element instead of index 0 | `e698a39` |
 | DRY: duplicate SVG overlay text builders | Extracted `svgLabel` helper for current-element and glossary-name labels | `10279c9` |
-| Perf: double `toIntermediate` call on every save | `saveState` serializes once; passes result to `autoSave` (which stringifies eagerly before caller mutates screenshot field) | pending |
-| Bug: `observationLog` grows unboundedly in localStorage | Capped to 100 entries — prevents localStorage quota exhaustion during long explore sessions | pending |
-| Perf: `escapeHtml` creates DOM element on every call | Replaced with string-replace approach (`&` `<` `>` `"` `'`) — called in every render loop | pending |
-| Test: diff module has zero PBT coverage | Added 7 PBT properties (200 runs each): index accounting, key consistency, self-match, diff exhaustiveness, classification validity, propagation correctness, no-invention | pending |
+| Perf: double `toIntermediate` call on every save | `saveState` serializes once; passes result to `autoSave` (which stringifies eagerly before caller mutates screenshot field) | `eaddcb5` |
+| Bug: `observationLog` grows unboundedly in localStorage | Capped to 100 entries — prevents localStorage quota exhaustion during long explore sessions | `eaddcb5` |
+| Perf: `escapeHtml` creates DOM element on every call | Replaced with string-replace approach (`&` `<` `>` `"` `'`) — called in every render loop | `eaddcb5` |
+| Test: diff module has zero PBT coverage | Added 7 PBT properties (200 runs each): index accounting, key consistency, self-match, diff exhaustiveness, classification validity, propagation correctness, no-invention | `eaddcb5` |
+| Defensive: `finishResolve` callable with unresolved groups | Added `areAllGroupsResolved()` guard — button is disabled but keyboard path also guarded | `f4a89d0` |
+| Security: `bestLocator` href value unescaped in CSS selector | Escape backslash and double-quote in href values | `f4a89d0` |
+| Bug: pass2 panel stale when entering on same element index | Reset `_lastPass2Rendered` in `startPass2` — without this, user sees pass1 controls | `b6ec50a` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -257,11 +260,11 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | MCP server quality | 0.97 | Full audit of TypeScript codebase: clean architecture. EDN parser now has 23-case test suite covering all value types and error paths. `npm test` script added |
 | Cross-references | 0.98 | All 16 glossary testids verified present in views. Feature file element references verified against glossary. Demo script narration consistent with actual UI elements |
 | Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress` |
-| Unknown unknowns | 0.93 | Found 20 logic/correctness/UX bugs + 2 infra issues + 1 unbounded growth bug across 12 passes. 14 PBT properties run 200 random inputs each across diff + intermediate — no failures. Full dead code audit, CSS audit, testid cross-reference, fixture validation — all clean. Gap: full e2e run |
+| Unknown unknowns | 0.93 | Found 22 logic/correctness/UX bugs + 2 infra issues + 1 unbounded growth bug across 13 passes. 14 PBT properties run 200 random inputs each across diff + intermediate — no failures. Full dead code audit, CSS audit (all selectors in use), testid cross-reference, fixture validation — all clean. Thirteenth pass found stale-panel-on-mode-transition bug and defensive guard gap in finishResolve. Gap: full e2e run |
 
 **P(no objections) ≈ 0.96 × 0.97 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.97 × 0.98 × 0.97 × 0.93 ≈ 0.35 (35%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.64. Twelfth pass found an unbounded-growth bug (observationLog), eliminated double serialization, added 7 PBT properties for diff module (1400 random inputs). 118 tests pass across 4 modules. Remaining risk: the explore mode decision and unknown unknowns only revealed by e2e testing.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.64. Thirteenth pass found 2 more bugs (stale pass2 panel, unguarded finishResolve) and 1 security fix (href escaping). 118 tests pass across 4 modules. Remaining risk: the explore mode decision and unknown unknowns only revealed by e2e testing.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
