@@ -1323,11 +1323,20 @@ function acceptDiff() {
   state._pendingSieve = null;
   state._preDiffMode = null;
 
-  // Rebuild pass2 order if returning to pass2
-  if (state.mode === 'pass2') {
+  // Rebuild pass2 order if returning to pass2 or review
+  if (state.mode === 'pass2' || state.mode === 'review') {
     buildPass2Order();
     state.pass2Cursor = 0;
     if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[0];
+    // If returning to review but diff added unnamed elements, downgrade to pass2
+    if (state.mode === 'review') {
+      for (var ri = 0; ri < state.pass2Order.length; ri++) {
+        if (!state.glossaryNames[state.pass2Order[ri]]) {
+          state.mode = 'pass2';
+          break;
+        }
+      }
+    }
   }
 
   var summary = diff.added.length + ' added, ' + diff.removed.length + ' removed, '
