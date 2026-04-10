@@ -184,8 +184,12 @@ async function fetchClick(selector) {
 }
 
 // ---- Core actions ----
+var _sieveInProgress = false;
+
 async function doSieve() {
+  if (_sieveInProgress) return;
   if (isModeBlocked()) { showModeBlockedToast(); return; }
+  _sieveInProgress = true;
   const statusEl = document.getElementById('status-indicator');
   statusEl.textContent = 'Sieving...';
   try {
@@ -240,6 +244,8 @@ async function doSieve() {
   } catch (e) {
     statusEl.textContent = 'Error';
     showToast('Failed to sieve: ' + e.message, 6000);
+  } finally {
+    _sieveInProgress = false;
   }
 }
 
