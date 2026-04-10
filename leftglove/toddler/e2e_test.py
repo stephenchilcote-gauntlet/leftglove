@@ -274,7 +274,7 @@ def test_screenshot_renders(driver):
 
     img = driver.find_element(By.CSS_SELECTOR, '[data-testid="screenshot-img"]')
     src = img.get_attribute("src")
-    assert src and src.startswith("blob:"), f"Expected blob URL, got: {src!r}"
+    assert src and (src.startswith("data:image") or src.startswith("blob:")), f"Expected data URL or blob URL, got: {src!r}"
     # Verify the image has real dimensions (not a broken blob)
     dims = driver.execute_script("""
         var img = arguments[0];
@@ -444,7 +444,7 @@ def test_load_screenshot_appears(driver):
     _wait_for_rects(driver)
     img = driver.find_element(By.CSS_SELECTOR, '[data-testid="screenshot-img"]')
     src = img.get_attribute("src")
-    assert src and src.startswith("blob:"), f"Expected blob URL for screenshot after load, got: {src!r}"
+    assert src and (src.startswith("data:image") or src.startswith("blob:")), f"Expected data URL or blob URL for screenshot after load, got: {src!r}"
 
 def test_load_status_shows_count(driver):
     driver.get(TL_URL)

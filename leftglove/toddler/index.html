@@ -640,6 +640,7 @@ function loadState() {
       state.classifications = saved.classifications || {};
       state.pageUrl = saved.pageUrl || null;
       state.mode = saved.mode || 'pass1';
+      if (state.mode === 'resolve' || state.mode === 'diff') state.mode = 'pass1';
       state.glossaryNames = saved.glossaryNames || {};
       state.pass2Cursor = saved.pass2Cursor || 0;
       state.exploreMode = saved.exploreMode || false;
