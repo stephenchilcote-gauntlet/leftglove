@@ -598,12 +598,18 @@ function saveState() {
     // Strip screenshot from localStorage copy to avoid size limits
     var lsCopy = JSON.parse(JSON.stringify(data));
     lsCopy.source.screenshot = null;
-    // Sidecar: cursor position (not part of the artifact, just UI state)
-    lsCopy._cursor = {
+    // Sidecar: UI-only state (not part of the artifact)
+    lsCopy._ui = {
       currentIndex: state.currentIndex,
       pass2Cursor: state.pass2Cursor,
+      exploreMode: state.exploreMode,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(lsCopy));
+  } else {
+    // No inventory yet — save minimal UI state so toggles survive refresh
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      _ui: { exploreMode: state.exploreMode },
+    }));
   }
   autoSave();
 }
@@ -637,18 +643,20 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     const saved = JSON.parse(raw);
-    // New format: intermediate + _cursor sidecar
+    // Restore UI-only state (works with or without inventory)
+    if (saved._ui) {
+      state.exploreMode = saved._ui.exploreMode || false;
+      state.currentIndex = saved._ui.currentIndex || 0;
+      state.pass2Cursor = saved._ui.pass2Cursor || 0;
+    }
+    // Restore full artifact if present
     if (saved['sieve-version']) {
       const errors = fromIntermediate(saved);
       if (errors.length) { console.warn('[loadState] restore errors:', errors); return; }
-      if (saved._cursor) {
-        state.currentIndex = saved._cursor.currentIndex || 0;
-        state.pass2Cursor = saved._cursor.pass2Cursor || 0;
-        if (state.mode === 'pass2') {
-          buildPass2Order();
-          var pos = state.pass2Order.indexOf(state.currentIndex);
-          state.pass2Cursor = pos >= 0 ? pos : state.pass2Cursor;
-        }
+      if (state.mode === 'pass2') {
+        buildPass2Order();
+        var pos = state.pass2Order.indexOf(state.currentIndex);
+        state.pass2Cursor = pos >= 0 ? pos : state.pass2Cursor;
       }
     }
   } catch (e) { /* ignore corrupt storage */ }
