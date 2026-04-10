@@ -194,7 +194,7 @@
           </p>
 
           <!-- Donate button (opens sheet) -->
-          <button onclick="document.getElementById('donate-sheet').classList.remove('translate-x-full')" class="w-full rounded-full bg-primary text-white text-base font-semibold h-12 hover:bg-primary/90 transition-colors" data-testid="donate-button">
+          <button class="w-full rounded-full bg-primary text-white text-base font-semibold h-12 hover:bg-primary/90 transition-colors" data-testid="donate-button">
             Donate Now
           </button>
 
@@ -363,16 +363,20 @@
     // When sheet opens, show overlay
     const donateBtn = document.querySelector('[data-testid="donate-button"]');
     donateBtn.addEventListener('click', () => {
-      const overlay = document.getElementById('donate-overlay');
-      overlay.classList.remove('opacity-0', 'pointer-events-none');
+      document.getElementById('donate-sheet').classList.remove('translate-x-full');
+      document.getElementById('donate-overlay').classList.remove('opacity-0', 'pointer-events-none');
     });
     function selectAmount(n) {
       document.getElementById('pledge-amount').value = n;
       document.querySelectorAll('[data-testid^="preset-"]').forEach(btn => {
-        btn.className = btn.className.replace(/border-primary bg-primary\/10 text-primary/g, 'border-gray-200');
+        btn.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
+        btn.classList.add('border-gray-200');
       });
       const sel = document.querySelector(`[data-testid="preset-${n}"]`);
-      if (sel) sel.className = sel.className.replace('border-gray-200', 'border-primary bg-primary/10 text-primary');
+      if (sel) {
+        sel.classList.remove('border-gray-200');
+        sel.classList.add('border-primary', 'bg-primary/10', 'text-primary');
+      }
     }
   </script>
 
