@@ -141,8 +141,7 @@ async function fetchScreenshot() {
   const res = await fetch(API + '/screenshot');
   if (!res.ok) throw new Error('Screenshot request failed: ' + res.status);
   const blob = await res.blob();
-  var dataUrl = await blobToDataUrl(blob);
-  return { dataUrl: dataUrl };
+  return blobToDataUrl(blob);
 }
 
 function blobToDataUrl(blob) {
@@ -199,7 +198,7 @@ async function doSieve() {
 
       var pendingSieve = {
         inventory: inventory,
-        screenshotUrl: screenshot.dataUrl,
+        screenshotUrl: screenshot,
         matchResult: matchResult,
         oldInventory: state.inventory,
         oldClassifications: Object.assign({}, state.classifications),
@@ -217,7 +216,7 @@ async function doSieve() {
     } else {
       // First sieve — fresh state
       state.inventory = inventory;
-      state.screenshotUrl = screenshot.dataUrl;
+      state.screenshotUrl = screenshot;
       state.pageUrl = inventory.url?.raw || inventory.url || null;
       state.classifications = {};
       state.currentIndex = 0;
