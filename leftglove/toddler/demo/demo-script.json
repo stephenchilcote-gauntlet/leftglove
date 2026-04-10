@@ -20,6 +20,14 @@
     "spoken": "Now watch what happens when an agent connects through our MCP server. It doesn't see HTML. It sees the glossary. Fundraiser.donate-button is clickable. Fundraiser.amount-input is typable."
   },
   {
+    "id": "act-click",
+    "spoken": "Now an agent uses the glossary to interact. Click the donate button."
+  },
+  {
+    "id": "act-fill",
+    "spoken": "Fill the amount field with twenty-five. The agent uses the vocabulary name, not a CSS selector."
+  },
+  {
     "id": "strict-mode",
     "spoken": "Try to reference something that isn't in the glossary? The system rejects it. Unknown object, strict mode."
   },
