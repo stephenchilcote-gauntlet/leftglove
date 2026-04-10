@@ -394,3 +394,153 @@ describe('round-trip', function () {
     deepStrictEqual(parsed.glossaryNames, {});
   });
 });
+
+// --- Property-based tests ---
+
+var fc;
+try { fc = require('fast-check'); } catch (_) { fc = null; }
+
+if (fc) {
+  var pbtPassed = 0;
+  var pbtFailed = 0;
+
+  function prop(name, arb, predicate) {
+    try {
+      fc.assert(fc.property(arb, predicate), { numRuns: 200 });
+      console.log('  \x1b[32mPASS\x1b[0m ' + name);
+      pbtPassed++;
+    } catch (e) {
+      console.log('  \x1b[31mFAIL\x1b[0m ' + name);
+      console.log('    ' + e.message.split('\n').slice(0, 5).join('\n    '));
+      pbtFailed++;
+    }
+  }
+
+  // Arbitraries
+  var arbLabel = fc.string({ minLength: 0, maxLength: 50 });
+  var arbTag = fc.constantFrom('button', 'input', 'a', 'div', 'span', 'select', 'textarea', 'p', 'h1');
+  var arbCat = fc.constantFrom('clickable', 'typable', 'readable', 'chrome', 'custom', 'split', 'skip');
+  var arbRect = fc.record({
+    x: fc.integer({ min: 0, max: 2000 }),
+    y: fc.integer({ min: 0, max: 2000 }),
+    w: fc.integer({ min: 1, max: 500 }),
+    h: fc.integer({ min: 1, max: 500 }),
+  });
+  var arbElement = fc.record({
+    tag: arbTag,
+    label: arbLabel,
+    category: arbCat.map(function (c) { return ':' + c; }),
+    rect: arbRect,
+    locators: fc.constant({}),
+    state: fc.record({ visible: fc.boolean(), disabled: fc.boolean() }),
+    visibleText: fc.option(arbLabel, { nil: null }),
+    region: fc.option(fc.constantFrom('header', 'main', 'footer', 'sidebar', 'nav'), { nil: null }),
+    form: fc.constant(null),
+    'element-type': fc.option(fc.constantFrom('button', 'text', 'password', 'checkbox'), { nil: null }),
+    'aria-role': fc.option(fc.constantFrom('button', 'textbox', 'link', 'navigation'), { nil: null }),
+  });
+
+  var arbState = fc.record({
+    elements: fc.array(arbElement, { minLength: 1, maxLength: 10 }),
+    cats: fc.array(arbCat, { minLength: 1, maxLength: 10 }),
+    hasNames: fc.boolean(),
+  }).chain(function (r) {
+    var els = r.elements;
+    var cls = {};
+    for (var i = 0; i < els.length; i++) {
+      cls[i] = r.cats[i % r.cats.length];
+    }
+    var gn = {};
+    if (r.hasNames) {
+      gn[0] = { name: 'test-name', intent: 'TestIntent', source: 'human', notes: '' };
+    }
+    return fc.constant({
+      inventory: {
+        elements: els,
+        viewport: { w: 1280, h: 720 },
+        cookies: [],
+        storage: { localStorage: [], sessionStorage: [] },
+        tabs: 1,
+        url: { raw: 'http://example.com' },
+      },
+      classifications: cls,
+      glossaryNames: gn,
+      pageUrl: 'http://example.com',
+      screenshotUrl: null,
+      screenshotDims: { w: 1280, h: 720 },
+    });
+  });
+
+  console.log('\n=== Intermediate PBT ===\n');
+
+  prop('toIntermediate always returns valid intermediate format', arbState, function (st) {
+    var data = toIntermediate(st);
+    if (!data) return false;
+    var errors = validateIntermediate(data);
+    return errors.length === 0;
+  });
+
+  prop('round-trip preserves element count', arbState, function (st) {
+    var data = toIntermediate(st);
+    var parsed = parseIntermediate(data);
+    return !parsed.errors && parsed.inventory.elements.length === st.inventory.elements.length;
+  });
+
+  prop('round-trip preserves element tags', arbState, function (st) {
+    var data = toIntermediate(st);
+    var parsed = parseIntermediate(data);
+    if (parsed.errors) return false;
+    for (var i = 0; i < st.inventory.elements.length; i++) {
+      if (parsed.inventory.elements[i].tag !== st.inventory.elements[i].tag) return false;
+    }
+    return true;
+  });
+
+  prop('round-trip preserves element rects', arbState, function (st) {
+    var data = toIntermediate(st);
+    var parsed = parseIntermediate(data);
+    if (parsed.errors) return false;
+    for (var i = 0; i < st.inventory.elements.length; i++) {
+      var a = st.inventory.elements[i].rect;
+      var b = parsed.inventory.elements[i].rect;
+      if (a.x !== b.x || a.y !== b.y || a.w !== b.w || a.h !== b.h) return false;
+    }
+    return true;
+  });
+
+  prop('round-trip preserves human classifications', arbState, function (st) {
+    var data = toIntermediate(st);
+    var parsed = parseIntermediate(data);
+    if (parsed.errors) return false;
+    for (var key in st.classifications) {
+      if (parsed.classifications[key] !== st.classifications[key]) return false;
+    }
+    return true;
+  });
+
+  prop('round-trip preserves element state', arbState, function (st) {
+    var data = toIntermediate(st);
+    var parsed = parseIntermediate(data);
+    if (parsed.errors) return false;
+    for (var i = 0; i < st.inventory.elements.length; i++) {
+      var a = st.inventory.elements[i].state;
+      var b = parsed.inventory.elements[i].state;
+      if (JSON.stringify(a) !== JSON.stringify(b)) return false;
+    }
+    return true;
+  });
+
+  prop('toIntermediate output is JSON-serializable', arbState, function (st) {
+    var data = toIntermediate(st);
+    try {
+      var json = JSON.stringify(data);
+      var reparsed = JSON.parse(json);
+      return reparsed['sieve-version'] === '1.0';
+    } catch (_) {
+      return false;
+    }
+  });
+
+  console.log('\n' + pbtPassed + ' properties, ' + pbtPassed + ' passed, ' + pbtFailed + ' failed.\n');
+  if (pbtFailed > 0) process.exit(1);
+}
