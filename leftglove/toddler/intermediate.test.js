@@ -541,6 +541,6 @@ if (fc) {
     }
   });
 
-  console.log('\n' + pbtPassed + ' properties, ' + pbtPassed + ' passed, ' + pbtFailed + ' failed.\n');
+  console.log('\n' + (pbtPassed + pbtFailed) + ' properties, ' + pbtPassed + ' passed, ' + pbtFailed + ' failed.\n');
   if (pbtFailed > 0) process.exit(1);
 }
