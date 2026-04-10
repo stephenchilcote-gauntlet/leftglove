@@ -185,27 +185,30 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Test: near-tautological URL assertion | Changed `":" in val` to `startswith("http")` | `2d608b6` |
 | Test: service checks use `/login` and `/` instead of `/healthz` | Updated `check_services` and `bin/demo-test` to use `/healthz` | `2d608b6`, `1f7db7b` |
 | Stale: demo terminal-segments still shows removed `act` tool | Updated tools list and replaced act demo with `sl validate` | `95e0508` |
+| Structure: renderOverlay compute-then-override anti-pattern | Restructured to clean if/else-if: explore → pass2 → pass1 | `4de7a87` |
+| Dead: unused `.label-text` CSS class | Removed | `cff2149` |
+| Race: `doSieve` has no re-entrancy guard | Added `_sieveInProgress` flag with try/finally cleanup | `4d475e3` |
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after second audit pass (mode/diff/resolve bugs):**
+**Updated estimate after third audit pass (race condition, overlay refactor):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
 | Finding #1 fix | 0.95 | Clean deletion, build verified. Demo segments updated to match |
-| Finding #2 fix | 0.94 | Mode now round-trips correctly through `_ui` sidecar; diff mode no longer persists inconsistent state |
+| Finding #2 fix | 0.94 | Mode round-trips via `_ui` sidecar; diff mode doesn't persist inconsistent state; sieve has re-entrancy guard |
 | Finding #3 decision | 0.55 | Code review rated High; I overrode based on vision docs. User may agree with reviewer |
 | Finding #5 fix | 0.90 | Shared lib works, dead script removed |
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
-| Finding #7 decision | 0.88 | Review mode is now correctly derived from data AND persisted in `_ui`, strengthening the case it's a real mode |
+| Finding #7 decision | 0.88 | Review mode correctly derived from data AND persisted in `_ui` |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
-| Structural refactors | 0.93 | DRY extractions + state model simplification + viewBox fix. All rendering paths now consistent |
-| Data fidelity | 0.92 | Element state preserved; state diff works; resolved elements now appear in diff; mode transitions consistent |
-| Dead asset removal | 0.95 | Verified zero references to deleted files |
+| Structural refactors | 0.94 | DRY extractions + state model simplification + overlay restructure. All rendering paths consistent |
+| Data fidelity | 0.93 | Element state preserved; state diff works; resolved elements appear in diff; mode transitions consistent; race condition guarded |
+| Dead asset removal | 0.95 | Verified zero references to deleted files + dead CSS |
 | Test suite quality | 0.92 | Tautological assertions fixed; health checks use `/healthz`; fixtures aligned with sieve contract |
-| Unknown unknowns | 0.85 | Found 4 more real bugs in second pass (3 mode bugs, 1 resolve-to-diff data loss). Gap: full e2e run |
+| Unknown unknowns | 0.83 | Found 6 bugs across 3 passes (4 mode, 1 resolve-to-diff, 1 race). Diminishing returns but gap remains: full e2e run |
 
-**P(no objections) ≈ 0.95 × 0.94 × 0.55 × 0.90 × 0.95 × 0.88 × 0.95 × 0.93 × 0.92 × 0.95 × 0.92 × 0.85 ≈ 0.25 (25%)**
+**P(no objections) ≈ 0.95 × 0.94 × 0.55 × 0.90 × 0.95 × 0.88 × 0.95 × 0.94 × 0.93 × 0.95 × 0.92 × 0.83 ≈ 0.24 (24%)**
 
 **Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.45. The mode bug fixes raised the persistence factor from 0.92 → 0.94 and review mode decision from 0.85 → 0.88, but explore mode remains the dominant risk factor.
 
