@@ -1103,6 +1103,7 @@ function finishResolve() {
   var ctx = state.resolveContext;
   var pending = state._pendingSieve;
   if (!ctx || !pending) return;
+  if (!areAllGroupsResolved()) return;
 
   // Merge resolve decisions into matchResult so computeDiff sees them
   var merged = {

@@ -19,7 +19,7 @@
     if (locators.testid) return { strategy: 'testid', value: locators.testid };
     if (locators.id && !isDynamicId(locators.id)) return { strategy: 'id', value: locators.id };
     if (locators.name) return { strategy: 'name', value: locators.name };
-    if (locators.href) return { strategy: 'css', value: '[href="' + locators.href + '"]' };
+    if (locators.href) return { strategy: 'css', value: '[href="' + locators.href.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"]' };
     return null;
   }
 
