@@ -1309,7 +1309,9 @@ function enterDiffMode(matchResult, pendingSieve, resolvedPairs) {
   renderOverlay();
   renderPanel();
   renderMetadata();
-  saveState();
+  // Don't saveState here — diff mode is transient. The state object still holds
+  // the OLD inventory but has the NEW screenshot, so persisting would create a
+  // mismatch. If the user refreshes, they revert to the pre-diff state (already saved).
   renderScreenshot().catch(function () {});
 }
 
