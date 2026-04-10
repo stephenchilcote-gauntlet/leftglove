@@ -777,8 +777,15 @@ function showSummary() {
   }
 
   if (state.mode === 'pass1') {
-    html += '<button class="btn btn-primary" data-testid="btn-start-pass2" onclick="startPass2()" '
-      + 'style="margin-top:8px;padding:6px 16px;">Start Pass 2 &rarr;</button>';
+    // Only show "Start Pass 2" if there are non-chrome/non-skip elements to name
+    var hasNamable = elements.some(function (_, i) {
+      var cat = state.classifications[i];
+      return cat && cat !== 'chrome' && cat !== 'skip';
+    });
+    if (hasNamable) {
+      html += '<button class="btn btn-primary" data-testid="btn-start-pass2" onclick="startPass2()" '
+        + 'style="margin-top:8px;padding:6px 16px;">Start Pass 2 &rarr;</button>';
+    }
   }
 
   summary.innerHTML = html;
