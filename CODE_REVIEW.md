@@ -240,6 +240,10 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: simulateDiff passes screenshotUrl as resolvedPairs | Fixed to pass null — string was silently corrupting propagation | `8c6c82a` |
 | Bug: classify() saveState() before currentIndex update | Moved saveState() after index advancement — saved state now consistent | `8c6c82a` |
 | Dead: handleResolveKeydown computes `group` for all key paths | Moved to digit-key branch where it's actually used | `8c6c82a` |
+| Bug: explore click proceeds when diff pending — stale observation log | Added `isModeBlocked()` guard to `doExploreClick` | `05064c1` |
+| Bug: `acceptName()` silently discards edits in review mode | Allow name editing in both pass2 and review modes | `05064c1` |
+| Bug: `acceptDiff` resets pass2 cursor to 0 | Preserve `preDiffCursor` position after diff accept | `05064c1` |
+| Bug: `renderMetadata` shows old inventory in diff mode | Use `_pendingSieve.inventory` when available | `05064c1` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -252,7 +256,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after sixteenth pass (e2e linter enforcement, bug fixes, test registry alignment):**
+**Updated estimate after seventeenth pass (deep architectural audit, 4 more bug fixes):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
@@ -265,19 +269,19 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Finding #7 decision | 0.92 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar. Escape toggle now guarded: pass2→review only when all named |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
 | Structural refactors | 0.97 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + diff module extraction + intermediate module extraction + svgLabel helper + downloadBlob utility. Pure `parseIntermediate` eliminates state-mutation coupling. `escapeHtml` no longer allocates DOM. app.js reduced from 2151 to ~1900 lines. 4 modules (glossary, diff, intermediate, app) with clear responsibilities |
-| Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement; `buildPass2Order` rejects unclassified elements; viewport dims correct in diff mode; observationLog capped at 100 entries; cursor positions clamped on restore; glossary field normalization (empty string ↔ null) verified. `classify()` now saves state after index advancement. `simulateDiff` no longer corrupts resolvedPairs |
+| Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement; `buildPass2Order` rejects unclassified elements; viewport dims correct in diff mode; observationLog capped at 100 entries; cursor positions clamped on restore; glossary field normalization verified. `classify()` saves state after index advancement. `simulateDiff` no longer corrupts resolvedPairs. `acceptDiff` preserves pass2 cursor. `renderMetadata` shows correct inventory in diff mode. Explore click blocked when diff pending. `acceptName` works in review mode |
 | Dead asset removal | 0.96 | Comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
 | Test suite quality | 0.98 | 113 node:test assertions across 4 modules. 2800 random PBT inputs. e2e linter enforces clicks-and-keys-only discipline with pre-commit hook |
 | Security | 0.98 | Full XSS audit: all innerHTML paths use `escapeHtml()`. CSS selectors escaped via `CSS.escape()`. `bestLocator` href values escaped. No command injection |
 | MCP server quality | 0.97 | Clean architecture. EDN parser has 23-case test suite. `npm test` script added |
 | Cross-references | 0.99 | All 13 toddler feature file element refs verified in glossary EDN. All glossary testid bindings verified in HTML. All 9 demo-app glossary elements verified in fundraiser.ejs/login.ejs |
 | Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress` |
-| State machine | 0.99 | All 9 mode transitions traced. Escape pass2→review now guarded by `allPass2Named()`. `classify()` saves consistent state. Keyboard handler dispatch covers all 5 modes |
-| Unknown unknowns | 0.95 | Found 27 logic/correctness/UX bugs + 2 infra issues + 1 unbounded growth bug across 16 passes. 14 PBT properties run 200 random inputs each. Full dead code audit, CSS audit, testid cross-reference, fixture validation, state machine trace. 16 passes with diminishing returns. Gap: full e2e run |
+| State machine | 0.99 | All 9 mode transitions traced. Escape pass2→review guarded by `allPass2Named()`. `classify()` saves consistent state. `doExploreClick` guarded by `isModeBlocked()`. `acceptName` works in review mode. `acceptDiff` preserves cursor. Keyboard handler dispatch covers all 5 modes |
+| Unknown unknowns | 0.95 | Found 31 logic/correctness/UX bugs + 2 infra issues + 1 unbounded growth bug across 17 passes. 14 PBT properties run 200 random inputs each. Full dead code audit, CSS audit, testid cross-reference, fixture validation, state machine trace, deep architectural audit. 17 passes with diminishing returns. Gap: full e2e run |
 
 **P(no objections) ≈ 0.96 × 0.97 × 0.55 × 0.93 × 0.90 × 0.95 × 0.92 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.97 × 0.99 × 0.97 × 0.99 × 0.95 ≈ 0.38 (38%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.69. 113 tests pass across 4 modules. 94 commits since `before_loop`. State machine fully traced and verified. e2e test discipline now enforced by linter + pre-commit hook.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.69. 113 tests pass across 4 modules. 96 commits since `before_loop`. State machine fully traced and verified. e2e test discipline now enforced by linter + pre-commit hook.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
