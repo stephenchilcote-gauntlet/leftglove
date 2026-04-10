@@ -141,25 +141,51 @@ Working assumption: the core invariant is a truthful, simple loop around `observ
 | #4 (Medium) Test coupling | **Left for now** | Tests work, refactoring risks breaking them for aesthetic reasons. e2e_test.py exercises real behavior. |
 | #7 (Medium) Review mode | **Kept** | Low complexity cost (few `\|\| mode === 'review'` checks). Provides real UX value: Escape toggles editing/reviewing. |
 
+### Pattern-Based Refactoring (beyond code review findings)
+
+After addressing the code review findings, audited for the same anti-patterns across the codebase:
+
+| Pattern | Action | Commit |
+|---------|--------|--------|
+| Monolithic index.html (2828 lines) | Extracted JS (2271 lines) and CSS (477 lines) into separate files | `649a118`, `16dfa54` |
+| DRY: 3 identical metadata pill loops | Extracted `metaPillGroup` helper | `7606b05` |
+| DRY: 2 duplicate SVG overlay loops | Extracted `resolveOverlayRects` helper | `7606b05` |
+| DRY: 2 identical resolve column builders (80+ lines each) | Extracted `resolveColumnHtml` helper | `7606b05` |
+| DRY: 3 copy-pasted diff item sections | Data-driven loop with section config | `7606b05` |
+| DRY: 5 identical resolve action functions | Consolidated to `resolveMark`/`resolveUndo` | `7606b05` |
+| DRY: 2 duplicate group resolution validators | Extracted `isGroupResolved` helper | `e27784a` |
+| DRY: 5 identical resolve/diff mode guards | Extracted `isModeBlocked`/`showModeBlockedToast` | `e27784a` |
+| DRY: 5 manual MCP response wrappers | Extracted `textResult` to tools/util.ts | `e27784a` |
+| DRY: 4 manual JSON response patterns | Extracted `jsonResponse` in server.js | `e27784a` |
+| DRY: 2 duplicate locator string builders | Extracted `locatorStr` helper | `363659d` |
+| DRY: 2 duplicate field HTML builders | Extracted `fieldHtml` helper | `363659d` |
+| Dead: identical pendingSieve built twice | Consolidated to single construction | `82c5a53` |
+| Dead: revokeObjectURL on data URLs | Removed (no-op since blob URL removal) | `82c5a53` |
+| Dead: 9 unreferenced demo-app images | Deleted | `3bd20a8` |
+| Dead: navigate.feature superseded by navigation.feature | Deleted | `3bd20a8` |
+| Noise: auto-save console.log every 1.5s | Removed | `3bd20a8` |
+
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after investigation:**
+**Updated estimate after full refactoring pass:**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
 | Finding #1 fix | 0.95 | Clean deletion, build verified |
-| Finding #2 fix | 0.85 | Intermediate format round-trip verified; found and fixed 2 regressions (explore mode, observationLog). Risk: no automated round-trip test (functions live in index.html script tag) |
+| Finding #2 fix | 0.90 | Intermediate format round-trip verified; fixed 2 regressions; JS/CSS now in separate files (easier to test) |
 | Finding #3 decision | 0.55 | Code review rated High; I overrode based on vision docs. User may agree with reviewer |
 | Finding #5 fix | 0.90 | Shared lib works, dead script removed |
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
 | Finding #7 decision | 0.85 | Minor disagreement with reviewer, well-reasoned |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
-| Test suite impact | 0.80 | Verified no tests read localStorage directly; persistence round-trip is sound; observation log test requires fix (committed) |
-| Unknown unknowns (uninspected code) | 0.80 | Audited all source files, visual_judge, sl-project, demo scripts. Main gap: full e2e test run requires 3 running services |
+| Structural refactors | 0.90 | Pure DRY extractions — same behavior, less code. Syntax checked, tests pass. Risk: untested UI paths through extracted helpers |
+| Dead asset removal | 0.95 | Verified zero references to deleted files |
+| Test suite impact | 0.85 | Verified no tests read localStorage directly; persistence round-trip sound; observation log test fixed; glossary PBT passes |
+| Unknown unknowns | 0.85 | Audited every source file in the repo. Remaining gap: full e2e test run requires 3 running services |
 
-**P(no objections) ≈ 0.95 × 0.85 × 0.55 × 0.90 × 0.95 × 0.85 × 0.95 × 0.80 × 0.80 ≈ 0.20 (20%)**
+**P(no objections) ≈ 0.95 × 0.90 × 0.55 × 0.90 × 0.95 × 0.85 × 0.95 × 0.90 × 0.95 × 0.85 × 0.85 ≈ 0.22 (22%)**
 
-**Biggest risk**: The explore mode decision (0.55). Without that factor, P ≈ 0.36. The next biggest: test suite impact and unknown unknowns.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.40. Second biggest: accumulated risk of 16 commits touching core rendering code without e2e validation.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
@@ -167,3 +193,4 @@ Working assumption: the core invariant is a truthful, simple loop around `observ
 
 - I could not use `br` for task lookup because it is not installed in this environment.
 - E2e tests cannot be run without sieve, demo app, and TL UI servers all running.
+- `state.screenshotUrl` and `state.screenshotDataUrl` are now always identical (both data URLs). Could be unified to a single field but risk/reward doesn't justify the change.
