@@ -196,6 +196,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Display: status shows "undefined elements" for empty sieve | Fixed to show "0 elements" | `4b70f64` |
 | Data: `visibleText` lost on intermediate round-trip | Added `visible-text` to toIntermediate/fromIntermediate — prevents false "text changed" diffs after reload | `07e7792` |
 | Stale: comment references removed `fetchStatus` function | Updated to match actual code | `9409bad` |
+| Stale: terminal demo shows progress-bar (not in glossary), wrong title binding | Updated to match Fundraiser.edn: recurring-checkbox, fundraiser-title testid | `ba53d11` |
 
 ### Bayesian Analysis: P(no objections)
 
