@@ -855,14 +855,12 @@ def test_qo2_resolve_ui_renders(driver):
     assert "group 1" in banner.text.lower(), f"Expected group info in banner, got: {banner.text!r}"
 
     # Old and new element lists should be present
-    old_list = wait_for(driver, "resolve-old-list")
-    new_list = wait_for(driver, "resolve-new-list")
-    assert old_list is not None
-    assert new_list is not None
+    wait_for(driver, "resolve-old-list")
+    wait_for(driver, "resolve-new-list")
 
     # Done button should be disabled (nothing resolved yet)
     done_btn = driver.find_element(By.CSS_SELECTOR, '[data-testid="btn-resolve-done"]')
-    assert done_btn.get_attribute("disabled") is not None, "Done button should be disabled"
+    assert not done_btn.is_enabled(), "Done button should be disabled"
 
     # Clean up
     driver.execute_script("""
@@ -924,7 +922,7 @@ def test_qo2_resolve_full_flow(driver):
 
     # Done button should be disabled
     done_btn = driver.find_element(By.CSS_SELECTOR, '[data-testid="btn-resolve-done"]')
-    assert done_btn.get_attribute("disabled") is not None, "Done should be disabled initially"
+    assert not done_btn.is_enabled(), "Done should be disabled initially"
 
     # Step 1: Select old element 0, then pair with new element 0
     driver.execute_script("resolveSelectOld(0)")
@@ -963,7 +961,7 @@ def test_qo2_resolve_full_flow(driver):
 
     # The Done button should now be enabled (no disabled attribute)
     done_btn = driver.find_element(By.CSS_SELECTOR, '[data-testid="btn-resolve-done"]')
-    assert done_btn.get_attribute("disabled") is None, "Done should be enabled after resolving all"
+    assert done_btn.is_enabled(), "Done should be enabled after resolving all"
 
     # Step 4: Click Done — should enter diff mode (not pass1 directly)
     driver.execute_script("finishResolve()")
@@ -2511,7 +2509,7 @@ def test_b6db_saved_file_is_valid_intermediate(driver):
         var data = JSON.parse(arguments[0]);
         return validateIntermediate(data);
     """, saved_json)
-    assert errors == [] or len(errors) == 0, f"Validation errors: {errors}"
+    assert errors == [], f"Validation errors: {errors}"
     _clear_sessions()
 
 def test_b6db_multiple_urls_separate_files(driver):
