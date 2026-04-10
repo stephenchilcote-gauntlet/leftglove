@@ -121,6 +121,49 @@ Working assumption: the core invariant is a truthful, simple loop around `observ
 - `node -e "require('./server'); setTimeout(() => process.exit(0), 1000)"` booted `leftglove/demo-app`
 - `node -e "require('./server'); setTimeout(() => process.exit(0), 1000)"` booted `leftglove/toddler`
 
+## Remediation (2026-04-10)
+
+### Completed
+
+| Finding | Action | Commit |
+|---------|--------|--------|
+| #1 (High) MCP stubs | Removed `act` stub, `echo` scaffolding; kept real tools | `d323c1c` |
+| #2 (High) Persistence overlap | Unified to intermediate format + `_ui` sidecar in localStorage | `8cad8ca`, `5032178`, `1ac8893` |
+| #5 (Medium) Shell runners | Extracted `bin/_lib.sh`, removed dead `dogfood-test` | `2c49b50` |
+| #6 (Medium) Demo dead code | Removed `behaviors`, `app.locals.config`, `toggle-recurring` | `38ad156` |
+| #8 (Low) Code smells | Fixed blob leak, tautological ternary, npm-init placeholder | `cd95922`, `963957c` |
+
+### Evaluated, Not Changed
+
+| Finding | Decision | Reasoning |
+|---------|----------|-----------|
+| #3 (High) Explore mode | **Kept** | Part of product vision (o4c in implementation tracker, described in LEFT-GLOVE-VISION.md, toddler-loop.md, feature-vision.md). Not dead code. |
+| #4 (Medium) Test coupling | **Left for now** | Tests work, refactoring risks breaking them for aesthetic reasons. e2e_test.py exercises real behavior. |
+| #7 (Medium) Review mode | **Kept** | Low complexity cost (few `\|\| mode === 'review'` checks). Provides real UX value: Escape toggles editing/reviewing. |
+
+### Bayesian Analysis: P(no objections)
+
+**Updated estimate after investigation:**
+
+| Factor | P(ok) | Notes |
+|--------|-------|-------|
+| Finding #1 fix | 0.95 | Clean deletion, build verified |
+| Finding #2 fix | 0.85 | Intermediate format round-trip verified; found and fixed 2 regressions (explore mode, observationLog). Risk: no automated round-trip test (functions live in index.html script tag) |
+| Finding #3 decision | 0.55 | Code review rated High; I overrode based on vision docs. User may agree with reviewer |
+| Finding #5 fix | 0.90 | Shared lib works, dead script removed |
+| Finding #6 fix | 0.95 | Straightforward dead code removal |
+| Finding #7 decision | 0.85 | Minor disagreement with reviewer, well-reasoned |
+| Finding #8 fix | 0.95 | Trivial, correct fixes |
+| Test suite impact | 0.80 | Verified no tests read localStorage directly; persistence round-trip is sound; observation log test requires fix (committed) |
+| Unknown unknowns (uninspected code) | 0.80 | Audited all source files, visual_judge, sl-project, demo scripts. Main gap: full e2e test run requires 3 running services |
+
+**P(no objections) ≈ 0.95 × 0.85 × 0.55 × 0.90 × 0.95 × 0.85 × 0.95 × 0.80 × 0.80 ≈ 0.20 (20%)**
+
+**Biggest risk**: The explore mode decision (0.55). Without that factor, P ≈ 0.36. The next biggest: test suite impact and unknown unknowns.
+
+**What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
+
 ## Notes
 
 - I could not use `br` for task lookup because it is not installed in this environment.
+- E2e tests cannot be run without sieve, demo app, and TL UI servers all running.
