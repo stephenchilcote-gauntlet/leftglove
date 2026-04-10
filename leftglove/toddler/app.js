@@ -90,19 +90,18 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     const saved = JSON.parse(raw);
-    // Restore UI-only state (works with or without inventory)
-    if (saved._ui) {
-      state.exploreMode = saved._ui.exploreMode || false;
-      state.currentIndex = saved._ui.currentIndex || 0;
-      state.pass2Cursor = saved._ui.pass2Cursor || 0;
-      state.observationLog = saved._ui.observationLog || [];
-    }
+    var ui = saved._ui || {};
+    // Restore UI-only state that works without inventory
+    state.exploreMode = ui.exploreMode || false;
+    state.observationLog = ui.observationLog || [];
     // Restore full artifact if present
     if (saved['sieve-version']) {
       const errors = fromIntermediate(saved);
       if (errors.length) { console.warn('[loadState] restore errors:', errors); return; }
+      // fromIntermediate resets currentIndex to 0 — restore from _ui sidecar
+      state.currentIndex = ui.currentIndex || 0;
+      state.pass2Cursor = ui.pass2Cursor || 0;
       if (state.mode === 'pass2') {
-        buildPass2Order();
         var pos = state.pass2Order.indexOf(state.currentIndex);
         state.pass2Cursor = pos >= 0 ? pos : state.pass2Cursor;
       }
