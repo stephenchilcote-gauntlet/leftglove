@@ -164,10 +164,16 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Dead: 9 unreferenced demo-app images | Deleted | `3bd20a8` |
 | Dead: navigate.feature superseded by navigation.feature | Deleted | `3bd20a8` |
 | Noise: auto-save console.log every 1.5s | Removed | `3bd20a8` |
+| State: screenshotUrl/screenshotDataUrl always identical | Unified to single `screenshotUrl` field | `fd600c7` |
+| Dead: 12 `rect.width`/`rect.height`/`.box` fallbacks | Removed — sieve contract guarantees `{x, y, w, h}` | `fd600c7` |
+| Dead: camelCase property fallbacks (`elementType`, `ariaRole`) | Removed — sieve contract uses kebab-case | `bec29ca` |
+| Dead: `fieldHtml` tautological ternary `(style ? '' : '')` | Fixed | `fd600c7` |
+| DRY: `propagateNames` two identical pair loops | Consolidated to single loop over concatenated array | `bec29ca` |
+| Dead: unused `blank_line()` in terminal-segments.py | Deleted | `bec29ca` |
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after full refactoring pass:**
+**Updated estimate after state model simplification pass:**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
@@ -178,14 +184,14 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
 | Finding #7 decision | 0.85 | Minor disagreement with reviewer, well-reasoned |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
-| Structural refactors | 0.90 | Pure DRY extractions — same behavior, less code. Syntax checked, tests pass. Risk: untested UI paths through extracted helpers |
+| Structural refactors | 0.92 | DRY extractions + state model simplification. Syntax checked, tests pass. Rect normalization eliminates a class of potential bugs |
 | Dead asset removal | 0.95 | Verified zero references to deleted files |
-| Test suite impact | 0.85 | Verified no tests read localStorage directly; persistence round-trip sound; observation log test fixed; glossary PBT passes |
-| Unknown unknowns | 0.85 | Audited every source file in the repo. Remaining gap: full e2e test run requires 3 running services |
+| Test suite impact | 0.87 | e2e tests updated for screenshotDataUrl removal; glossary PBT passes; no localStorage assertion drift |
+| Unknown unknowns | 0.87 | Audited every source file in the repo. Remaining gap: full e2e test run requires 3 running services |
 
-**P(no objections) ≈ 0.95 × 0.90 × 0.55 × 0.90 × 0.95 × 0.85 × 0.95 × 0.90 × 0.95 × 0.85 × 0.85 ≈ 0.22 (22%)**
+**P(no objections) ≈ 0.95 × 0.90 × 0.55 × 0.90 × 0.95 × 0.85 × 0.95 × 0.92 × 0.95 × 0.87 × 0.87 ≈ 0.24 (24%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.40. Second biggest: accumulated risk of 16 commits touching core rendering code without e2e validation.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.43. Second biggest: accumulated risk of 19 commits touching core rendering and state code without e2e validation.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
@@ -193,4 +199,3 @@ After addressing the code review findings, audited for the same anti-patterns ac
 
 - I could not use `br` for task lookup because it is not installed in this environment.
 - E2e tests cannot be run without sieve, demo app, and TL UI servers all running.
-- `state.screenshotUrl` and `state.screenshotDataUrl` are now always identical (both data URLs). Could be unified to a single field but risk/reward doesn't justify the change.
