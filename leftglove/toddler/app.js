@@ -1896,6 +1896,56 @@ if (state.exploreMode) {
   exploreBtn.textContent = 'Explore ON';
 }
 
+// ---- Test API ----
+// Controlled interface for e2e tests. Tests should use these instead of
+// reaching into the global `state` object directly.
+window.testAPI = {
+  // Read-only accessors (return copies where applicable)
+  getMode: function () { return state.mode; },
+  getExploreMode: function () { return state.exploreMode; },
+  getClassifications: function () { return Object.assign({}, state.classifications); },
+  getGlossaryNames: function () { return JSON.parse(JSON.stringify(state.glossaryNames)); },
+  getElementCount: function () { return state.inventory?.elements?.length || 0; },
+  getElementTag: function (i) { return state.inventory?.elements?.[i]?.tag || null; },
+  getCurrentElementTag: function () { return state.inventory?.elements?.[state.currentIndex]?.tag || null; },
+  getPageUrl: function () { return state.pageUrl; },
+  getObservationLog: function () { return JSON.parse(JSON.stringify(state.observationLog)); },
+  getObservationLogLength: function () { return state.observationLog.length; },
+  getResolveContext: function () {
+    if (!state.resolveContext) return null;
+    return {
+      pairs: state.resolveContext.pairs.slice(),
+      addedNew: state.resolveContext.addedNew.slice(),
+      removedOld: state.resolveContext.removedOld.slice(),
+      currentGroupIdx: state.resolveContext.currentGroupIdx,
+      allGroupsLength: state.resolveContext.allGroups.length,
+    };
+  },
+  getDiffResult: function () { return state.diffResult; },
+  getDiffClass: function () { return state.diffClass; },
+  getDiffSelectedIdx: function () { return state.diffSelectedIdx; },
+  // Controlled mutators — these go through proper state transitions
+  resetToPass1: function () {
+    if (state.mode === 'resolve') { state.resolveContext = null; state._pendingSieve = null; }
+    if (state.mode === 'diff') { state.diffResult = null; state._pendingSieve = null; }
+    state.mode = 'pass1';
+    state._preResolveMode = null;
+    state._preDiffMode = null;
+    _lastPass2Rendered = -1;
+    renderOverlay();
+    renderPanel();
+  },
+  setExploreMode: function (v) {
+    state.exploreMode = !!v;
+    var btn = document.getElementById('btn-explore-mode');
+    btn.classList.toggle('btn-explore-active', state.exploreMode);
+    btn.textContent = state.exploreMode ? 'Explore ON' : 'Explore';
+    renderOverlay();
+    saveState();
+  },
+  clearExploreInProgress: function () { state._exploreInProgress = false; },
+};
+
 // Try to get status on load
 fetchStatus()
   .then(function (s) {
