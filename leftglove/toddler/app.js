@@ -298,78 +298,61 @@ function renderScreenshot() {
   });
 }
 
+function resolveOverlayRects(els, idxs, ctx, side) {
+  // side: 'old' or 'new'
+  var isOld = side === 'old';
+  var pairKey = isOld ? 'oldIdx' : 'newIdx';
+  var selectedIdx = isOld ? ctx.selectedOld : ctx.selectedNew;
+  var markedList = isOld ? ctx.removedOld : ctx.addedNew;
+  var selColor = isOld ? '#f87171' : '#4ade80';
+  var baseColor = isOld ? '#ef4444' : '#22c55e';
+  var prefix = isOld ? 'OLD' : 'NEW';
+
+  var html = '';
+  for (var i = 0; i < idxs.length; i++) {
+    var idx = idxs[i];
+    var rect = els[idx]?.rect;
+    if (!rect) continue;
+
+    var isPaired = ctx.pairs.some(function (p) { return p[pairKey] === idx; });
+    var isMarked = markedList.indexOf(idx) >= 0;
+    var isSelected = selectedIdx === idx;
+    var dimmed = isPaired || isMarked;
+
+    var stroke = isSelected ? selColor : dimmed ? (isPaired ? '#166534' : '#525252') : baseColor;
+    var sw = isSelected ? 3 : 2;
+    var w = rect.w || rect.width;
+    var h = rect.h || rect.height;
+
+    html += '<rect x="' + rect.x + '" y="' + rect.y + '" width="' + w + '" height="' + h + '"'
+      + ' fill="none" stroke="' + stroke + '" stroke-width="' + sw + '"'
+      + (dimmed ? ' stroke-dasharray="4,3"' : '')
+      + ' opacity="' + (dimmed ? 0.4 : 1) + '" pointer-events="none"/>';
+
+    // Label: old above rect, new below rect
+    var textY = isOld ? (rect.y > 16 ? rect.y - 4 : rect.y + 14) : (rect.y + h + 12);
+    html += '<text x="' + rect.x + '" y="' + textY + '"'
+      + ' fill="' + stroke + '" font-size="10" font-family="sans-serif" opacity="' + (dimmed ? 0.4 : 1) + '">'
+      + prefix + '#' + idx + ' ' + escapeHtml((els[idx].label || els[idx].tag || '?').slice(0, 20))
+      + '</text>';
+  }
+  return html;
+}
+
 function renderResolveOverlay(svg) {
   var ctx = state.resolveContext;
   var pending = state._pendingSieve;
   var group = ctx.allGroups[ctx.currentGroupIdx];
   if (!group) return;
 
-  // Use the OLD screenshot dims (still displayed)
   var dims = state.screenshotDims;
   svg.setAttribute('width', dims.w);
   svg.setAttribute('height', dims.h);
   svg.setAttribute('viewBox', '0 0 ' + dims.w + ' ' + dims.h);
 
-  var html = '';
-  var oldEls = pending.oldInventory.elements;
-  var newEls = pending.inventory.elements;
-
-  // Draw old elements (red-ish)
-  for (var i = 0; i < group.oldIdxs.length; i++) {
-    var oi = group.oldIdxs[i];
-    var rect = oldEls[oi]?.rect;
-    if (!rect) continue;
-
-    var isPaired = ctx.pairs.some(function (p) { return p.oldIdx === oi; });
-    var isRemoved = ctx.removedOld.indexOf(oi) >= 0;
-    var isSelected = ctx.selectedOld === oi;
-
-    var stroke = isSelected ? '#f87171' : isPaired ? '#166534' : isRemoved ? '#525252' : '#ef4444';
-    var sw = isSelected ? 3 : 2;
-    var dash = isPaired || isRemoved ? '4,3' : '';
-    var opacity = isPaired || isRemoved ? 0.4 : 1;
-
-    html += '<rect x="' + rect.x + '" y="' + rect.y + '" width="' + (rect.w || rect.width) + '" height="' + (rect.h || rect.height) + '"'
-      + ' fill="none" stroke="' + stroke + '" stroke-width="' + sw + '"'
-      + (dash ? ' stroke-dasharray="' + dash + '"' : '')
-      + ' opacity="' + opacity + '" pointer-events="none"/>';
-
-    // Label
-    var textY = rect.y - 4;
-    html += '<text x="' + rect.x + '" y="' + (textY > 12 ? textY : rect.y + 14) + '"'
-      + ' fill="' + stroke + '" font-size="10" font-family="sans-serif" opacity="' + opacity + '">'
-      + 'OLD#' + oi + ' ' + escapeHtml((oldEls[oi].label || oldEls[oi].tag || '?').slice(0, 20))
-      + '</text>';
-  }
-
-  // Draw new elements (green-ish)
-  for (var j = 0; j < group.newIdxs.length; j++) {
-    var ni = group.newIdxs[j];
-    var rect2 = newEls[ni]?.rect;
-    if (!rect2) continue;
-
-    var isPaired2 = ctx.pairs.some(function (p) { return p.newIdx === ni; });
-    var isAdded = ctx.addedNew.indexOf(ni) >= 0;
-    var isSelected2 = ctx.selectedNew === ni;
-
-    var stroke2 = isSelected2 ? '#4ade80' : isPaired2 ? '#166534' : isAdded ? '#525252' : '#22c55e';
-    var sw2 = isSelected2 ? 3 : 2;
-    var dash2 = isPaired2 || isAdded ? '4,3' : '';
-    var opacity2 = isPaired2 || isAdded ? 0.4 : 1;
-
-    html += '<rect x="' + rect2.x + '" y="' + rect2.y + '" width="' + (rect2.w || rect2.width) + '" height="' + (rect2.h || rect2.height) + '"'
-      + ' fill="none" stroke="' + stroke2 + '" stroke-width="' + sw2 + '"'
-      + (dash2 ? ' stroke-dasharray="' + dash2 + '"' : '')
-      + ' opacity="' + opacity2 + '" pointer-events="none"/>';
-
-    var textY2 = (rect2.y + (rect2.h || rect2.height)) + 12;
-    html += '<text x="' + rect2.x + '" y="' + textY2 + '"'
-      + ' fill="' + stroke2 + '" font-size="10" font-family="sans-serif" opacity="' + opacity2 + '">'
-      + 'NEW#' + ni + ' ' + escapeHtml((newEls[ni].label || newEls[ni].tag || '?').slice(0, 20))
-      + '</text>';
-  }
-
-  svg.innerHTML = html;
+  svg.innerHTML =
+    resolveOverlayRects(pending.oldInventory.elements, group.oldIdxs, ctx, 'old')
+    + resolveOverlayRects(pending.inventory.elements, group.newIdxs, ctx, 'new');
 }
 
 function renderDiffOverlay(svg) {
@@ -1223,50 +1206,45 @@ function resolveSelectNew(idx) {
   }
 }
 
-function resolveMarkOldRemoved(idx) {
+function resolveMark(idx, side) {
+  // side: 'old' marks as removed, 'new' marks as added
   if (!state.resolveContext) return;
-  state.resolveContext.removedOld.push(idx);
-  if (state.resolveContext.selectedOld === idx) state.resolveContext.selectedOld = null;
-  if (isCurrentGroupResolved() && state.resolveContext.currentGroupIdx < state.resolveContext.allGroups.length - 1) {
-    state.resolveContext.currentGroupIdx++;
+  var ctx = state.resolveContext;
+  if (side === 'old') {
+    ctx.removedOld.push(idx);
+    if (ctx.selectedOld === idx) ctx.selectedOld = null;
+  } else {
+    ctx.addedNew.push(idx);
+    if (ctx.selectedNew === idx) ctx.selectedNew = null;
+  }
+  if (isCurrentGroupResolved() && ctx.currentGroupIdx < ctx.allGroups.length - 1) {
+    ctx.currentGroupIdx++;
   }
   renderResolvePanel();
   renderOverlay();
 }
 
-function resolveMarkNewAdded(idx) {
+function resolveMarkOldRemoved(idx) { resolveMark(idx, 'old'); }
+function resolveMarkNewAdded(idx) { resolveMark(idx, 'new'); }
+
+function resolveUndo(type, a, b) {
+  // type: 'pair' | 'removed' | 'added'
   if (!state.resolveContext) return;
-  state.resolveContext.addedNew.push(idx);
-  if (state.resolveContext.selectedNew === idx) state.resolveContext.selectedNew = null;
-  if (isCurrentGroupResolved() && state.resolveContext.currentGroupIdx < state.resolveContext.allGroups.length - 1) {
-    state.resolveContext.currentGroupIdx++;
+  var ctx = state.resolveContext;
+  if (type === 'pair') {
+    ctx.pairs = ctx.pairs.filter(function (p) { return !(p.oldIdx === a && p.newIdx === b); });
+  } else if (type === 'removed') {
+    ctx.removedOld = ctx.removedOld.filter(function (i) { return i !== a; });
+  } else {
+    ctx.addedNew = ctx.addedNew.filter(function (i) { return i !== a; });
   }
   renderResolvePanel();
   renderOverlay();
 }
 
-function resolveUndoPair(oldIdx, newIdx) {
-  if (!state.resolveContext) return;
-  state.resolveContext.pairs = state.resolveContext.pairs.filter(function (p) {
-    return !(p.oldIdx === oldIdx && p.newIdx === newIdx);
-  });
-  renderResolvePanel();
-  renderOverlay();
-}
-
-function resolveUndoRemoved(idx) {
-  if (!state.resolveContext) return;
-  state.resolveContext.removedOld = state.resolveContext.removedOld.filter(function (i) { return i !== idx; });
-  renderResolvePanel();
-  renderOverlay();
-}
-
-function resolveUndoAdded(idx) {
-  if (!state.resolveContext) return;
-  state.resolveContext.addedNew = state.resolveContext.addedNew.filter(function (i) { return i !== idx; });
-  renderResolvePanel();
-  renderOverlay();
-}
+function resolveUndoPair(oldIdx, newIdx) { resolveUndo('pair', oldIdx, newIdx); }
+function resolveUndoRemoved(idx) { resolveUndo('removed', idx); }
+function resolveUndoAdded(idx) { resolveUndo('added', idx); }
 
 function isCurrentGroupResolved() {
   var ctx = state.resolveContext;
@@ -1437,43 +1415,27 @@ function renderDiffPanel() {
   // Scrollable change list
   html += '<div class="diff-list" data-testid="diff-change-list">';
 
+  var diffSections = [
+    { items: diff.added,   cssClass: 'diff-added',   typeLabel: 'new',     typeClass: 'added',   elKey: 'el' },
+    { items: diff.removed, cssClass: 'diff-removed', typeLabel: 'removed', typeClass: 'removed', elKey: 'el' },
+    { items: diff.changed, cssClass: 'diff-changed', typeLabel: 'changed', typeClass: 'changed', elKey: 'newEl' },
+  ];
+
   var flatIdx = 0;
-
-  // Added items
-  for (var a = 0; a < diff.added.length; a++) {
-    var ae = diff.added[a];
-    var sel = state.diffSelectedIdx === flatIdx ? ' selected' : '';
-    html += '<div class="diff-item diff-added' + sel + '" onclick="diffSelectItem(' + flatIdx + ')">'
-      + '<span class="di-type added">new</span>'
-      + '<span class="di-tag">' + escapeHtml(ae.el?.tag || '?') + '</span> '
-      + '<span class="di-label">' + escapeHtml((ae.el?.label || '').slice(0, 40)) + '</span>'
-      + '</div>';
-    flatIdx++;
-  }
-
-  // Removed items
-  for (var r = 0; r < diff.removed.length; r++) {
-    var re = diff.removed[r];
-    var sel2 = state.diffSelectedIdx === flatIdx ? ' selected' : '';
-    html += '<div class="diff-item diff-removed' + sel2 + '" onclick="diffSelectItem(' + flatIdx + ')">'
-      + '<span class="di-type removed">removed</span>'
-      + '<span class="di-tag">' + escapeHtml(re.el?.tag || '?') + '</span> '
-      + '<span class="di-label">' + escapeHtml((re.el?.label || '').slice(0, 40)) + '</span>'
-      + '</div>';
-    flatIdx++;
-  }
-
-  // Changed items
-  for (var c = 0; c < diff.changed.length; c++) {
-    var ce = diff.changed[c];
-    var sel3 = state.diffSelectedIdx === flatIdx ? ' selected' : '';
-    html += '<div class="diff-item diff-changed' + sel3 + '" onclick="diffSelectItem(' + flatIdx + ')">'
-      + '<span class="di-type changed">changed</span>'
-      + '<span class="di-tag">' + escapeHtml(ce.newEl?.tag || '?') + '</span> '
-      + '<span class="di-label">' + escapeHtml((ce.newEl?.label || '').slice(0, 40)) + '</span>'
-      + '<div class="di-changes">' + escapeHtml(ce.changes.join(', ')) + '</div>'
-      + '</div>';
-    flatIdx++;
+  for (var s = 0; s < diffSections.length; s++) {
+    var sec = diffSections[s];
+    for (var i = 0; i < sec.items.length; i++) {
+      var item = sec.items[i];
+      var el = item[sec.elKey];
+      var sel = state.diffSelectedIdx === flatIdx ? ' selected' : '';
+      html += '<div class="diff-item ' + sec.cssClass + sel + '" onclick="diffSelectItem(' + flatIdx + ')">'
+        + '<span class="di-type ' + sec.typeClass + '">' + sec.typeLabel + '</span>'
+        + '<span class="di-tag">' + escapeHtml(el?.tag || '?') + '</span> '
+        + '<span class="di-label">' + escapeHtml((el?.label || '').slice(0, 40)) + '</span>'
+        + (item.changes ? '<div class="di-changes">' + escapeHtml(item.changes.join(', ')) + '</div>' : '')
+        + '</div>';
+      flatIdx++;
+    }
   }
 
   html += '</div>';
@@ -1492,6 +1454,75 @@ function diffSelectItem(flatIdx) {
   state.diffSelectedIdx = (state.diffSelectedIdx === flatIdx) ? null : flatIdx;
   renderDiffPanel();
   renderOverlay();
+}
+
+function resolveColumnHtml(els, idxs, ctx, pending, side) {
+  var isOld = side === 'old';
+  var pairKey = isOld ? 'oldIdx' : 'newIdx';
+  var otherKey = isOld ? 'newIdx' : 'oldIdx';
+  var selectedIdx = isOld ? ctx.selectedOld : ctx.selectedNew;
+  var markedList = isOld ? ctx.removedOld : ctx.addedNew;
+  var selectFn = isOld ? 'resolveSelectOld' : 'resolveSelectNew';
+  var markFn = isOld ? 'resolveMarkOldRemoved' : 'resolveMarkNewAdded';
+  var undoMarkFn = isOld ? 'resolveUndoRemoved' : 'resolveUndoAdded';
+  var markLabel = isOld ? 'removed' : 'new';
+  var markColor = isOld ? '#ef4444' : '#3b82f6';
+  var testid = isOld ? 'resolve-old-list' : 'resolve-new-list';
+  var heading = isOld ? 'Old elements (carry data from)' : 'New elements (receive data)';
+
+  var html = '<div class="resolve-col" data-testid="' + testid + '"><h4>' + heading + '</h4>';
+
+  for (var i = 0; i < idxs.length; i++) {
+    var idx = idxs[i];
+    var el = els[idx];
+    var isPaired = ctx.pairs.some(function (p) { return p[pairKey] === idx; });
+    var isMarked = markedList.indexOf(idx) >= 0;
+    var isSelected = selectedIdx === idx;
+
+    var itemClass = 'resolve-item';
+    if (isPaired) itemClass += ' paired';
+    else if (isMarked) itemClass += ' marked';
+    else if (isSelected) itemClass += ' selected';
+
+    var btnStyle = 'font-size:10px;padding:2px 6px;';
+    html += '<div class="' + itemClass + '">';
+    html += '<span class="ri-tag">' + escapeHtml(el.tag || '?') + '</span>'
+      + '<span class="ri-label">' + escapeHtml(el.label || '—') + '</span>';
+
+    if (isPaired) {
+      var pair = ctx.pairs.find(function (p) { return p[pairKey] === idx; });
+      var otherId = pair[otherKey];
+      var arrow = isOld ? 'paired\u2192#' + otherId : '\u2190paired#' + otherId;
+      html += '<span style="color:#22c55e;font-size:11px;">' + arrow + '</span>'
+        + '<button class="btn" style="' + btnStyle + '" onclick="resolveUndoPair('
+        + (isOld ? idx + ',' + otherId : otherId + ',' + idx) + ')">undo</button>';
+    } else if (isMarked) {
+      html += '<span style="color:' + markColor + ';font-size:11px;">' + markLabel + '</span>'
+        + '<button class="btn" style="' + btnStyle + '" onclick="' + undoMarkFn + '(' + idx + ')">undo</button>';
+    } else {
+      // Unresolved item — show metadata, select/mark buttons
+      if (isOld) {
+        var catColor = CATEGORY_COLORS[pending.oldClassifications[idx]] || '#666';
+        if (pending.oldClassifications[idx]) {
+          html += '<span class="ri-cat" style="border-color:' + catColor + ';color:' + catColor + ';">'
+            + pending.oldClassifications[idx] + '</span>';
+        }
+        var gName = pending.oldGlossaryNames[idx];
+        if (gName) {
+          html += '<span class="ri-name">' + escapeHtml((gName.intent ? gName.intent + '.' : '') + gName.name) + '</span>';
+        }
+      } else {
+        var rect = el.rect;
+        if (rect) {
+          html += '<span style="color:#666;font-size:10px;">' + Math.round(rect.x) + ',' + Math.round(rect.y) + '</span>';
+        }
+      }
+      html += '<button class="btn" style="' + btnStyle + '" onclick="' + selectFn + '(' + idx + ')">select</button>'
+        + '<button class="btn" style="' + btnStyle + 'color:' + markColor + ';border-color:' + markColor + ';" onclick="' + markFn + '(' + idx + ')">' + markLabel + '</button>';
+    }
+    html += '</div>';
+  }
+  return html + '</div>';
 }
 
 function renderResolvePanel() {
@@ -1524,93 +1555,10 @@ function renderResolvePanel() {
     + '</div>';
 
   // Two columns
-  html += '<div class="resolve-columns">';
-
-  // Old elements column
-  html += '<div class="resolve-col" data-testid="resolve-old-list"><h4>Old elements (carry data from)</h4>';
-  for (var i = 0; i < group.oldIdxs.length; i++) {
-    var oi = group.oldIdxs[i];
-    var oel = oldEls[oi];
-    var isPaired = ctx.pairs.some(function (p) { return p.oldIdx === oi; });
-    var isRemoved = ctx.removedOld.indexOf(oi) >= 0;
-    var isSelected = ctx.selectedOld === oi;
-
-    var itemClass = 'resolve-item';
-    if (isPaired) itemClass += ' paired';
-    else if (isRemoved) itemClass += ' marked';
-    else if (isSelected) itemClass += ' selected';
-
-    var catColor = CATEGORY_COLORS[pending.oldClassifications[oi]] || '#666';
-    var gName = pending.oldGlossaryNames[oi];
-
-    html += '<div class="' + itemClass + '">';
-    if (isPaired) {
-      var pairedNew = ctx.pairs.find(function (p) { return p.oldIdx === oi; }).newIdx;
-      html += '<span class="ri-tag">' + escapeHtml(oel.tag || '?') + '</span>'
-        + '<span class="ri-label">' + escapeHtml(oel.label || '—') + '</span>'
-        + '<span style="color:#22c55e;font-size:11px;">paired→#' + pairedNew + '</span>'
-        + '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveUndoPair(' + oi + ',' + pairedNew + ')">undo</button>';
-    } else if (isRemoved) {
-      html += '<span class="ri-tag">' + escapeHtml(oel.tag || '?') + '</span>'
-        + '<span class="ri-label">' + escapeHtml(oel.label || '—') + '</span>'
-        + '<span style="color:#ef4444;font-size:11px;">removed</span>'
-        + '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveUndoRemoved(' + oi + ')">undo</button>';
-    } else {
-      html += '<span class="ri-tag">' + escapeHtml(oel.tag || '?') + '</span>'
-        + '<span class="ri-label">' + escapeHtml(oel.label || '—') + '</span>';
-      if (pending.oldClassifications[oi]) {
-        html += '<span class="ri-cat" style="border-color:' + catColor + ';color:' + catColor + ';">'
-          + pending.oldClassifications[oi] + '</span>';
-      }
-      if (gName) {
-        html += '<span class="ri-name">' + escapeHtml((gName.intent ? gName.intent + '.' : '') + gName.name) + '</span>';
-      }
-      html += '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveSelectOld(' + oi + ')">select</button>'
-        + '<button class="btn" style="font-size:10px;padding:2px 6px;color:#ef4444;border-color:#ef4444;" onclick="resolveMarkOldRemoved(' + oi + ')">removed</button>';
-    }
-    html += '</div>';
-  }
-  html += '</div>';
-
-  // New elements column
-  html += '<div class="resolve-col" data-testid="resolve-new-list"><h4>New elements (receive data)</h4>';
-  for (var j = 0; j < group.newIdxs.length; j++) {
-    var ni = group.newIdxs[j];
-    var nel = newEls[ni];
-    var isPaired2 = ctx.pairs.some(function (p) { return p.newIdx === ni; });
-    var isAdded = ctx.addedNew.indexOf(ni) >= 0;
-    var isSelected2 = ctx.selectedNew === ni;
-
-    var itemClass2 = 'resolve-item';
-    if (isPaired2) itemClass2 += ' paired';
-    else if (isAdded) itemClass2 += ' marked';
-    else if (isSelected2) itemClass2 += ' selected';
-
-    html += '<div class="' + itemClass2 + '">';
-    if (isPaired2) {
-      var pairedOld = ctx.pairs.find(function (p) { return p.newIdx === ni; }).oldIdx;
-      html += '<span class="ri-tag">' + escapeHtml(nel.tag || '?') + '</span>'
-        + '<span class="ri-label">' + escapeHtml(nel.label || '—') + '</span>'
-        + '<span style="color:#22c55e;font-size:11px;">←paired#' + pairedOld + '</span>'
-        + '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveUndoPair(' + pairedOld + ',' + ni + ')">undo</button>';
-    } else if (isAdded) {
-      html += '<span class="ri-tag">' + escapeHtml(nel.tag || '?') + '</span>'
-        + '<span class="ri-label">' + escapeHtml(nel.label || '—') + '</span>'
-        + '<span style="color:#3b82f6;font-size:11px;">new</span>'
-        + '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveUndoAdded(' + ni + ')">undo</button>';
-    } else {
-      html += '<span class="ri-tag">' + escapeHtml(nel.tag || '?') + '</span>'
-        + '<span class="ri-label">' + escapeHtml(nel.label || '—') + '</span>';
-      var rect = nel.rect;
-      if (rect) {
-        html += '<span style="color:#666;font-size:10px;">' + Math.round(rect.x) + ',' + Math.round(rect.y) + '</span>';
-      }
-      html += '<button class="btn" style="font-size:10px;padding:2px 6px;" onclick="resolveSelectNew(' + ni + ')">select</button>'
-        + '<button class="btn" style="font-size:10px;padding:2px 6px;color:#3b82f6;border-color:#3b82f6;" onclick="resolveMarkNewAdded(' + ni + ')">new</button>';
-    }
-    html += '</div>';
-  }
-  html += '</div></div>'; // close columns
+  html += '<div class="resolve-columns">'
+    + resolveColumnHtml(oldEls, group.oldIdxs, ctx, pending, 'old')
+    + resolveColumnHtml(newEls, group.newIdxs, ctx, pending, 'new')
+    + '</div>';
 
   // Action bar
   var allDone = areAllGroupsResolved();
@@ -2189,52 +2137,25 @@ document.addEventListener('keydown', function (e) {
 });
 
 // ---- Metadata strip ----
+function metaPillGroup(label, cssClass, items) {
+  if (!items || !items.length) return '';
+  var html = '<div class="meta-group"><span class="meta-label">' + label + '</span>';
+  for (var i = 0; i < items.length; i++) {
+    html += '<span class="meta-pill ' + cssClass + '">' + escapeHtml(String(items[i])) + '</span>';
+  }
+  return html + '</div>';
+}
+
 function renderMetadata() {
   const strip = document.getElementById('metadata-strip');
   const inv = state.inventory;
   if (!inv) { strip.innerHTML = ''; return; }
 
-  let html = '';
-
-  // Cookies
-  const cookies = inv.cookies || [];
-  if (cookies.length) {
-    html += '<div class="meta-group"><span class="meta-label">Cookies</span>';
-    for (const c of cookies) {
-      html += '<span class="meta-pill cookies">' + escapeHtml(c) + '</span>';
-    }
-    html += '</div>';
-  }
-
-  // localStorage
-  const ls = inv.storage?.localStorage || [];
-  if (ls.length) {
-    html += '<div class="meta-group"><span class="meta-label">localStorage</span>';
-    for (const k of ls) {
-      html += '<span class="meta-pill local-storage">' + escapeHtml(k) + '</span>';
-    }
-    html += '</div>';
-  }
-
-  // sessionStorage
-  const ss = inv.storage?.sessionStorage || [];
-  if (ss.length) {
-    html += '<div class="meta-group"><span class="meta-label">sessionStorage</span>';
-    for (const k of ss) {
-      html += '<span class="meta-pill session-storage">' + escapeHtml(k) + '</span>';
-    }
-    html += '</div>';
-  }
-
-  // Tabs
-  const tabs = inv.tabs;
-  if (tabs != null) {
-    html += '<div class="meta-group"><span class="meta-label">Tabs</span>';
-    html += '<span class="meta-pill tabs">' + tabs + '</span>';
-    html += '</div>';
-  }
-
-  strip.innerHTML = html;
+  strip.innerHTML =
+    metaPillGroup('Cookies', 'cookies', inv.cookies)
+    + metaPillGroup('localStorage', 'local-storage', inv.storage?.localStorage)
+    + metaPillGroup('sessionStorage', 'session-storage', inv.storage?.sessionStorage)
+    + metaPillGroup('Tabs', 'tabs', inv.tabs != null ? [inv.tabs] : []);
 }
 
 // ---- Util ----
