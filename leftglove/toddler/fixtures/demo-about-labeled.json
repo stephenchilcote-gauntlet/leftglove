@@ -36,7 +36,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-002",
@@ -65,7 +66,8 @@
       "glossary-name": "nav-home",
       "glossary-intent": "About",
       "glossary-source": "human",
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-003",
@@ -94,7 +96,8 @@
       "glossary-name": "nav-login",
       "glossary-intent": "About",
       "glossary-source": "human",
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-004",
@@ -123,7 +126,8 @@
       "glossary-name": "nav-about",
       "glossary-intent": "About",
       "glossary-source": "human",
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-005",
@@ -149,7 +153,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-006",
@@ -178,7 +183,8 @@
       "glossary-name": "heading",
       "glossary-intent": "About",
       "glossary-source": "human",
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-007",
@@ -207,7 +213,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-008",
@@ -236,7 +243,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-009",
@@ -264,7 +272,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-010",
@@ -292,7 +301,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-011",
@@ -320,7 +330,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-012",
@@ -349,7 +360,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-013",
@@ -378,7 +390,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-014",
@@ -408,7 +421,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-015",
@@ -438,7 +452,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-016",
@@ -464,7 +479,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     }
   ],
   "metadata": {

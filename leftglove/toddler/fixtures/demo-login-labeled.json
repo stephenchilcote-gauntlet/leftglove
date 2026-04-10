@@ -2,7 +2,10 @@
   "sieve-version": "1.0",
   "source": {
     "url": "http://localhost:3000/login",
-    "viewport": { "w": 1920, "h": 1080 },
+    "viewport": {
+      "w": 1920,
+      "h": 1080
+    },
     "timestamp": "2026-04-08T12:00:00Z",
     "screenshot": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
   },
@@ -14,16 +17,28 @@
       "tag": "nav",
       "element-type": null,
       "label": null,
-      "locators": { "id": "top-nav", "testid": null },
-      "state": { "visible": true, "disabled": false },
-      "rect": { "x": 0, "y": 0, "w": 1920, "h": 60 },
+      "locators": {
+        "id": "top-nav",
+        "testid": null
+      },
+      "state": {
+        "visible": true,
+        "disabled": false
+      },
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 1920,
+        "h": 60
+      },
       "region": "header > nav",
       "form": null,
       "aria-role": "navigation",
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-002",
@@ -32,16 +47,28 @@
       "tag": "h1",
       "element-type": null,
       "label": "Sign In",
-      "locators": { "id": null, "testid": "login-heading" },
-      "state": { "visible": true, "disabled": false },
-      "rect": { "x": 660, "y": 200, "w": 600, "h": 48 },
+      "locators": {
+        "id": null,
+        "testid": "login-heading"
+      },
+      "state": {
+        "visible": true,
+        "disabled": false
+      },
+      "rect": {
+        "x": 660,
+        "y": 200,
+        "w": 600,
+        "h": 48
+      },
       "region": "main > login-form",
       "form": "login-form",
       "aria-role": "heading",
       "glossary-name": "heading",
       "glossary-intent": "Login",
       "glossary-source": "human",
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-003",
@@ -50,16 +77,28 @@
       "tag": "input",
       "element-type": "email",
       "label": "Email address",
-      "locators": { "id": "email", "testid": "login-email" },
-      "state": { "visible": true, "disabled": false },
-      "rect": { "x": 660, "y": 300, "w": 600, "h": 44 },
+      "locators": {
+        "id": "email",
+        "testid": "login-email"
+      },
+      "state": {
+        "visible": true,
+        "disabled": false
+      },
+      "rect": {
+        "x": 660,
+        "y": 300,
+        "w": 600,
+        "h": 44
+      },
       "region": "main > login-form",
       "form": "login-form",
       "aria-role": "textbox",
       "glossary-name": "email",
       "glossary-intent": "Login",
       "glossary-source": "human",
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-004",
@@ -68,16 +107,28 @@
       "tag": "input",
       "element-type": "password",
       "label": "Password",
-      "locators": { "id": "password", "testid": "login-password" },
-      "state": { "visible": true, "disabled": false },
-      "rect": { "x": 660, "y": 380, "w": 600, "h": 44 },
+      "locators": {
+        "id": "password",
+        "testid": "login-password"
+      },
+      "state": {
+        "visible": true,
+        "disabled": false
+      },
+      "rect": {
+        "x": 660,
+        "y": 380,
+        "w": 600,
+        "h": 44
+      },
       "region": "main > login-form",
       "form": "login-form",
       "aria-role": "textbox",
       "glossary-name": "password",
       "glossary-intent": "Login",
       "glossary-source": "human",
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-005",
@@ -86,21 +137,36 @@
       "tag": "button",
       "element-type": "submit",
       "label": "Sign In",
-      "locators": { "id": "login-btn", "testid": "login-submit" },
-      "state": { "visible": true, "disabled": false },
-      "rect": { "x": 660, "y": 460, "w": 600, "h": 48 },
+      "locators": {
+        "id": "login-btn",
+        "testid": "login-submit"
+      },
+      "state": {
+        "visible": true,
+        "disabled": false
+      },
+      "rect": {
+        "x": 660,
+        "y": 460,
+        "w": 600,
+        "h": 48
+      },
       "region": "main > login-form",
       "form": "login-form",
       "aria-role": "button",
       "glossary-name": "submit",
       "glossary-intent": "Login",
       "glossary-source": "human",
-      "notes": null
+      "notes": null,
+      "visible-text": null
     }
   ],
   "metadata": {
     "cookies": [],
-    "storage": { "localStorage": [], "sessionStorage": [] },
+    "storage": {
+      "localStorage": [],
+      "sessionStorage": []
+    },
     "tabs": 1
   },
   "pass-1-complete": true,

@@ -37,7 +37,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-002",
@@ -66,7 +67,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-003",
@@ -95,7 +97,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-004",
@@ -124,7 +127,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     },
     {
       "sieve-id": "el-005",
@@ -153,7 +157,8 @@
       "glossary-name": null,
       "glossary-intent": null,
       "glossary-source": null,
-      "notes": null
+      "notes": null,
+      "visible-text": null
     }
   ],
   "metadata": {

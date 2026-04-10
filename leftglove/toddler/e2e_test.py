@@ -210,7 +210,7 @@ def test_status_prepopulates_url(driver):
     time.sleep(1)  # let JS init run
     val = get_value(driver, "url-input")
     # /status returns the sieve browser's current URL; it should populate the input
-    assert val and len(val) > 0, f"URL input should be populated from /status, got empty"
+    assert val, "URL input should be populated from /status, got empty"
     # Should look like a URL (http:// or https://)
     assert val.startswith("http://") or val.startswith("https://"), \
         f"URL input should contain an HTTP(S) URL, got: {val!r}"
