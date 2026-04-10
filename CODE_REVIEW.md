@@ -188,29 +188,36 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Structure: renderOverlay compute-then-override anti-pattern | Restructured to clean if/else-if: explore → pass2 → pass1 | `4de7a87` |
 | Dead: unused `.label-text` CSS class | Removed | `cff2149` |
 | Race: `doSieve` has no re-entrancy guard | Added `_sieveInProgress` flag with try/finally cleanup | `4d475e3` |
+| DRY: "all pass2 named" check duplicated 3× | Extracted `allPass2Named()` helper — single source of review-mode derivation | `80c5046` |
+| Dead: unused `oldEls` variable in `renderDiffOverlay` | Removed (old bounding boxes don't map to new screenshot) | `f326339` |
+| Dead: 3 exported-but-internal-only types in MCP glossary.ts | Removed `export` from `ElementType`, `GlossaryElement`, `IntentRegion` | `f326339` |
+| Bug: empty sieve result clobbers existing work | Diff path now activates whenever existing work exists, regardless of new element count | `4b70f64` |
+| Defensive: undefined elements array in diff overlay/enterDiffMode | Added `|| []` fallback for `inventory.elements` | `4b70f64` |
+| Display: status shows "undefined elements" for empty sieve | Fixed to show "0 elements" | `4b70f64` |
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after third audit pass (race condition, overlay refactor):**
+**Updated estimate after fourth audit pass (edge cases, mode centralization, XSS audit):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
-| Finding #1 fix | 0.95 | Clean deletion, build verified. Demo segments updated to match |
-| Finding #2 fix | 0.94 | Mode round-trips via `_ui` sidecar; diff mode doesn't persist inconsistent state; sieve has re-entrancy guard |
+| Finding #1 fix | 0.96 | Clean deletion, build verified. Demo segments updated to match |
+| Finding #2 fix | 0.95 | Mode round-trips via `_ui` sidecar; diff mode transient; sieve re-entrancy guarded; review-mode derivation centralized in `allPass2Named()` |
 | Finding #3 decision | 0.55 | Code review rated High; I overrode based on vision docs. User may agree with reviewer |
 | Finding #5 fix | 0.90 | Shared lib works, dead script removed |
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
-| Finding #7 decision | 0.88 | Review mode correctly derived from data AND persisted in `_ui` |
+| Finding #7 decision | 0.90 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar, Escape toggle works both ways |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
-| Structural refactors | 0.94 | DRY extractions + state model simplification + overlay restructure. All rendering paths consistent |
-| Data fidelity | 0.93 | Element state preserved; state diff works; resolved elements appear in diff; mode transitions consistent; race condition guarded |
-| Dead asset removal | 0.95 | Verified zero references to deleted files + dead CSS |
-| Test suite quality | 0.92 | Tautological assertions fixed; health checks use `/healthz`; fixtures aligned with sieve contract |
-| Unknown unknowns | 0.83 | Found 6 bugs across 3 passes (4 mode, 1 resolve-to-diff, 1 race). Diminishing returns but gap remains: full e2e run |
+| Structural refactors | 0.95 | DRY extractions + state model simplification + overlay restructure + mode centralization. All rendering paths consistent |
+| Data fidelity | 0.95 | Element state preserved; state diff works; resolved elements appear in diff; mode transitions consistent; race guarded; empty sieve handled gracefully |
+| Dead asset removal | 0.96 | Fourth-pass comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
+| Test suite quality | 0.93 | Tautological assertions fixed; health checks use `/healthz`; fixtures aligned; 65 tests across 8 modules well-organized |
+| Security | 0.97 | Full XSS audit: all innerHTML paths use `escapeHtml()`. No command injection. Error handling appropriate everywhere |
+| Unknown unknowns | 0.86 | Found 7 bugs across 4 passes (4 mode, 1 resolve-to-diff, 1 race, 1 empty-sieve). Strongly diminishing returns. Gap remains: full e2e run |
 
-**P(no objections) ≈ 0.95 × 0.94 × 0.55 × 0.90 × 0.95 × 0.88 × 0.95 × 0.94 × 0.93 × 0.95 × 0.92 × 0.83 ≈ 0.24 (24%)**
+**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.95 × 0.95 × 0.96 × 0.93 × 0.97 × 0.86 ≈ 0.27 (27%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.45. The mode bug fixes raised the persistence factor from 0.92 → 0.94 and review mode decision from 0.85 → 0.88, but explore mode remains the dominant risk factor.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.49. Fourth pass raised several factors marginally (persistence 0.94→0.95, data fidelity 0.93→0.95, unknown unknowns 0.83→0.86) via the empty-sieve edge case fix and allPass2Named centralization. Security audit (0.97) is a new positive factor.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
