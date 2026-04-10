@@ -103,6 +103,11 @@ function loadState() {
       if (ui.mode === 'review' || ui.mode === 'pass2' || ui.mode === 'pass1') {
         state.mode = ui.mode;
       }
+      // fromIntermediate only builds pass2Order when glossary names exist.
+      // If the user was in pass2 but hadn't named anything yet, rebuild it now.
+      if ((state.mode === 'pass2' || state.mode === 'review') && state.pass2Order.length === 0) {
+        buildPass2Order();
+      }
       // fromIntermediate resets currentIndex to 0 — restore from _ui sidecar
       state.currentIndex = ui.currentIndex || 0;
       state.pass2Cursor = ui.pass2Cursor || 0;
