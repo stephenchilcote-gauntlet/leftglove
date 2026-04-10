@@ -95,7 +95,6 @@ def segment_mcp_vocabulary():
     t = show_output(events, t, [
         '\x1b[33m"observe"\x1b[0m',
         '\x1b[33m"list_vocabulary"\x1b[0m',
-        '\x1b[33m"act"\x1b[0m',
         '\x1b[33m"refresh_vocabulary"\x1b[0m',
     ])
     t += BLOCK_PAUSE
@@ -117,10 +116,10 @@ def segment_mcp_vocabulary():
 
     t = hold(events, t, 2.0)  # Hold on vocabulary list so mcp-vocab narration can finish
 
-    # Show strict mode rejection
-    t = type_command(events, t, "echo '{\"method\":\"tools/call\",\"params\":{\"name\":\"act\",\"arguments\":{\"verb\":\"click\",\"intent\":\"Fundraiser\",\"element\":\"checkout\"}}}' | node dist/index.js")
+    # Show glossary as strict-mode contract — agent validates references against it
+    t = type_command(events, t, "echo 'Fundraiser.checkout' | sl validate --glossary")
     t = show_output(events, t, [
-        '\x1b[31m✗ Error: unknown object "Fundraiser.checkout" (strict mode)\x1b[0m',
+        '\x1b[31m✗ Error: unknown object "Fundraiser.checkout"\x1b[0m',
         '\x1b[90m  Available: title, donate-button, amount-input, name-input, comment-input,\x1b[0m',
         '\x1b[90m            pledge-submit, follow-button, share-button, progress-bar\x1b[0m',
     ])
