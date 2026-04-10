@@ -448,7 +448,26 @@ function renderOverlay() {
 
     let stroke, strokeWidth, strokeDash, fill;
 
-    if (inPass2) {
+    if (state.exploreMode) {
+      // Explore mode: orange for clickable, dimmed for non-clickable
+      var hasSelector = !!buildClickSelector(el);
+      if (isCurrent && hasSelector) {
+        stroke = '#f97316';
+        strokeWidth = 3;
+        strokeDash = '';
+        fill = 'rgba(249,115,22,0.15)';
+      } else if (hasSelector) {
+        stroke = '#f9731666';
+        strokeWidth = 1.5;
+        strokeDash = '';
+        fill = 'rgba(249,115,22,0.05)';
+      } else {
+        stroke = '#444';
+        strokeWidth = 1;
+        strokeDash = '3,3';
+        fill = 'none';
+      }
+    } else if (inPass2) {
       // Pass 2 / Review overlay
       if (isCurrent) {
         stroke = '#22d3ee';
@@ -472,7 +491,7 @@ function renderOverlay() {
         fill = 'none';
       }
     } else {
-      // Pass 1 overlay (original logic)
+      // Pass 1 overlay
       if (isCurrent) {
         stroke = '#22d3ee';
         strokeWidth = 3;
@@ -488,27 +507,6 @@ function renderOverlay() {
         stroke = '#666';
         strokeWidth = 1;
         strokeDash = '4,3';
-        fill = 'none';
-      }
-    }
-
-    // Explore mode overlay: orange tint for clickable, dimmed for non-clickable
-    if (state.exploreMode && state.mode !== 'resolve' && state.mode !== 'diff') {
-      var hasSelector = !!buildClickSelector(el);
-      if (isCurrent && hasSelector) {
-        stroke = '#f97316';
-        strokeWidth = 3;
-        strokeDash = '';
-        fill = 'rgba(249,115,22,0.15)';
-      } else if (hasSelector) {
-        stroke = '#f9731666';
-        strokeWidth = 1.5;
-        strokeDash = '';
-        fill = 'rgba(249,115,22,0.05)';
-      } else {
-        stroke = '#444';
-        strokeWidth = 1;
-        strokeDash = '3,3';
         fill = 'none';
       }
     }
