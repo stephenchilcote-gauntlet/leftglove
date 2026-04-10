@@ -201,6 +201,8 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Perf: `fromIntermediate` iterates elements 3× | Consolidated to single pass building inventory, classifications, and glossary | `c2b0309` |
 | Data: fixture files missing `visible-text` field | Added `"visible-text": null` to all 39 elements across 4 fixtures | `320d439` |
 | Test: redundant `val and len(val) > 0` assertion | Simplified to `assert val` (non-empty string is always len > 0) | `320d439` |
+| Dead: forgot-password link to non-existent route | Changed `href="/forgot-password"` to `href="#"` — element exists for glossary demo, not real feature | `0293a6f` |
+| Bug: `wait_for` curl has no timeout | Added `--connect-timeout 2 --max-time 3` — prevents hung services blocking health check for 5min (curl default) | `0293a6f` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -230,11 +232,12 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Test suite quality | 0.94 | Tautological/redundant assertions fixed; health checks use `/healthz`; fixtures aligned with visible-text; 65 tests across 8 modules well-organized |
 | Security | 0.97 | Full XSS audit: all innerHTML paths use `escapeHtml()`. No command injection. Error handling appropriate everywhere |
 | MCP server quality | 0.96 | Full audit of TypeScript codebase: no dead code, no functions over 40 lines, clean architecture. Two minor DRY items intentionally left (one-liners used twice) |
-| Unknown unknowns | 0.88 | Found 8 bugs across 5 passes. Fifth pass found only data alignment issues (fixtures, assertions) — no new logic bugs. Strongly diminishing returns. Gap remains: full e2e run |
+| Cross-references | 0.98 | All 16 glossary testids verified present in views. Feature file element references verified against glossary. Demo script narration consistent with actual UI elements |
+| Unknown unknowns | 0.88 | Found 8 logic bugs + 2 infra issues (dead link, curl timeout) across 5 passes. Fifth pass found only data/infra alignment issues — no new logic bugs. Strongly diminishing returns. Gap remains: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.97 × 0.96 × 0.94 × 0.97 × 0.96 × 0.88 ≈ 0.29 (29%)**
+**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.97 × 0.96 × 0.94 × 0.97 × 0.96 × 0.98 × 0.88 ≈ 0.28 (28%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.52. Fifth pass improvements: structural refactors 0.95→0.96 (keydown+fromIntermediate), data fidelity 0.96→0.97 (fixture alignment), test quality 0.93→0.94 (redundant assertion), new MCP factor 0.96, unknown unknowns 0.87→0.88. The probability ceiling without resolving the explore mode question is approximately 52%.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.51. Fifth pass added cross-reference verification (0.98), dead link + curl timeout fixes, and confirmed diminishing returns on logic bugs. The probability ceiling without resolving the explore mode question is approximately 51%.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
