@@ -1649,7 +1649,7 @@ async function doExploreClick(index) {
     await doSieve();
 
     // After doSieve(), state.pageUrl may not be updated yet (diff/resolve mode
-    // defers the update). Use pending sieve data or fetchStatus for the real URL.
+    // defers the update). Use pending sieve data for the real URL.
     var postUrl = state.pageUrl;
     if (state._pendingSieve) {
       postUrl = state._pendingSieve.inventory?.url?.raw || state._pendingSieve.inventory?.url || postUrl;
