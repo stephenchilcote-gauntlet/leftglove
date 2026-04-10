@@ -1,9 +1,8 @@
 # DemoApp
 
 Target web application for ShiftLefter sieve testing and the capstone demo.
-This is a deliberately simple app with clean, semantic HTML that the sieve
-can inventory reliably. It is designed to be modified by an agent during
-demos — the HTML templates are the important part.
+A deliberately simple app with clean, semantic HTML that the sieve can
+inventory reliably.
 
 ## Quick Start
 
@@ -22,47 +21,40 @@ PORT=3001 npm start   # custom port
 | bob@example.com | password2 | Bob |
 
 Configured in `config.js`. Sessions are cookie-based — different browsers
-get independent sessions (multi-user works automatically).
+get independent sessions.
 
 ## Pages
 
-- **`/login`** — The primary demo page. 10 sieveable elements.
-- **`/dashboard`** — Post-login landing. Shows logged-in user name and email.
-  Sets `theme` and `lastLogin` in localStorage (exercises sieve storage metadata).
-  Footer has a `target="_blank"` help link (exercises sieve tab count).
+- **`/login`** — Login page. 10 sieveable elements. The primary demo entry point.
+- **`/fundraiser`** — Post-login landing. Crowdfunding page with donate form,
+  social actions, supporter comments. The recurring donation toggle is the
+  demo diff moment.
 - **`/logout`** — Clears session, redirects to login.
-- **`/`** — Redirects to `/dashboard` if logged in, `/login` if not.
+- **`/`** — Redirects to `/fundraiser` if logged in, `/login` if not.
 
 ## Modifying the App
 
 The HTML lives in `views/*.ejs`. EJS templates are plain HTML with minimal
-`<%= value %>` tags for dynamic content. The login page (`views/login.ejs`)
-has zero dynamic content except the error message — it's effectively a
-static HTML file.
+`<%= value %>` tags for dynamic content.
 
-### The "Remember Me" Demo Diff
+### The "Recurring Donation" Demo Diff
 
-The capstone demo moment: add a checkbox to the login form. Insert these
-3 lines before the submit button in `views/login.ejs` (look for the
-`REMEMBER ME INSERTION POINT` comment):
+The capstone demo moment: toggle the recurring donation checkbox on the
+fundraiser page. Use the toggle API:
 
-```html
-<div class="form-group">
-  <label for="remember-me"><input type="checkbox" id="remember-me" name="remember-me" data-testid="remember-me"> Remember me</label>
-</div>
+```bash
+# Enable
+curl -X POST http://localhost:3000/set-recurring -H 'Content-Type: application/json' -d '{"enabled": true}'
+
+# Disable
+curl -X POST http://localhost:3000/set-recurring -H 'Content-Type: application/json' -d '{"enabled": false}'
+
+# Toggle
+curl -X POST http://localhost:3000/toggle-recurring
 ```
 
-No server-side changes needed — the form handler ignores unknown fields.
 The sieve detects +1 clickable element. The glossary diff shows
-`Login.remember-me` appeared.
-
-### Adding a New Page
-
-1. Create `views/mypage.ejs` (full HTML document)
-2. Create `routes/mypage.js` (Express router, export it)
-3. Mount in `server.js`: `app.use('/', require('./routes/mypage'))`
-
-Use `requireAuth` middleware from `middleware/auth.js` for protected pages.
+`Fundraiser.recurring-checkbox` appeared.
 
 ## Sieve Element Inventory (Login Page)
 
@@ -79,14 +71,9 @@ Use `requireAuth` middleware from `middleware/auth.js` for protected pages.
 | `nav` | chrome | — |
 | `footer` | chrome | — |
 
-Intentional noise (empty wrapper divs, spacers, hidden elements) is present
-and should be filtered by the sieve.
-
 ## Architecture Notes
 
 - **Express** with **EJS** templates and **cookie-session**
-- Config centralized in `config.js` — users, behaviors, port
-- Route-per-page modules in `routes/`
+- Config centralized in `config.js` — users, session secret, port
+- Routes defined inline in `server.js`
 - No build step — `node server.js` runs it directly
-- Designed for future extension: iframes, collections, dynamic elements,
-  scenario configs (see plan notes in the repo)
