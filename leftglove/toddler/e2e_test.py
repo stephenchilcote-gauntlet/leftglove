@@ -834,7 +834,7 @@ def test_qo2_resolve_ui_renders(driver):
         var pendingSieve = {
             inventory: newInv,
             screenshotUrl: null,
-            screenshotDataUrl: null,
+
             matchResult: matchResult,
             oldInventory: state.inventory,
             oldClassifications: Object.assign({}, state.classifications),
@@ -907,7 +907,7 @@ def test_qo2_resolve_full_flow(driver):
         var pendingSieve = {
             inventory: newInv,
             screenshotUrl: null,
-            screenshotDataUrl: null,
+
             matchResult: matchResult,
             oldInventory: state.inventory,
             oldClassifications: Object.assign({}, state.classifications),
@@ -1041,7 +1041,7 @@ def test_qo2_resolve_undo_pair(driver):
         var pendingSieve = {
             inventory: newInv,
             screenshotUrl: null,
-            screenshotDataUrl: null,
+
             matchResult: matchResult,
             oldInventory: state.inventory,
             oldClassifications: Object.assign({}, state.classifications),
@@ -1119,7 +1119,7 @@ def test_qo2_resolve_mark_all_removed_and_added(driver):
         var pendingSieve = {
             inventory: newInv,
             screenshotUrl: null,
-            screenshotDataUrl: null,
+
             matchResult: matchResult,
             oldInventory: state.inventory,
             oldClassifications: Object.assign({}, state.classifications),
@@ -1283,7 +1283,7 @@ def test_cuo_diff_mode_renders(driver):
         var pendingSieve = {
             inventory: newInv,
             screenshotUrl: null,
-            screenshotDataUrl: null,
+
             matchResult: matchResult,
             oldInventory: state.inventory,
             oldClassifications: Object.assign({}, state.classifications),
@@ -1384,7 +1384,7 @@ def test_cuo_accept_diff_propagates(driver):
         var pendingSieve = {
             inventory: newInv,
             screenshotUrl: null,
-            screenshotDataUrl: null,
+
             matchResult: matchResult,
             oldInventory: state.inventory,
             oldClassifications: Object.assign({}, state.classifications),
@@ -1445,7 +1445,7 @@ def test_cuo_diff_keyboard_accept(driver):
         };
         var matchResult = matchElements(state.inventory.elements, newInv.elements);
         var pendingSieve = {
-            inventory: newInv, screenshotUrl: null, screenshotDataUrl: null,
+            inventory: newInv, screenshotUrl: null,
             matchResult: matchResult, oldInventory: state.inventory,
             oldClassifications: {}, oldGlossaryNames: {},
         };
@@ -1491,7 +1491,7 @@ def test_cuo_diff_item_selection(driver):
         };
         var matchResult = matchElements(state.inventory.elements, newInv.elements);
         var pendingSieve = {
-            inventory: newInv, screenshotUrl: null, screenshotDataUrl: null,
+            inventory: newInv, screenshotUrl: null,
             matchResult: matchResult, oldInventory: state.inventory,
             oldClassifications: {}, oldGlossaryNames: {},
         };
@@ -1590,7 +1590,7 @@ def test_visual_diff_mode(driver):
         var pendingSieve = {
             inventory: newInv,
             screenshotUrl: null,
-            screenshotDataUrl: null,
+
             matchResult: matchResult,
             oldInventory: state.inventory,
             oldClassifications: Object.assign({}, state.classifications),

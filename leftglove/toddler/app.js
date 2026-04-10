@@ -16,7 +16,6 @@ const CATEGORY_COLORS = {
 let state = {
   inventory: null,
   screenshotUrl: null,
-  screenshotDataUrl: null,
   currentIndex: 0,
   classifications: {},
   screenshotDims: { w: 0, h: 0 },
@@ -201,7 +200,6 @@ async function doSieve() {
       var pendingSieve = {
         inventory: inventory,
         screenshotUrl: screenshot.dataUrl,
-        screenshotDataUrl: screenshot.dataUrl,
         matchResult: matchResult,
         oldInventory: state.inventory,
         oldClassifications: Object.assign({}, state.classifications),
@@ -220,7 +218,6 @@ async function doSieve() {
       // First sieve — fresh state
       state.inventory = inventory;
       state.screenshotUrl = screenshot.dataUrl;
-      state.screenshotDataUrl = screenshot.dataUrl;
       state.pageUrl = inventory.url?.raw || inventory.url || null;
       state.classifications = {};
       state.currentIndex = 0;
@@ -309,8 +306,8 @@ function resolveOverlayRects(els, idxs, ctx, side) {
 
     var stroke = isSelected ? selColor : dimmed ? (isPaired ? '#166534' : '#525252') : baseColor;
     var sw = isSelected ? 3 : 2;
-    var w = rect.w || rect.width;
-    var h = rect.h || rect.height;
+    var w = rect.w;
+    var h = rect.h;
 
     html += '<rect x="' + rect.x + '" y="' + rect.y + '" width="' + w + '" height="' + h + '"'
       + ' fill="none" stroke="' + stroke + '" stroke-width="' + sw + '"'
@@ -368,19 +365,19 @@ function renderDiffOverlay(svg) {
   // Unchanged elements — dimmed
   for (var u = 0; u < diff.unchanged.length; u++) {
     var ue = diff.unchanged[u];
-    var ub = newEls[ue.newIdx]?.rect || newEls[ue.newIdx]?.box;
+    var ub = newEls[ue.newIdx]?.rect;
     if (!ub) continue;
-    html += '<rect x="' + ub.x + '" y="' + ub.y + '" width="' + (ub.width || ub.w) + '" height="' + (ub.height || ub.h) + '"'
+    html += '<rect x="' + ub.x + '" y="' + ub.y + '" width="' + ub.w + '" height="' + ub.h + '"'
       + ' fill="none" stroke="#444" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>';
   }
 
   // Added elements — green dashed
   for (var a = 0; a < diff.added.length; a++) {
     var ae = diff.added[a];
-    var ab = ae.el?.rect || ae.el?.box;
+    var ab = ae.el?.rect;
     if (!ab) continue;
     var isSel = (selectedType === 'added' && selectedItemIdx === a);
-    html += '<rect x="' + ab.x + '" y="' + ab.y + '" width="' + (ab.width || ab.w) + '" height="' + (ab.height || ab.h) + '"'
+    html += '<rect x="' + ab.x + '" y="' + ab.y + '" width="' + ab.w + '" height="' + ab.h + '"'
       + ' fill="rgba(34,197,94,0.08)" stroke="' + (isSel ? '#22d3ee' : '#22c55e') + '"'
       + ' stroke-width="' + (isSel ? 3 : 2) + '" stroke-dasharray="6,3"/>';
     var atY = ab.y - 4;
@@ -393,10 +390,10 @@ function renderDiffOverlay(svg) {
   // Changed elements — yellow solid
   for (var c = 0; c < diff.changed.length; c++) {
     var ce = diff.changed[c];
-    var cb = ce.newEl?.rect || ce.newEl?.box;
+    var cb = ce.newEl?.rect;
     if (!cb) continue;
     var isSel3 = (selectedType === 'changed' && selectedItemIdx === c);
-    html += '<rect x="' + cb.x + '" y="' + cb.y + '" width="' + (cb.width || cb.w) + '" height="' + (cb.height || cb.h) + '"'
+    html += '<rect x="' + cb.x + '" y="' + cb.y + '" width="' + cb.w + '" height="' + cb.h + '"'
       + ' fill="rgba(234,179,8,0.08)" stroke="' + (isSel3 ? '#22d3ee' : '#eab308') + '"'
       + ' stroke-width="' + (isSel3 ? 3 : 2) + '"/>';
     var ctY = cb.y - 4;
@@ -515,8 +512,8 @@ function renderOverlay() {
     html += '<rect'
       + ' x="' + rect.x + '"'
       + ' y="' + rect.y + '"'
-      + ' width="' + (rect.w || rect.width) + '"'
-      + ' height="' + (rect.h || rect.height) + '"'
+      + ' width="' + rect.w + '"'
+      + ' height="' + rect.h + '"'
       + ' fill="' + fill + '"'
       + ' stroke="' + stroke + '"'
       + ' stroke-width="' + strokeWidth + '"'
@@ -564,7 +561,7 @@ function locatorStr(el) {
 
 function fieldHtml(label, value, style) {
   return '<div><span class="field-label">' + label + '</span> '
-    + '<span class="field-value' + (style ? '' : '') + '"'
+    + '<span class="field-value"'
     + (style ? ' style="' + style + '"' : '') + '>'
     + escapeHtml(value) + '</span></div>';
 }
@@ -1058,13 +1055,13 @@ function computeDiff(oldEls, newEls, matchResult) {
       changes.push('region: ' + (oldEl.region || '') + ' \u2192 ' + (newEl.region || ''));
     }
     // Compare bounding box (5px tolerance)
-    var oldBox = oldEl.rect || oldEl.box;
-    var newBox = newEl.rect || newEl.box;
+    var oldBox = oldEl.rect;
+    var newBox = newEl.rect;
     if (oldBox && newBox) {
       var dx = Math.abs((oldBox.x || 0) - (newBox.x || 0));
       var dy = Math.abs((oldBox.y || 0) - (newBox.y || 0));
-      var dw = Math.abs((oldBox.width || oldBox.w || 0) - (newBox.width || newBox.w || 0));
-      var dh = Math.abs((oldBox.height || oldBox.h || 0) - (newBox.height || newBox.h || 0));
+      var dw = Math.abs((oldBox.w || 0) - (newBox.w || 0));
+      var dh = Math.abs((oldBox.h || 0) - (newBox.h || 0));
       if (dx > 5 || dy > 5 || dw > 5 || dh > 5) {
         changes.push('moved/resized');
       }
@@ -1281,7 +1278,6 @@ function enterDiffMode(matchResult, pendingSieve, resolvedPairs) {
 
   // Show new screenshot in diff mode
   state.screenshotUrl = pendingSieve.screenshotUrl;
-  state.screenshotDataUrl = pendingSieve.screenshotDataUrl;
 
   // Clean up resolve state
   state.resolveContext = null;
@@ -1678,7 +1674,7 @@ function toIntermediate(st) {
       'label': el.label || null,
       'locators': el.locators || {},
       'state': { 'visible': true, 'disabled': false },
-      'rect': { 'x': rect.x, 'y': rect.y, 'w': rect.w || rect.width, 'h': rect.h || rect.height },
+      'rect': { 'x': rect.x, 'y': rect.y, 'w': rect.w, 'h': rect.h },
       'region': el.region || null,
       'form': el.form || null,
       'aria-role': el['aria-role'] || el.ariaRole || null,
@@ -1696,7 +1692,7 @@ function toIntermediate(st) {
       'url': st.pageUrl,
       'viewport': { 'w': vp.w, 'h': vp.h },
       'timestamp': new Date().toISOString(),
-      'screenshot': st.screenshotDataUrl || null,
+      'screenshot': st.screenshotUrl || null,
     },
     'elements': elements,
     'metadata': {
@@ -1766,15 +1762,9 @@ function fromIntermediate(data) {
   state.mode = Object.keys(glossaryNames).length > 0 ? 'pass2' : 'pass1';
   state.pageUrl = data.source.url;
   state.currentIndex = 0;
-  state.screenshotDataUrl = data.source.screenshot || null;
-
   // Restore screenshot — use data URL directly (works in Playwright recordings;
   // blob URLs are context-bound and don't render in video capture)
-  if (data.source.screenshot) {
-    state.screenshotUrl = data.source.screenshot;
-  } else {
-    state.screenshotUrl = null;
-  }
+  state.screenshotUrl = data.source.screenshot || null;
 
   // Rebuild pass2Order if resuming pass2
   if (state.mode === 'pass2') {
