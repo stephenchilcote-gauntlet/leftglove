@@ -42,6 +42,7 @@
       var cat = String(el.category || '').replace(/^:/, '');
       var classification = st.classifications[i] || null;
       var rect = el.rect || {};
+      var g = st.glossaryNames[i] || {};
       return {
         'sieve-id': 'el-' + String(i + 1).padStart(3, '0'),
         'category': classification || cat,
@@ -56,10 +57,10 @@
         'region': el.region || null,
         'form': el.form || null,
         'aria-role': el['aria-role'] || null,
-        'glossary-name': (st.glossaryNames[i] && st.glossaryNames[i].name) || null,
-        'glossary-intent': (st.glossaryNames[i] && st.glossaryNames[i].intent) || null,
-        'glossary-source': (st.glossaryNames[i] && st.glossaryNames[i].source) || null,
-        'notes': (st.glossaryNames[i] && st.glossaryNames[i].notes) || null,
+        'glossary-name': g.name || null,
+        'glossary-intent': g.intent || null,
+        'glossary-source': g.source || null,
+        'notes': g.notes || null,
       };
     });
 

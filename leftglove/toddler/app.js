@@ -1601,15 +1601,7 @@ function doExport() {
     return;
   }
 
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'toddler-session-' + Date.now() + '.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  downloadBlob(JSON.stringify(data, null, 2), 'toddler-session-' + Date.now() + '.json', 'application/json');
 }
 
 async function doExportGlossary() {
@@ -1641,16 +1633,9 @@ async function doExportGlossary() {
 
   // Fallback: download EDN files
   intents.forEach(function (intent) {
-    const edn = toEdn(intent);
-    const blob = new Blob([edn + '\n'], { type: 'application/edn' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = intent.intent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '.edn';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    var edn = toEdn(intent);
+    var filename = intent.intent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '.edn';
+    downloadBlob(edn + '\n', filename, 'application/edn');
   });
   showToast('Glossary endpoint unavailable — downloaded ' + intents.length + ' EDN file' + (intents.length > 1 ? 's' : '') + '.');
 }
@@ -1881,6 +1866,18 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function downloadBlob(content, filename, mimeType) {
+  var blob = new Blob([content], { type: mimeType });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ---- Init ----
