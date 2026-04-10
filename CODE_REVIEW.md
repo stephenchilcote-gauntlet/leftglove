@@ -211,6 +211,10 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: `acceptDiff` only downgrades review→pass2, never upgrades pass2→review | Added symmetric check: if `allPass2Named()` after diff, promote to review | `452a089` |
 | Race: `doNavigate` fires browser navigation during active sieve | Added `_sieveInProgress` guard to `doNavigate` and `doExploreClick` | `32cfe4c` |
 | Correctness: `buildClickSelector` unescaped testid/name in CSS selectors | Applied `CSS.escape()` to testid and name, matching the existing id path | `c6186dc` |
+| Bug: `renderScreenshot` hangs on null/corrupt URL | Added null check and onerror handler that resolves the promise | `b6ec6a2` |
+| Data: `doExport`/`doExportGlossary` during diff/resolve mode | Added `isModeBlocked()` guards — diff has old inventory but new screenshot | `503f2ef` |
+| Bug: stale pass2 panel after file import or diff accept | Reset `_lastPass2Rendered` when element data is replaced by import or diff | `7560262` |
+| Compat: `doExport` download anchor not appended to DOM | Added `appendChild`/`removeChild` matching `doExportGlossary` — fixes Firefox | `7560262` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -223,7 +227,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after seventh audit pass (bug fixes, race conditions, correctness):**
+**Updated estimate after eighth audit pass (stale panel, export compat, flow tracing):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
@@ -235,18 +239,18 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Finding #7 decision | 0.90 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar, Escape toggle works both ways |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
 | Structural refactors | 0.96 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + fromIntermediate single-pass + diff module extraction. All rendering paths consistent. app.js reduced from 2151 to 1985 lines |
-| Data fidelity | 0.97 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned with intermediate format; mode transitions consistent; race guarded; empty sieve handled gracefully |
+| Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement; intermediate format round-trip audited field-by-field |
 | Dead asset removal | 0.96 | Comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
 | Test suite quality | 0.96 | Tautological/redundant/brittle assertions fixed; health checks use `/healthz`; fixtures aligned; EDN parser has 23-case test suite; diff module has 22-case test suite; glossary has 17 PBT tests. 107 unit tests across 3 modules + e2e |
 | Security | 0.98 | Full XSS audit: all innerHTML paths use `escapeHtml()`. CSS selectors escaped via `CSS.escape()`. No command injection. Error handling appropriate everywhere |
 | MCP server quality | 0.97 | Full audit of TypeScript codebase: clean architecture. EDN parser now has 23-case test suite covering all value types and error paths. `npm test` script added |
 | Cross-references | 0.98 | All 16 glossary testids verified present in views. Feature file element references verified against glossary. Demo script narration consistent with actual UI elements |
 | Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress` |
-| Unknown unknowns | 0.89 | Found 11 logic bugs + 2 infra issues + 1 CSS correctness issue across 7 passes. Seventh pass found 3 new issues (mode upgrade, race conditions, CSS escape) after 2 passes with no new logic bugs. Gap remains: full e2e run |
+| Unknown unknowns | 0.90 | Found 15 logic/correctness bugs + 2 infra issues across 8 passes. Eighth pass found 2 more issues (stale panel cache, export DOM compat) via optimization-guard tracing. Intermediate format round-trip audited field-by-field — no data loss. No dead functions. Gap remains: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.96 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.97 × 0.96 × 0.96 × 0.98 × 0.97 × 0.98 × 0.97 × 0.89 ≈ 0.31 (31%)**
+**P(no objections) ≈ 0.96 × 0.96 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.98 × 0.96 × 0.96 × 0.98 × 0.97 × 0.98 × 0.97 × 0.90 ≈ 0.32 (32%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.56. Seventh pass found 3 new correctness issues by tracing through complex mode transitions and race conditions — confirms that focused flow analysis is more productive than broad auditing at this stage.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.58. Eighth pass used optimization-guard tracing (following `_lastPass2Rendered` through all code paths) and field-level round-trip auditing. Diminishing returns on static analysis — remaining risk is almost entirely the explore mode decision and unknown unknowns that only e2e testing would reveal.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
