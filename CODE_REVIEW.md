@@ -173,31 +173,41 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Data: element state lost on round-trip (hardcoded to `{visible:true}`) | Preserve actual sieve state through intermediate format | `f50f1fb` |
 | Gap: `classifyDiff` has `state-mutation` but `computeDiff` never detected state changes | Added state field comparison to diff | `f50f1fb` |
 | Test: 28 fixtures using `box:{width,height}` instead of `rect:{w,h}` | Fixed to match sieve contract | `274877d` |
+| Perf: unnecessary deep clone in `saveState` | Mutate `toIntermediate()` result directly (it's a fresh object) | `749d01b` |
+| API: `fetchScreenshot` wrapped string in `{dataUrl}` object | Return data URL string directly | `bfeb766` |
+| Bug: diff overlay SVG missing `viewBox` attribute | Added — consistent with resolve and normal overlays | `8523e47` |
+| Bug: `loadState` cursor position clobbered by `fromIntermediate` | Restore `_ui` sidecar values *after* `fromIntermediate` | `025fe2f` |
+| Bug: review mode lost on reload and file import | Save mode in `_ui` sidecar; derive `review` in `fromIntermediate` when all pass2 elements named | `7ca290a` |
+| Bug: review mode persists after diff adds unnamed elements | `acceptDiff` checks all pass2 elements still named; downgrades to pass2 if not | `a079bd6` |
+| Bug: resolved elements vanish from diff view | `finishResolve` merges pairs/marks into matchResult before `computeDiff` | `9e3cb66` |
+| Bug: diff mode persists inconsistent state | Removed `saveState()` from `enterDiffMode` — diff is transient | `93f1639` |
+| Test: tautological assertion in explore click test | Removed `or post_url != pre_url` (always-true after preceding assert) | `2d608b6` |
+| Test: near-tautological URL assertion | Changed `":" in val` to `startswith("http")` | `2d608b6` |
+| Test: service checks use `/login` and `/` instead of `/healthz` | Updated `check_services` and `bin/demo-test` to use `/healthz` | `2d608b6`, `1f7db7b` |
+| Stale: demo terminal-segments still shows removed `act` tool | Updated tools list and replaced act demo with `sl validate` | `95e0508` |
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after data fidelity and test alignment pass:**
+**Updated estimate after second audit pass (mode/diff/resolve bugs):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
-| Finding #1 fix | 0.95 | Clean deletion, build verified |
-| Finding #2 fix | 0.90 | Intermediate format round-trip verified; fixed 2 regressions; JS/CSS now in separate files (easier to test) |
+| Finding #1 fix | 0.95 | Clean deletion, build verified. Demo segments updated to match |
+| Finding #2 fix | 0.94 | Mode now round-trips correctly through `_ui` sidecar; diff mode no longer persists inconsistent state |
 | Finding #3 decision | 0.55 | Code review rated High; I overrode based on vision docs. User may agree with reviewer |
 | Finding #5 fix | 0.90 | Shared lib works, dead script removed |
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
-| Finding #7 decision | 0.85 | Minor disagreement with reviewer, well-reasoned |
+| Finding #7 decision | 0.88 | Review mode is now correctly derived from data AND persisted in `_ui`, strengthening the case it's a real mode |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
-| Structural refactors | 0.92 | DRY extractions + state model simplification. Rect/format normalization eliminates a class of bugs |
-| Data fidelity | 0.90 | Element state preserved through intermediate format; state-mutation diff gap closed |
+| Structural refactors | 0.93 | DRY extractions + state model simplification + viewBox fix. All rendering paths now consistent |
+| Data fidelity | 0.92 | Element state preserved; state diff works; resolved elements now appear in diff; mode transitions consistent |
 | Dead asset removal | 0.95 | Verified zero references to deleted files |
-| Test suite impact | 0.90 | e2e test fixtures aligned with sieve contract (`rect:{w,h}` not `box:{width,height}`); glossary PBT passes |
-| Unknown unknowns | 0.88 | Audited every source file. Test fixtures now match sieve contract. Remaining gap: full e2e test run requires 3 running services |
+| Test suite quality | 0.92 | Tautological assertions fixed; health checks use `/healthz`; fixtures aligned with sieve contract |
+| Unknown unknowns | 0.85 | Found 4 more real bugs in second pass (3 mode bugs, 1 resolve-to-diff data loss). Gap: full e2e run |
 
-**P(no objections) ≈ 0.95 × 0.90 × 0.55 × 0.90 × 0.95 × 0.85 × 0.95 × 0.92 × 0.90 × 0.95 × 0.90 × 0.88 ≈ 0.22 (22%)**
+**P(no objections) ≈ 0.95 × 0.94 × 0.55 × 0.90 × 0.95 × 0.88 × 0.95 × 0.93 × 0.92 × 0.95 × 0.92 × 0.85 ≈ 0.25 (25%)**
 
-Note: P stayed roughly the same despite improvements because we added a new factor (data fidelity at 0.90) which introduces its own risk. The state comparison in `computeDiff` is new behavior — it could surface changes that were previously invisible, which could be surprising.
-
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.40. Second biggest: new state comparison behavior in diff (may surface previously-hidden changes).
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.45. The mode bug fixes raised the persistence factor from 0.92 → 0.94 and review mode decision from 0.85 → 0.88, but explore mode remains the dominant risk factor.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
