@@ -175,10 +175,6 @@ body {
   font-size: 13px;
 }
 
-#panel-info .field-value.label-text {
-  color: #fbbf24;
-}
-
 #panel-controls {
   width: 340px;
   flex-shrink: 0;
