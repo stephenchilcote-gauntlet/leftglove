@@ -53,7 +53,7 @@ else
 fi
 
 # --- Wait for demo app ---
-wait_for "$LABEL" "demo app" "http://localhost:$DEMO_PORT/login"
+wait_for "$LABEL" "demo app" "http://localhost:$DEMO_PORT/healthz"
 echo "[$LABEL] Demo app healthy at http://localhost:$DEMO_PORT"
 echo ""
 

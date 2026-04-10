@@ -211,8 +211,9 @@ def test_status_prepopulates_url(driver):
     val = get_value(driver, "url-input")
     # /status returns the sieve browser's current URL; it should populate the input
     assert val and len(val) > 0, f"URL input should be populated from /status, got empty"
-    # Should look like a URL (http/https/data) or be a recognizable browser state
-    assert ":" in val, f"URL input should contain a URL-like value, got: {val!r}"
+    # Should look like a URL (http:// or https://)
+    assert val.startswith("http://") or val.startswith("https://"), \
+        f"URL input should contain an HTTP(S) URL, got: {val!r}"
 
 def test_navigate_to_demo_app(driver):
     driver.get(TL_URL)
@@ -2012,7 +2013,7 @@ def test_o4c_explore_click_dispatches_and_resieves(driver):
     post_url = driver.execute_script("return state.pageUrl")
     assert post_url != pre_url, \
         f"URL should have changed after clicking link, still: {post_url!r}"
-    assert "forgot" in post_url.lower() or post_url != pre_url, \
+    assert "forgot" in post_url.lower(), \
         f"Expected navigation to forgot-password page, got: {post_url!r}"
 
     # Verify observation log records the actual transition
