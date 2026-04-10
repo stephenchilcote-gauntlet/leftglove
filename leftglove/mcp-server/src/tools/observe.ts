@@ -15,11 +15,23 @@ export function registerObserveTool(server: McpServer, config: Config): void {
     },
     async ({ url }) => {
       try {
+        // Navigate first if URL provided (sieve server ignores url in body)
+        if (url) {
+          const navEndpoint = new URL("/navigate", config.sieveUrl).toString();
+          const navRes = await fetch(navEndpoint, {
+            method: "POST",
+            body: JSON.stringify({ url }),
+            headers: { "content-type": "application/json" },
+            signal: AbortSignal.timeout(15000),
+          });
+          if (!navRes.ok) {
+            return textResult(`Navigate failed: HTTP ${navRes.status} from ${navEndpoint}`);
+          }
+        }
         const endpoint = new URL("/sieve", config.sieveUrl).toString();
-        const body = url ? JSON.stringify({ url }) : "{}";
         const res = await fetch(endpoint, {
           method: "POST",
-          body,
+          body: "{}",
           headers: { "content-type": "application/json" },
           signal: AbortSignal.timeout(15000),
         });
