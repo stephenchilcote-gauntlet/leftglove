@@ -46,6 +46,7 @@ function saveState() {
     data.source.screenshot = null;
     // Sidecar: UI-only state (not part of the artifact)
     data._ui = {
+      mode: state.mode,
       currentIndex: state.currentIndex,
       pass2Cursor: state.pass2Cursor,
       exploreMode: state.exploreMode,
@@ -98,6 +99,10 @@ function loadState() {
     if (saved['sieve-version']) {
       const errors = fromIntermediate(saved);
       if (errors.length) { console.warn('[loadState] restore errors:', errors); return; }
+      // fromIntermediate derives mode from data — restore actual mode from _ui sidecar
+      if (ui.mode === 'review' || ui.mode === 'pass2' || ui.mode === 'pass1') {
+        state.mode = ui.mode;
+      }
       // fromIntermediate resets currentIndex to 0 — restore from _ui sidecar
       state.currentIndex = ui.currentIndex || 0;
       state.pass2Cursor = ui.pass2Cursor || 0;
@@ -1280,7 +1285,6 @@ function enterDiffMode(matchResult, pendingSieve, resolvedPairs) {
   state.resolveContext = null;
   state._preResolveMode = null;
 
-  updateModeIndicator();
   renderOverlay();
   renderPanel();
   renderMetadata();
@@ -1330,7 +1334,6 @@ function acceptDiff() {
     + diff.changed.length + ' changed, ' + diff.unchanged.length + ' unchanged';
   showToast('Diff accepted: ' + summary);
 
-  updateModeIndicator();
   renderOverlay();
   renderPanel();
   renderMetadata();
@@ -1757,18 +1760,26 @@ function fromIntermediate(data) {
   state.inventory = inventory;
   state.classifications = classifications;
   state.glossaryNames = glossaryNames;
-  state.mode = Object.keys(glossaryNames).length > 0 ? 'pass2' : 'pass1';
   state.pageUrl = data.source.url;
   state.currentIndex = 0;
   // Restore screenshot — use data URL directly (works in Playwright recordings;
   // blob URLs are context-bound and don't render in video capture)
   state.screenshotUrl = data.source.screenshot || null;
 
-  // Rebuild pass2Order if resuming pass2
-  if (state.mode === 'pass2') {
+  // Derive mode from data: pass1 → pass2 → review
+  if (Object.keys(glossaryNames).length > 0) {
+    state.mode = 'pass2';
     buildPass2Order();
+    // If all pass2 elements have names, go to review
+    var allNamed = true;
+    for (var ni = 0; ni < state.pass2Order.length; ni++) {
+      if (!glossaryNames[state.pass2Order[ni]]) { allNamed = false; break; }
+    }
+    if (allNamed && state.pass2Order.length > 0) state.mode = 'review';
     var pos = state.pass2Order.indexOf(state.currentIndex);
     state.pass2Cursor = pos >= 0 ? pos : 0;
+  } else {
+    state.mode = 'pass1';
   }
 
   return [];
