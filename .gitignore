@@ -13,5 +13,12 @@ leftglove/toddler/demo/audio-clips/
 leftglove/toddler/demo/casts/*.mp4
 leftglove/toddler/demo/segments/
 leftglove/toddler/demo/screenshots/
+leftglove/toddler/demo/page-frames/
+leftglove/toddler/demo/review-frames/
 leftglove/toddler/demo/test-results/
+leftglove/toddler/test-results/
+leftglove/toddler/tests/artifacts/
+leftglove/toddler/__pycache__/
+test-results/
 demo-final.mp4
+screenplay-analysis.md
