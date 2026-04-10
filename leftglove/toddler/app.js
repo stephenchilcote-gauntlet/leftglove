@@ -949,9 +949,9 @@ function deriveIntentName(region) {
 function buildClickSelector(el) {
   var loc = el.locators;
   if (!loc) return null;
-  if (loc.testid) return '[data-testid="' + loc.testid + '"]';
+  if (loc.testid) return '[data-testid="' + CSS.escape(loc.testid) + '"]';
   if (loc.id && !isDynamicId(loc.id)) return '#' + CSS.escape(loc.id);
-  if (loc.name) return '[name="' + loc.name + '"]';
+  if (loc.name) return '[name="' + CSS.escape(loc.name) + '"]';
   return null;
 }
 

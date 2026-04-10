@@ -208,6 +208,8 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Test: redundant `errors == [] or len(errors) == 0` | Simplified to `assert errors == []` | `830237f` |
 | Gap: EDN parser has zero test coverage | Added 23-case test suite covering all types, nesting, comments, errors. Verified against all 9 real EDN files | `6b9d6e8` |
 | Structure: pure matching/diffing logic mixed into UI code | Extracted `elementKey`, `matchElements`, `computeDiff`, `classifyDiff`, `propagateNames` into `diff.js` (UMD module, same pattern as `glossary.js`). 22 unit tests. app.js shrinks 168 lines | `cd968b8` |
+| Bug: `acceptDiff` only downgrades review→pass2, never upgrades pass2→review | Added symmetric check: if `allPass2Named()` after diff, promote to review | `452a089` |
+| Race: `doNavigate` fires browser navigation during active sieve | Added `_sieveInProgress` guard to `doNavigate` and `doExploreClick` | `32cfe4c` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
