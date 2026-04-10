@@ -49,8 +49,9 @@ WAIT_WHITELIST = {"until", "until_not"}
 # --- Helpers -------------------------------------------------------------
 
 def _is_pure_test(funcname: str) -> bool:
-    """Tests with '_pure_' in the name are unit tests for JS functions — exempt."""
-    return "_pure_" in funcname
+    """Tests with '_pure_' in the name are unit tests for JS functions — exempt.
+    Tests with '_integration_' test internal state flows — also exempt."""
+    return "_pure_" in funcname or "_integration_" in funcname
 
 
 def _is_visual_test(funcname: str) -> bool:

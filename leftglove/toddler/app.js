@@ -1,6 +1,10 @@
 // API URL: configurable via ?api= query param (for test environments)
-const API = new URLSearchParams(window.location.search).get('api') || 'http://localhost:3333';
+var _params = new URLSearchParams(window.location.search);
+const API = _params.get('api') || 'http://localhost:3333';
 const STORAGE_KEY = 'toddler-loop-state';
+
+// ?clear=1 wipes localStorage before init (for e2e test isolation)
+if (_params.get('clear')) localStorage.removeItem(STORAGE_KEY);
 
 const CATEGORY_COLORS = {
   clickable: '#22c55e',
@@ -2018,6 +2022,15 @@ window.testAPI = {
   },
   isExploreInProgress: function () { return !!state._exploreInProgress; },
   clearExploreInProgress: function () { state._exploreInProgress = false; },
+  // UI action proxies — trigger proper state transitions
+  resolveSelectOld: function (idx) { resolveSelectOld(idx); },
+  resolveSelectNew: function (idx) { resolveSelectNew(idx); },
+  resolveUndoPair: function (oldIdx, newIdx) { resolveUndoPair(oldIdx, newIdx); },
+  resolveMarkOldRemoved: function (idx) { resolveMarkOldRemoved(idx); },
+  resolveMarkNewAdded: function (idx) { resolveMarkNewAdded(idx); },
+  areAllGroupsResolved: function () { return areAllGroupsResolved(); },
+  finishResolve: function () { finishResolve(); },
+  acceptDiff: function () { acceptDiff(); },
 };
 
 // Try to get status on load
