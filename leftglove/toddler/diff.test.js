@@ -2,7 +2,8 @@
 // Run: node --test leftglove/toddler/diff.test.js
 
 const { describe, it } = require('node:test');
-const { deepStrictEqual, strictEqual } = require('node:assert');
+const { deepStrictEqual, strictEqual, ok } = require('node:assert');
+const fc = require('fast-check');
 const {
   elementKey,
   matchElements,
@@ -232,5 +233,154 @@ describe('classifyDiff', function () {
 
   it('returns compound when mix of add/remove/change', function () {
     strictEqual(classifyDiff(mkDiff(1, 1, 1, 5), '/a', '/a'), 'compound');
+  });
+});
+
+// --- Property-based tests ---
+
+var arbElement = fc.record({
+  tag: fc.constantFrom('div', 'button', 'input', 'a', 'span', 'p'),
+  label: fc.string({ minLength: 0, maxLength: 30 }),
+  region: fc.constantFrom('header', 'main', 'footer', 'sidebar', ''),
+  locators: fc.oneof(
+    fc.record({ testid: fc.string({ minLength: 1, maxLength: 20 }) }),
+    fc.record({ id: fc.string({ minLength: 1, maxLength: 20 }) }),
+    fc.record({ name: fc.string({ minLength: 1, maxLength: 20 }) }),
+    fc.constant({})
+  ),
+  rect: fc.record({
+    x: fc.integer({ min: 0, max: 1920 }),
+    y: fc.integer({ min: 0, max: 1080 }),
+    w: fc.integer({ min: 1, max: 500 }),
+    h: fc.integer({ min: 1, max: 500 }),
+  }),
+  visibleText: fc.oneof(fc.string({ maxLength: 50 }), fc.constant('')),
+  state: fc.record({ visible: fc.boolean(), disabled: fc.boolean() }),
+});
+
+describe('PBT: matchElements', function () {
+  it('accounts for all old and new indices', function () {
+    fc.assert(fc.property(
+      fc.array(arbElement, { minLength: 0, maxLength: 15 }),
+      fc.array(arbElement, { minLength: 0, maxLength: 15 }),
+      function (oldEls, newEls) {
+        var result = matchElements(oldEls, newEls);
+
+        // Every old index must appear in exactly one bucket
+        var oldSeen = new Set();
+        result.matched.forEach(function (m) { oldSeen.add(m.oldIdx); });
+        result.removed.forEach(function (r) { oldSeen.add(r.oldIdx); });
+        result.ambiguous.forEach(function (a) {
+          a.oldIdxs.forEach(function (i) { oldSeen.add(i); });
+        });
+        strictEqual(oldSeen.size, oldEls.length, 'all old indices accounted for');
+
+        // Every new index must appear in exactly one bucket
+        var newSeen = new Set();
+        result.matched.forEach(function (m) { newSeen.add(m.newIdx); });
+        result.added.forEach(function (a) { newSeen.add(a.newIdx); });
+        result.ambiguous.forEach(function (a) {
+          a.newIdxs.forEach(function (i) { newSeen.add(i); });
+        });
+        strictEqual(newSeen.size, newEls.length, 'all new indices accounted for');
+      }
+    ), { numRuns: 200 });
+  });
+
+  it('matched pairs have same key', function () {
+    fc.assert(fc.property(
+      fc.array(arbElement, { minLength: 1, maxLength: 15 }),
+      fc.array(arbElement, { minLength: 1, maxLength: 15 }),
+      function (oldEls, newEls) {
+        var result = matchElements(oldEls, newEls);
+        result.matched.forEach(function (m) {
+          strictEqual(elementKey(oldEls[m.oldIdx]), elementKey(newEls[m.newIdx]),
+            'matched elements share the same key');
+        });
+      }
+    ), { numRuns: 200 });
+  });
+
+  it('self-match produces all matched (unique keys) or ambiguous (dup keys)', function () {
+    fc.assert(fc.property(
+      fc.array(arbElement, { minLength: 1, maxLength: 10 }),
+      function (els) {
+        var result = matchElements(els, els);
+        strictEqual(result.added.length, 0, 'no added when matching self');
+        strictEqual(result.removed.length, 0, 'no removed when matching self');
+      }
+    ), { numRuns: 200 });
+  });
+});
+
+describe('PBT: computeDiff', function () {
+  it('categories are exhaustive (all matched elements appear in changed or unchanged)', function () {
+    fc.assert(fc.property(
+      fc.array(arbElement, { minLength: 1, maxLength: 10 }),
+      fc.array(arbElement, { minLength: 1, maxLength: 10 }),
+      function (oldEls, newEls) {
+        var match = matchElements(oldEls, newEls);
+        var diff = computeDiff(oldEls, newEls, match);
+
+        // changed + unchanged should equal matched count
+        strictEqual(
+          diff.changed.length + diff.unchanged.length,
+          match.matched.length,
+          'changed + unchanged = matched'
+        );
+        strictEqual(diff.added.length, match.added.length, 'added counts match');
+        strictEqual(diff.removed.length, match.removed.length, 'removed counts match');
+      }
+    ), { numRuns: 200 });
+  });
+
+  it('classifyDiff always returns a valid classification', function () {
+    var validClasses = ['no-effect', 'navigation', 'reveal', 'conceal', 'state-mutation', 'compound'];
+    fc.assert(fc.property(
+      fc.array(arbElement, { minLength: 0, maxLength: 10 }),
+      fc.array(arbElement, { minLength: 0, maxLength: 10 }),
+      fc.string(), fc.string(),
+      function (oldEls, newEls, urlA, urlB) {
+        var match = matchElements(oldEls, newEls);
+        var diff = computeDiff(oldEls, newEls, match);
+        var cls = classifyDiff(diff, urlA, urlB);
+        ok(validClasses.indexOf(cls) >= 0, 'classification is valid: ' + cls);
+      }
+    ), { numRuns: 200 });
+  });
+});
+
+describe('PBT: propagateNames', function () {
+  it('carries all classifications from matched pairs', function () {
+    fc.assert(fc.property(
+      fc.array(arbElement, { minLength: 1, maxLength: 10 }),
+      function (els) {
+        // Self-match: every unique-key element gets matched
+        var match = matchElements(els, els);
+        var oldCls = {};
+        var cats = ['clickable', 'typable', 'readable', 'chrome', 'custom'];
+        match.matched.forEach(function (m) {
+          oldCls[m.oldIdx] = cats[m.oldIdx % cats.length];
+        });
+        var result = propagateNames(match, oldCls, {}, []);
+        match.matched.forEach(function (m) {
+          strictEqual(result.classifications[m.newIdx], oldCls[m.oldIdx],
+            'classification carried for matched pair');
+        });
+      }
+    ), { numRuns: 200 });
+  });
+
+  it('never invents classifications or names', function () {
+    fc.assert(fc.property(
+      fc.array(arbElement, { minLength: 1, maxLength: 10 }),
+      fc.array(arbElement, { minLength: 1, maxLength: 10 }),
+      function (oldEls, newEls) {
+        var match = matchElements(oldEls, newEls);
+        var result = propagateNames(match, {}, {}, []);
+        strictEqual(Object.keys(result.classifications).length, 0, 'no classifications from empty');
+        strictEqual(Object.keys(result.glossaryNames).length, 0, 'no names from empty');
+      }
+    ), { numRuns: 200 });
   });
 });

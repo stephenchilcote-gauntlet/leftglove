@@ -40,6 +40,8 @@ let state = {
 // ---- Persistence ----
 function saveState() {
   var data = toIntermediate(state);
+  // Schedule server save with full data (including screenshot) before mutating
+  autoSave(data);
   if (data) {
     // Strip screenshot from localStorage copy to avoid size limits
     // (toIntermediate returns a fresh object — safe to mutate)
@@ -62,22 +64,26 @@ function saveState() {
       },
     }));
   }
-  autoSave();
 }
 
 // ---- Auto-save to disk ----
 var _autoSaveTimer = null;
+var _autoSaveJson = null;
 
-function autoSave() {
+function autoSave(data) {
+  if (!data) return;
+  // Stringify eagerly — caller may mutate data after this call
+  _autoSaveJson = JSON.stringify(data);
   if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(function () {
     _autoSaveTimer = null;
-    var data = toIntermediate(state);
-    if (!data) return;
+    var payload = _autoSaveJson;
+    _autoSaveJson = null;
+    if (!payload) return;
     fetch('/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: payload,
     }).then(function (res) {
       if (!res.ok) throw new Error('Save failed: ' + res.status);
     }).catch(function (e) {
@@ -1520,6 +1526,10 @@ async function doExploreClick(index) {
     };
 
     state.observationLog.push({ obs1: obs1, action: action, obs2: obs2 });
+    // Cap observation log to prevent unbounded localStorage growth
+    if (state.observationLog.length > 100) {
+      state.observationLog = state.observationLog.slice(-100);
+    }
     saveState();
   } catch (e) {
     statusEl.textContent = 'Click failed';
@@ -1862,9 +1872,12 @@ function renderMetadata() {
 
 // ---- Util ----
 function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ---- Init ----

@@ -222,6 +222,10 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: diff overlay uses stale viewport dimensions | `enterDiffMode` now sets `screenshotDims` from pending inventory viewport; `renderScreenshot` checks `_pendingSieve` for correct viewport during diff mode | `49526eb` |
 | UX: diff→pass1 downgrade starts at element 0 | When `acceptDiff` downgrades to pass1 due to unclassified elements, start at first unclassified element instead of index 0 | `e698a39` |
 | DRY: duplicate SVG overlay text builders | Extracted `svgLabel` helper for current-element and glossary-name labels | `10279c9` |
+| Perf: double `toIntermediate` call on every save | `saveState` serializes once; passes result to `autoSave` (which stringifies eagerly before caller mutates screenshot field) | pending |
+| Bug: `observationLog` grows unboundedly in localStorage | Capped to 100 entries — prevents localStorage quota exhaustion during long explore sessions | pending |
+| Perf: `escapeHtml` creates DOM element on every call | Replaced with string-replace approach (`&` `<` `>` `"` `'`) — called in every render loop | pending |
+| Test: diff module has zero PBT coverage | Added 7 PBT properties (200 runs each): index accounting, key consistency, self-match, diff exhaustiveness, classification validity, propagation correctness, no-invention | pending |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -234,30 +238,30 @@ After addressing the code review findings, audited for the same anti-patterns ac
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after eleventh audit pass (viewport fix, PBT, DRY):**
+**Updated estimate after twelfth audit pass (perf, observationLog, diff PBT, escapeHtml):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
 | Finding #1 fix | 0.96 | Clean deletion, build verified. Demo segments updated to match |
-| Finding #2 fix | 0.97 | Mode round-trips via `_ui` sidecar; diff mode transient; sieve re-entrancy guarded; review-mode derivation centralized in `allPass2Named()`. acceptDiff handles upgrade, downgrade, and pass1 fallback. Serialization now extracted with 30-case round-trip test suite |
+| Finding #2 fix | 0.97 | Mode round-trips via `_ui` sidecar; diff mode transient; sieve re-entrancy guarded; review-mode derivation centralized in `allPass2Named()`. acceptDiff handles upgrade, downgrade, and pass1 fallback. Serialization now extracted with 30-case round-trip test suite. Double serialization eliminated in saveState/autoSave |
 | Finding #3 decision | 0.55 | Code review rated High; I overrode based on vision docs. User may agree with reviewer |
 | Finding #5 fix | 0.90 | Shared lib works, dead script removed |
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
 | Finding #7 decision | 0.90 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar, Escape toggle works both ways |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
-| Structural refactors | 0.97 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + diff module extraction + intermediate module extraction + svgLabel helper. Pure `parseIntermediate` eliminates state-mutation coupling. app.js reduced from 2151 to 1894 lines. 4 modules (glossary, diff, intermediate, app) with clear responsibilities |
-| Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement; `buildPass2Order` rejects unclassified elements; viewport dims correct in diff mode; round-trip verified by 32-case unit tests + 7 PBT properties |
+| Structural refactors | 0.97 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + diff module extraction + intermediate module extraction + svgLabel helper. Pure `parseIntermediate` eliminates state-mutation coupling. `escapeHtml` no longer allocates DOM. app.js reduced from 2151 to 1898 lines. 4 modules (glossary, diff, intermediate, app) with clear responsibilities |
+| Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement; `buildPass2Order` rejects unclassified elements; viewport dims correct in diff mode; observationLog capped at 100 entries; round-trip verified by 32-case unit tests + 7 PBT properties |
 | Dead asset removal | 0.96 | Comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
-| Test suite quality | 0.97 | 57 node:test cases + 24 PBT = 81 in toddler + 23 EDN parser = 104 total across 4 modules. Intermediate round-trip verified by 32 unit tests + 7 PBT properties (200 random inputs each). All fixtures validate and round-trip |
+| Test suite quality | 0.98 | 64 node:test cases + 31 PBT = 95 in toddler + 23 EDN parser = 118 total across 4 modules. Diff module now has 7 PBT properties verifying index accounting, key consistency, diff exhaustiveness, classification validity, and propagation correctness. 2800 random inputs across diff + intermediate PBT |
 | Security | 0.98 | Full XSS audit: all innerHTML paths use `escapeHtml()`. CSS selectors escaped via `CSS.escape()`. No command injection. Error handling appropriate everywhere |
 | MCP server quality | 0.97 | Full audit of TypeScript codebase: clean architecture. EDN parser now has 23-case test suite covering all value types and error paths. `npm test` script added |
 | Cross-references | 0.98 | All 16 glossary testids verified present in views. Feature file element references verified against glossary. Demo script narration consistent with actual UI elements |
 | Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress` |
-| Unknown unknowns | 0.92 | Found 20 logic/correctness/UX bugs + 2 infra issues across 11 passes. Eleventh pass found viewport dimension mismatch in diff overlay. 7 PBT properties run 200 random inputs each — no failures. Full dead code audit, CSS audit, testid cross-reference, fixture validation — all clean. Gap: full e2e run |
+| Unknown unknowns | 0.93 | Found 20 logic/correctness/UX bugs + 2 infra issues + 1 unbounded growth bug across 12 passes. 14 PBT properties run 200 random inputs each across diff + intermediate — no failures. Full dead code audit, CSS audit, testid cross-reference, fixture validation — all clean. Gap: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.97 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.97 × 0.98 × 0.96 × 0.97 × 0.98 × 0.97 × 0.98 × 0.97 × 0.92 ≈ 0.34 (34%)**
+**P(no objections) ≈ 0.96 × 0.97 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.97 × 0.98 × 0.97 × 0.93 ≈ 0.35 (35%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.62. Eleventh pass found a real rendering bug (diff overlay viewport mismatch) and added PBT verification — 1400 random round-trip inputs with no failures. All 104 tests pass across 4 modules. Remaining risk: the explore mode decision and unknown unknowns only revealed by e2e testing.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.64. Twelfth pass found an unbounded-growth bug (observationLog), eliminated double serialization, added 7 PBT properties for diff module (1400 random inputs). 118 tests pass across 4 modules. Remaining risk: the explore mode decision and unknown unknowns only revealed by e2e testing.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
