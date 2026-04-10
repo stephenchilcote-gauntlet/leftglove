@@ -79,10 +79,7 @@ function autoSave() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }).then(function (res) {
-      if (res.ok) return res.json();
-      throw new Error('Save failed: ' + res.status);
-    }).then(function (result) {
-      console.log('[auto-save] Saved:', result.saved);
+      if (!res.ok) throw new Error('Save failed: ' + res.status);
     }).catch(function (e) {
       console.warn('[auto-save]', e.message);
     });
