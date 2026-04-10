@@ -1216,7 +1216,10 @@ function acceptDiff() {
     });
     if (!allClassified) {
       state.mode = 'pass1';
-      state.currentIndex = 0;
+      // Jump to first unclassified element so user can continue where needed
+      state.currentIndex = state.inventory.elements.findIndex(function (_, i) {
+        return !state.classifications[i];
+      });
     } else {
       buildPass2Order();
       state.pass2Cursor = 0;
