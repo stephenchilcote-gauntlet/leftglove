@@ -244,6 +244,13 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: `acceptName()` silently discards edits in review mode | Allow name editing in both pass2 and review modes | `05064c1` |
 | Bug: `acceptDiff` resets pass2 cursor to 0 | Preserve `preDiffCursor` position after diff accept | `05064c1` |
 | Bug: `renderMetadata` shows old inventory in diff mode | Use `_pendingSieve.inventory` when available | `05064c1` |
+| Security: directory traversal via prefix-match without path.sep | Use `__dirname + path.sep` in `startsWith` check | `589c736` |
+| Bug: server crash on client disconnect during /save | Add `req.on('error')` handler | `589c736` |
+| Perf: `readdirSync` blocks event loop in /sessions handler | Replace with async `readdir` | `589c736` |
+| Bug: EDN parser `parseNumber` produces NaN on bare `-` | Throw explicit error | `589c736` |
+| Bug: demo selectAmount CSS class swap fragile — orphaned hover classes | Use `classList.add/remove` instead of string replace | `0ae6c3e` |
+| Bug: donate-button had split handlers (inline onclick + addEventListener) | Consolidated to single listener | `0ae6c3e` |
+| Bug: `observe` MCP tool url parameter silently ignored | Navigate to URL before sieving | `e576312` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -256,7 +263,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after seventeenth pass (deep architectural audit, 4 more bug fixes):**
+**Updated estimate after eighteenth pass (server audit, demo fixes, MCP observe fix):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
@@ -273,15 +280,16 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Dead asset removal | 0.96 | Comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
 | Test suite quality | 0.98 | 113 node:test assertions across 4 modules. 2800 random PBT inputs. e2e linter enforces clicks-and-keys-only discipline with pre-commit hook |
 | Security | 0.98 | Full XSS audit: all innerHTML paths use `escapeHtml()`. CSS selectors escaped via `CSS.escape()`. `bestLocator` href values escaped. No command injection |
-| MCP server quality | 0.97 | Clean architecture. EDN parser has 23-case test suite. `npm test` script added |
+| MCP server quality | 0.98 | Clean architecture. EDN parser has 23-case test suite + NaN guard. `observe` tool navigates before sieving. `npm test` script added |
 | Cross-references | 0.99 | All 13 toddler feature file element refs verified in glossary EDN. All glossary testid bindings verified in HTML. All 9 demo-app glossary elements verified in fundraiser.ejs/login.ejs |
 | Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress` |
 | State machine | 0.99 | All 9 mode transitions traced. Escape pass2→review guarded by `allPass2Named()`. `classify()` saves consistent state. `doExploreClick` guarded by `isModeBlocked()`. `acceptName` works in review mode. `acceptDiff` preserves cursor. Keyboard handler dispatch covers all 5 modes |
-| Unknown unknowns | 0.95 | Found 31 logic/correctness/UX bugs + 2 infra issues + 1 unbounded growth bug across 17 passes. 14 PBT properties run 200 random inputs each. Full dead code audit, CSS audit, testid cross-reference, fixture validation, state machine trace, deep architectural audit. 17 passes with diminishing returns. Gap: full e2e run |
+| Server robustness | 0.97 | Directory traversal fix, error handler, async readdir. Demo CSS fixed. Donate handler consolidated |
+| Unknown unknowns | 0.95 | Found 38 bugs across 18 passes (31 app.js + 4 server/parser + 2 demo + 1 MCP). Deep architectural audit, full server audit, demo visual regression fix. 18 passes with diminishing returns. Gap: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.97 × 0.55 × 0.93 × 0.90 × 0.95 × 0.92 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.97 × 0.99 × 0.97 × 0.99 × 0.95 ≈ 0.38 (38%)**
+**P(no objections) ≈ 0.96 × 0.97 × 0.55 × 0.93 × 0.90 × 0.95 × 0.92 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.97 × 0.95 ≈ 0.38 (38%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.69. 113 tests pass across 4 modules. 96 commits since `before_loop`. State machine fully traced and verified. e2e test discipline now enforced by linter + pre-commit hook.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.70. 113 tests pass across 4 modules. 100 commits since `before_loop`. State machine fully traced and verified. e2e test discipline now enforced by linter + pre-commit hook.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
