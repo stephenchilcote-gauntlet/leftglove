@@ -73,7 +73,9 @@ fi
 # --- Health checks ---
 wait_for "$LABEL" "demo app" "http://localhost:$DEMO_PORT/healthz"
 wait_for "$LABEL" "TL UI"    "http://localhost:$TL_PORT/healthz"
-wait_for "$LABEL" "sieve"    "http://localhost:$SIEVE_PORT/status" 60
+if [[ "$NO_SIEVE" == "false" ]]; then
+  wait_for "$LABEL" "sieve"    "http://localhost:$SIEVE_PORT/status" 60
+fi
 
 # --- Commit verification ---
 EXPECTED_COMMIT="$(git -C "$LG_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"

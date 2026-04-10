@@ -70,6 +70,12 @@ app.post('/set-recurring', (req, res) => {
   res.json({ showRecurring });
 });
 
+// GET toggle for test automation (browser navigation can trigger this)
+app.get('/set-recurring', (req, res) => {
+  showRecurring = req.query.enabled === 'true';
+  res.redirect('/fundraiser');
+});
+
 const port = process.env.PORT || config.port || 3000;
 app.listen(port, () => {
   console.log(`Demo app running at http://localhost:${port}`);

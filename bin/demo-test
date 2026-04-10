@@ -57,25 +57,32 @@ wait_for "$LABEL" "demo app" "http://localhost:$DEMO_PORT/healthz"
 echo "[$LABEL] Demo app healthy at http://localhost:$DEMO_PORT"
 echo ""
 
-# --- Phase 1: Dry run (strict mode via :svo config in shiftlefter.edn) ---
-echo "[demo-test] Phase 1: $SL_CMD run --dry-run features/"
+# --- Phase 1: Dry run each feature ---
 cd "$SL_PROJECT"
-if $SL_CMD run --dry-run features/; then
-  echo "[demo-test] PASS: dry-run"
-else
-  echo "[demo-test] FAIL: dry-run (exit $?)"
-  exit 1
-fi
-echo ""
+for feature in features/*.feature; do
+  fname="$(basename "$feature")"
+  echo "[demo-test] Phase 1: $SL_CMD run --dry-run $feature"
+  if $SL_CMD run --dry-run "$feature"; then
+    echo "[demo-test] PASS: dry-run $fname"
+  else
+    echo "[demo-test] FAIL: dry-run $fname (exit $?)"
+    exit 1
+  fi
+  echo ""
+done
 
-# --- Phase 2: Execute login feature ---
-echo "[demo-test] Phase 2: $SL_CMD run features/login.feature"
-if $SL_CMD run features/login.feature; then
-  echo "[demo-test] PASS: login.feature"
-else
-  echo "[demo-test] FAIL: login.feature (exit $?)"
-  exit 1
-fi
+# --- Phase 2: Execute each feature ---
+for feature in features/*.feature; do
+  fname="$(basename "$feature")"
+  echo "[demo-test] Phase 2: $SL_CMD run $feature"
+  if $SL_CMD run "$feature"; then
+    echo "[demo-test] PASS: $fname"
+  else
+    echo "[demo-test] FAIL: $fname (exit $?)"
+    exit 1
+  fi
+  echo ""
+done
 echo ""
 
 echo "[demo-test] All tests passed."
