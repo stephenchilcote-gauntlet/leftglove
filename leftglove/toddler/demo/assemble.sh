@@ -138,7 +138,7 @@ if [[ -n "$BROWSER_VIDEO" ]]; then
     ts="${SEG_TIMES[$i]}"
     echo "  Extracting page frame for $seg_name at ${ts}s..."
     ffmpeg -y -ss "$ts" -i "$BROWSER_VIDEO" -frames:v 1 \
-      -vf "crop=960:1080:480:0" -q:v 2 \
+      -vf "scale=960:-1" -q:v 2 \
       "$SEGMENTS_DIR/page-frames/${seg_name}.png" 2>/dev/null
   done
 fi

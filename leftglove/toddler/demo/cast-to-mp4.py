@@ -59,6 +59,19 @@ def get_color(name, bold=False):
     return palette.get(name, COLORS["default"])
 
 
+def load_page_image(path, target_w, target_h):
+    """Load a page image, scale to fit preserving aspect ratio, pad with BG_COLOR."""
+    img = Image.open(path).convert("RGB")
+    src_w, src_h = img.size
+    scale = min(target_w / src_w, target_h / src_h)
+    new_w = int(src_w * scale)
+    new_h = int(src_h * scale)
+    resized = img.resize((new_w, new_h), Image.LANCZOS)
+    result = Image.new("RGB", (target_w, target_h), BG_COLOR)
+    result.paste(resized, ((target_w - new_w) // 2, (target_h - new_h) // 2))
+    return result
+
+
 def render_frame(screen, width, height, font, char_w, char_h, pad_x, pad_y):
     """Render a pyte screen to a PIL Image."""
     img = Image.new("RGB", (width, height), BG_COLOR)
@@ -164,15 +177,14 @@ def main():
     if args.page_images:
         for spec in args.page_images:
             t_str, path = spec.split(":", 1)
-            img = Image.open(path).convert("RGB").resize((half_w, args.height), Image.LANCZOS)
+            img = load_page_image(path, half_w, args.height)
             page_img_timeline.append((float(t_str), img))
         page_img_timeline.sort(key=lambda x: x[0])
         page_img = page_img_timeline[0][1]  # initial image
         term_area_w = half_w
         print(f"  Split-screen: {len(page_img_timeline)} page images, terminal {half_w}×{args.height}")
     elif args.page_image:
-        page_img = Image.open(args.page_image).convert("RGB")
-        page_img = page_img.resize((half_w, args.height), Image.LANCZOS)
+        page_img = load_page_image(args.page_image, half_w, args.height)
         term_area_w = half_w
         print(f"  Split-screen: page {half_w}×{args.height} | terminal {half_w}×{args.height}")
     else:
