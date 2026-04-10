@@ -899,11 +899,11 @@ function buildPass2Order() {
   var elements = state.inventory?.elements;
   if (!elements) { state.pass2Order = []; return; }
 
-  // Collect non-chrome, non-skip indices
+  // Collect classified, non-chrome, non-skip indices
   var included = [];
   for (var i = 0; i < elements.length; i++) {
     var cat = state.classifications[i];
-    if (cat === 'chrome' || cat === 'skip') continue;
+    if (!cat || cat === 'chrome' || cat === 'skip') continue;
     included.push(i);
   }
 
@@ -1206,15 +1206,24 @@ function acceptDiff() {
   // Rebuild pass2 order if returning to pass2 or review
   _lastPass2Rendered = -1; // force panel rebuild — element data replaced by diff
   if (state.mode === 'pass2' || state.mode === 'review') {
-    buildPass2Order();
-    state.pass2Cursor = 0;
-    if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[0];
-    // Sync mode with naming state: downgrade review→pass2 if unnamed elements
-    // appeared, upgrade pass2→review if diff removed the last unnamed element
-    if (allPass2Named()) {
-      state.mode = 'review';
-    } else if (state.mode === 'review') {
-      state.mode = 'pass2';
+    // Check if diff introduced unclassified elements — if so, user needs pass1 first
+    var allClassified = state.inventory.elements.every(function (_, i) {
+      return !!state.classifications[i];
+    });
+    if (!allClassified) {
+      state.mode = 'pass1';
+      state.currentIndex = 0;
+    } else {
+      buildPass2Order();
+      state.pass2Cursor = 0;
+      if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[0];
+      // Sync mode with naming state: downgrade review→pass2 if unnamed elements
+      // appeared, upgrade pass2→review if diff removed the last unnamed element
+      if (allPass2Named()) {
+        state.mode = 'review';
+      } else if (state.mode === 'review') {
+        state.mode = 'pass2';
+      }
     }
   }
 
