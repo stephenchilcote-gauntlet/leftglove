@@ -6,28 +6,28 @@
  :elements
  {:title           {:desc "Campaign title"
                     :type :readable
-                    :bindings {:web {:css "[data-testid='fundraiser-title']"}}}
+                    :bindings {:web {:testid "fundraiser-title"}}}
   :donate-button   {:desc "Donate Now button (opens donation sheet)"
                     :type :clickable
-                    :bindings {:web {:css "[data-testid='donate-button']"}}}
+                    :bindings {:web {:testid "donate-button"}}}
   :amount-input    {:desc "Donation amount field"
                     :type :typable
-                    :bindings {:web {:css "[data-testid='amount-input']"}}}
+                    :bindings {:web {:testid "amount-input"}}}
   :name-input      {:desc "Donor name field"
                     :type :typable
-                    :bindings {:web {:css "[data-testid='name-input']"}}}
+                    :bindings {:web {:testid "name-input"}}}
   :comment-input   {:desc "Optional donor comment"
                     :type :typable
-                    :bindings {:web {:css "[data-testid='comment-input']"}}}
+                    :bindings {:web {:testid "comment-input"}}}
   :pledge-submit   {:desc "Submit pledge button"
                     :type :clickable
-                    :bindings {:web {:css "[data-testid='pledge-submit']"}}}
+                    :bindings {:web {:testid "pledge-submit"}}}
   :recurring-checkbox {:desc "Make it monthly toggle"
                        :type :clickable
-                       :bindings {:web {:css "[data-testid='recurring-checkbox']"}}}
+                       :bindings {:web {:testid "recurring-checkbox"}}}
   :follow-button   {:desc "Follow campaign button"
                     :type :clickable
-                    :bindings {:web {:css "[data-testid='follow-button']"}}}
+                    :bindings {:web {:testid "follow-button"}}}
   :share-button    {:desc "Share campaign button"
                     :type :clickable
-                    :bindings {:web {:css "[data-testid='share-button']"}}}}}
+                    :bindings {:web {:testid "share-button"}}}}}
