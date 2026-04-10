@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test glossary.test.js diff.test.js"
+    "test": "node --test glossary.test.js diff.test.js intermediate.test.js"
   },
   "keywords": [],
   "author": "",

@@ -1553,118 +1553,25 @@ function scrollToCurrentElement() {
   });
 }
 
-// ---- Intermediate Format ----
-function toIntermediate(st) {
-  const inv = st.inventory;
-  if (!inv?.elements) return null;
-
-  const elements = inv.elements.map(function (el, i) {
-    const cat = String(el.category || '').replace(/^:/, '');
-    const classification = st.classifications[i] || null;
-    const rect = el.rect || {};
-    return {
-      'sieve-id': 'el-' + String(i + 1).padStart(3, '0'),
-      'category': classification || cat,
-      'category-source': classification ? 'human' : 'sieve',
-      'tag': el.tag || null,
-      'element-type': el['element-type'] || null,
-      'label': el.label || null,
-      'locators': el.locators || {},
-      'state': el.state || { 'visible': true, 'disabled': false },
-      'rect': { 'x': rect.x, 'y': rect.y, 'w': rect.w, 'h': rect.h },
-      'visible-text': el.visibleText || null,
-      'region': el.region || null,
-      'form': el.form || null,
-      'aria-role': el['aria-role'] || null,
-      'glossary-name': st.glossaryNames[i]?.name || null,
-      'glossary-intent': st.glossaryNames[i]?.intent || null,
-      'glossary-source': st.glossaryNames[i]?.source || null,
-      'notes': st.glossaryNames[i]?.notes || null,
-    };
-  });
-
-  const vp = inv.viewport || st.screenshotDims;
-  return {
-    'sieve-version': '1.0',
-    'source': {
-      'url': st.pageUrl,
-      'viewport': { 'w': vp.w, 'h': vp.h },
-      'timestamp': new Date().toISOString(),
-      'screenshot': st.screenshotUrl || null,
-    },
-    'elements': elements,
-    'metadata': {
-      'cookies': inv.cookies || [],
-      'storage': {
-        'localStorage': inv.storage?.localStorage || [],
-        'sessionStorage': inv.storage?.sessionStorage || [],
-      },
-      'tabs': inv.tabs || 1,
-    },
-    'pass-1-complete': Object.keys(st.classifications).length >= (inv.elements?.length || 0),
-    'pass-2-progress': Object.keys(st.glossaryNames).length,
-  };
-}
-
+// ---- Intermediate Format (delegates to intermediate.js) ----
+// toIntermediate is used directly from the module (loaded via <script>).
+// fromIntermediate wraps parseIntermediate with state hydration + mode derivation.
 function fromIntermediate(data) {
-  const errors = validateIntermediate(data);
-  if (errors.length) return errors;
+  var result = parseIntermediate(data);
+  if (result.errors) return result.errors;
 
-  // Single pass: rebuild inventory elements, classifications, and glossary names
-  var elements = [];
-  var classifications = {};
-  var glossaryNames = {};
-  data.elements.forEach(function (el, i) {
-    elements.push({
-      tag: el.tag,
-      'element-type': el['element-type'],
-      label: el.label,
-      category: ':' + el.category,
-      locators: el.locators,
-      state: el.state,
-      visibleText: el['visible-text'] || null,
-      rect: el.rect,
-      region: el.region,
-      form: el.form,
-      'aria-role': el['aria-role'],
-    });
-    if (el['category-source'] === 'human') {
-      classifications[i] = el.category;
-    }
-    if (el['glossary-name'] && el['glossary-source'] === 'human') {
-      glossaryNames[i] = {
-        name: el['glossary-name'],
-        intent: el['glossary-intent'] || '',
-        source: el['glossary-source'],
-        notes: el['notes'] || '',
-      };
-    }
-  });
-
-  const inventory = {
-    url: { raw: data.source.url },
-    viewport: data.source.viewport,
-    cookies: data.metadata.cookies,
-    storage: data.metadata.storage,
-    tabs: data.metadata.tabs,
-    elements: elements,
-  };
-
-  // Hydrate state
-  state.inventory = inventory;
-  state.classifications = classifications;
-  state.glossaryNames = glossaryNames;
-  state.pageUrl = data.source.url;
+  // Hydrate state from parsed fields
+  state.inventory = result.inventory;
+  state.classifications = result.classifications;
+  state.glossaryNames = result.glossaryNames;
+  state.pageUrl = result.pageUrl;
   state.currentIndex = 0;
-  // Restore screenshot — use data URL directly (works in Playwright recordings;
-  // blob URLs are context-bound and don't render in video capture)
-  state.screenshotUrl = data.source.screenshot || null;
+  state.screenshotUrl = result.screenshotUrl;
 
   // Derive mode from data: pass1 → pass2 → review
-  if (Object.keys(glossaryNames).length > 0) {
+  if (Object.keys(result.glossaryNames).length > 0) {
     state.mode = 'pass2';
     buildPass2Order();
-    // If all pass2 elements have names, go to review
     if (allPass2Named()) state.mode = 'review';
     var pos = state.pass2Order.indexOf(state.currentIndex);
     state.pass2Cursor = pos >= 0 ? pos : 0;
@@ -1673,34 +1580,6 @@ function fromIntermediate(data) {
   }
 
   return [];
-}
-
-function validateIntermediate(data) {
-  const errors = [];
-  if (!data || typeof data !== 'object') { return ['Data must be an object']; }
-  if (data['sieve-version'] !== '1.0') errors.push('Missing or unsupported sieve-version (expected "1.0")');
-  if (!data.source || typeof data.source !== 'object') {
-    errors.push('Missing source object');
-  } else {
-    if (!data.source.url) errors.push('Missing source.url');
-    if (!data.source.viewport || typeof data.source.viewport.w !== 'number' || typeof data.source.viewport.h !== 'number') {
-      errors.push('Missing or invalid source.viewport (need w and h as numbers)');
-    }
-    if (!data.source.timestamp) errors.push('Missing source.timestamp');
-  }
-  if (!Array.isArray(data.elements)) {
-    errors.push('Missing or invalid elements array');
-  } else {
-    data.elements.forEach(function (el, i) {
-      if (!el['sieve-id']) errors.push('Element ' + i + ': missing sieve-id');
-      if (!el.category) errors.push('Element ' + i + ': missing category');
-      if (!el['category-source']) errors.push('Element ' + i + ': missing category-source');
-      if (!el.rect || typeof el.rect.x !== 'number') errors.push('Element ' + i + ': missing or invalid rect');
-    });
-  }
-  if (!data.metadata || typeof data.metadata !== 'object') errors.push('Missing metadata object');
-  if (typeof data['pass-1-complete'] !== 'boolean') errors.push('Missing pass-1-complete flag');
-  return errors;
 }
 
 // ---- Export ----
