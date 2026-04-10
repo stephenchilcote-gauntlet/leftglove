@@ -1192,8 +1192,11 @@ function acceptDiff() {
     buildPass2Order();
     state.pass2Cursor = 0;
     if (state.pass2Order.length > 0) state.currentIndex = state.pass2Order[0];
-    // If returning to review but diff added unnamed elements, downgrade to pass2
-    if (state.mode === 'review' && !allPass2Named()) {
+    // Sync mode with naming state: downgrade review→pass2 if unnamed elements
+    // appeared, upgrade pass2→review if diff removed the last unnamed element
+    if (allPass2Named()) {
+      state.mode = 'review';
+    } else if (state.mode === 'review') {
       state.mode = 'pass2';
     }
   }
