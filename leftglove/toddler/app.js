@@ -259,6 +259,7 @@ async function doSieve() {
 }
 
 async function doNavigate() {
+  if (_sieveInProgress) return;
   if (isModeBlocked()) { showModeBlockedToast(); return; }
   let url = document.getElementById('url-input').value.trim();
   if (!url) return;
@@ -1451,7 +1452,7 @@ async function jumpTo(index) {
 }
 
 async function doExploreClick(index) {
-  if (state._exploreInProgress) return;
+  if (state._exploreInProgress || _sieveInProgress) return;
   var el = state.inventory.elements[index];
   if (!el) return;
 
