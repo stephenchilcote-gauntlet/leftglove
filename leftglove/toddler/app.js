@@ -114,6 +114,17 @@ function loadState() {
   } catch (e) { /* ignore corrupt storage */ }
 }
 
+// ---- Mode helpers ----
+function isModeBlocked() {
+  return state.mode === 'resolve' || state.mode === 'diff';
+}
+
+function showModeBlockedToast() {
+  showToast(state.mode === 'resolve'
+    ? 'Finish resolving ambiguous matches first.'
+    : 'Accept or review the current diff first.');
+}
+
 // ---- Toast ----
 function showToast(msg, duration) {
   const el = document.getElementById('toast');
@@ -175,10 +186,7 @@ async function fetchClick(selector) {
 
 // ---- Core actions ----
 async function doSieve() {
-  if (state.mode === 'resolve' || state.mode === 'diff') {
-    showToast(state.mode === 'resolve' ? 'Finish resolving ambiguous matches first.' : 'Accept or review the current diff first.');
-    return;
-  }
+  if (isModeBlocked()) { showModeBlockedToast(); return; }
   const statusEl = document.getElementById('status-indicator');
   statusEl.textContent = 'Sieving...';
   try {
@@ -253,10 +261,7 @@ async function doSieve() {
 }
 
 async function doNavigate() {
-  if (state.mode === 'resolve' || state.mode === 'diff') {
-    showToast(state.mode === 'resolve' ? 'Finish resolving ambiguous matches first.' : 'Accept or review the current diff first.');
-    return;
-  }
+  if (isModeBlocked()) { showModeBlockedToast(); return; }
   let url = document.getElementById('url-input').value.trim();
   if (!url) return;
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
@@ -870,7 +875,7 @@ function skipName() {
 // ---- Classification ----
 function classify(category) {
   if (!state.inventory?.elements?.length) return;
-  if (state.mode === 'resolve' || state.mode === 'diff') return; // block during resolve/diff
+  if (isModeBlocked()) return;
   state.classifications[state.currentIndex] = category;
   saveState();
 
@@ -1246,42 +1251,30 @@ function resolveUndoPair(oldIdx, newIdx) { resolveUndo('pair', oldIdx, newIdx); 
 function resolveUndoRemoved(idx) { resolveUndo('removed', idx); }
 function resolveUndoAdded(idx) { resolveUndo('added', idx); }
 
+function isGroupResolved(group, ctx) {
+  for (var i = 0; i < group.oldIdxs.length; i++) {
+    var oi = group.oldIdxs[i];
+    if (!ctx.pairs.some(function (p) { return p.oldIdx === oi; }) && ctx.removedOld.indexOf(oi) < 0) return false;
+  }
+  for (var j = 0; j < group.newIdxs.length; j++) {
+    var ni = group.newIdxs[j];
+    if (!ctx.pairs.some(function (p) { return p.newIdx === ni; }) && ctx.addedNew.indexOf(ni) < 0) return false;
+  }
+  return true;
+}
+
 function isCurrentGroupResolved() {
   var ctx = state.resolveContext;
   if (!ctx) return false;
   var group = ctx.allGroups[ctx.currentGroupIdx];
-  if (!group) return false;
-
-  // Every old element in this group must be paired or marked removed
-  for (var i = 0; i < group.oldIdxs.length; i++) {
-    var oi = group.oldIdxs[i];
-    var paired = ctx.pairs.some(function (p) { return p.oldIdx === oi; });
-    var removed = ctx.removedOld.indexOf(oi) >= 0;
-    if (!paired && !removed) return false;
-  }
-  // Every new element in this group must be paired or marked added
-  for (var j = 0; j < group.newIdxs.length; j++) {
-    var ni = group.newIdxs[j];
-    var paired2 = ctx.pairs.some(function (p) { return p.newIdx === ni; });
-    var added = ctx.addedNew.indexOf(ni) >= 0;
-    if (!paired2 && !added) return false;
-  }
-  return true;
+  return group ? isGroupResolved(group, ctx) : false;
 }
 
 function areAllGroupsResolved() {
   var ctx = state.resolveContext;
   if (!ctx) return false;
   for (var g = 0; g < ctx.allGroups.length; g++) {
-    var group = ctx.allGroups[g];
-    for (var i = 0; i < group.oldIdxs.length; i++) {
-      var oi = group.oldIdxs[i];
-      if (!ctx.pairs.some(function (p) { return p.oldIdx === oi; }) && ctx.removedOld.indexOf(oi) < 0) return false;
-    }
-    for (var j = 0; j < group.newIdxs.length; j++) {
-      var ni = group.newIdxs[j];
-      if (!ctx.pairs.some(function (p) { return p.newIdx === ni; }) && ctx.addedNew.indexOf(ni) < 0) return false;
-    }
+    if (!isGroupResolved(ctx.allGroups[g], ctx)) return false;
   }
   return true;
 }
@@ -1591,7 +1584,7 @@ function resolveNavGroup(delta) {
 
 function navigate(delta) {
   if (!state.inventory?.elements?.length) return;
-  if (state.mode === 'resolve' || state.mode === 'diff') return; // block navigation during resolve/diff
+  if (isModeBlocked()) return;
   if (state.mode === 'pass2') {
     var len = state.pass2Order.length;
     if (len === 0) return;
@@ -1929,11 +1922,7 @@ document.getElementById('btn-explore-mode').addEventListener('click', function (
 });
 
 document.getElementById('file-input').addEventListener('change', async function (e) {
-  if (state.mode === 'resolve' || state.mode === 'diff') {
-    showToast(state.mode === 'resolve' ? 'Finish resolving ambiguous matches first.' : 'Accept or review the current diff first.');
-    e.target.value = '';
-    return;
-  }
+  if (isModeBlocked()) { showModeBlockedToast(); e.target.value = ''; return; }
   const file = e.target.files[0];
   if (!file) return;
   e.target.value = '';  // reset so same file can be re-loaded

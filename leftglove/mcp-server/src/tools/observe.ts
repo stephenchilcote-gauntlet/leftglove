@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Config } from "../config.js";
+import { textResult } from "./util.js";
 
 export function registerObserveTool(server: McpServer, config: Config): void {
   server.tool(
@@ -23,31 +24,13 @@ export function registerObserveTool(server: McpServer, config: Config): void {
           signal: AbortSignal.timeout(15000),
         });
         if (!res.ok) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `Observe failed: HTTP ${res.status} from ${endpoint}`,
-              },
-            ],
-          };
+          return textResult(`Observe failed: HTTP ${res.status} from ${endpoint}`);
         }
         const data = await res.json();
-        return {
-          content: [
-            { type: "text" as const, text: JSON.stringify(data, null, 2) },
-          ],
-        };
+        return textResult(JSON.stringify(data, null, 2));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Observe failed: ${msg}. Is the sieve server running at ${config.sieveUrl}?`,
-            },
-          ],
-        };
+        return textResult(`Observe failed: ${msg}. Is the sieve server running at ${config.sieveUrl}?`);
       }
     },
   );

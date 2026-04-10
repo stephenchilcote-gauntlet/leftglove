@@ -30,6 +30,11 @@ function slugify(url) {
   } catch (e) { return 'unknown'; }
 }
 
+function jsonResponse(res, status, data) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(data));
+}
+
 const server = http.createServer((req, res) => {
   // CORS for all
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -39,8 +44,7 @@ const server = http.createServer((req, res) => {
 
   // GET /healthz
   if (req.method === 'GET' && req.url === '/healthz') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', commit: COMMIT, started: STARTED, service: 'toddler-ui' }));
+    jsonResponse(res, 200, { status: 'ok', commit: COMMIT, started: STARTED, service: 'toddler-ui' });
     return;
   }
 
@@ -59,11 +63,9 @@ const server = http.createServer((req, res) => {
         const filename = `${slug}-${ts}.json`;
         const filepath = path.join(SESSIONS_DIR, filename);
         fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ saved: filename }));
+        jsonResponse(res, 200, { saved: filename });
       } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        jsonResponse(res, 400, { error: e.message });
       }
     });
     return;
@@ -72,8 +74,7 @@ const server = http.createServer((req, res) => {
   // GET /sessions — list saved sessions
   if (req.method === 'GET' && req.url === '/sessions') {
     const files = fs.readdirSync(SESSIONS_DIR).filter(f => f.endsWith('.json')).sort().reverse();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(files));
+    jsonResponse(res, 200, files);
     return;
   }
 
