@@ -198,25 +198,7 @@ async function doSieve() {
       var newEls = inventory.elements;
       var matchResult = matchElements(oldEls, newEls);
 
-      if (matchResult.ambiguous.length > 0) {
-        // Ambiguity detected — enter resolve mode (blocking)
-        // Don't touch state.screenshotDataUrl yet — keep old screenshot consistent
-        var pendingSieve = {
-          inventory: inventory,
-          screenshotUrl: screenshot.dataUrl,
-          screenshotDataUrl: screenshot.dataUrl,
-          matchResult: matchResult,
-          oldInventory: state.inventory,
-          oldClassifications: Object.assign({}, state.classifications),
-          oldGlossaryNames: Object.assign({}, state.glossaryNames),
-        };
-        statusEl.textContent = matchResult.ambiguous.length + ' ambiguous — resolve';
-        enterResolveMode(matchResult, pendingSieve);
-        return;
-      }
-
-      // No ambiguity — enter diff mode for user review
-      var pendingSieveDiff = {
+      var pendingSieve = {
         inventory: inventory,
         screenshotUrl: screenshot.dataUrl,
         screenshotDataUrl: screenshot.dataUrl,
@@ -225,13 +207,17 @@ async function doSieve() {
         oldClassifications: Object.assign({}, state.classifications),
         oldGlossaryNames: Object.assign({}, state.glossaryNames),
       };
-      statusEl.textContent = 'Diff ready';
-      enterDiffMode(matchResult, pendingSieveDiff, null);
+
+      if (matchResult.ambiguous.length > 0) {
+        statusEl.textContent = matchResult.ambiguous.length + ' ambiguous — resolve';
+        enterResolveMode(matchResult, pendingSieve);
+      } else {
+        statusEl.textContent = 'Diff ready';
+        enterDiffMode(matchResult, pendingSieve, null);
+      }
       return;
     } else {
       // First sieve — fresh state
-      if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
-
       state.inventory = inventory;
       state.screenshotUrl = screenshot.dataUrl;
       state.screenshotDataUrl = screenshot.dataUrl;
@@ -1294,7 +1280,6 @@ function enterDiffMode(matchResult, pendingSieve, resolvedPairs) {
   state.mode = 'diff';
 
   // Show new screenshot in diff mode
-  if (state.screenshotUrl) URL.revokeObjectURL(state.screenshotUrl);
   state.screenshotUrl = pendingSieve.screenshotUrl;
   state.screenshotDataUrl = pendingSieve.screenshotDataUrl;
 
