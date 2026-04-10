@@ -193,6 +193,31 @@ describe('toIntermediate', function () {
     strictEqual(result['pass-2-progress'], 1);
   });
 
+  it('handles element with no glossary entry (undefined key)', function () {
+    var el2 = mkElement('Other');
+    var st = mkState();
+    st.inventory.elements = [mkElement('Submit'), el2];
+    st.classifications = { 0: 'clickable', 1: 'readable' };
+    st.glossaryNames = { 0: { name: 'submit-btn', intent: 'Login', source: 'human', notes: '' } };
+    var result = toIntermediate(st);
+    strictEqual(result.elements[1]['glossary-name'], null);
+    strictEqual(result.elements[1]['glossary-intent'], null);
+    strictEqual(result.elements[1]['glossary-source'], null);
+    strictEqual(result.elements[1].notes, null);
+  });
+
+  it('normalizes empty-string glossary fields to null', function () {
+    var st = mkState({
+      glossaryNames: { 0: { name: 'btn', intent: '', source: 'human', notes: '' } },
+    });
+    var result = toIntermediate(st);
+    strictEqual(result.elements[0]['glossary-name'], 'btn');
+    // Empty strings are normalized to null by the || null pattern
+    strictEqual(result.elements[0]['glossary-intent'], null);
+    strictEqual(result.elements[0]['glossary-source'], 'human');
+    strictEqual(result.elements[0].notes, null);
+  });
+
   it('preserves visible-text', function () {
     var st = mkState();
     var result = toIntermediate(st);
@@ -392,6 +417,22 @@ describe('round-trip', function () {
     var parsed = parseIntermediate(intermediate);
     ok(!parsed.errors);
     deepStrictEqual(parsed.glossaryNames, {});
+  });
+
+  it('round-trips glossary with empty intent/notes (normalizes through null)', function () {
+    var st = mkState({
+      glossaryNames: { 0: { name: 'submit-btn', intent: '', source: 'human', notes: '' } },
+    });
+    var intermediate = toIntermediate(st);
+    // Empty strings normalized to null in intermediate format
+    strictEqual(intermediate.elements[0]['glossary-intent'], null);
+    strictEqual(intermediate.elements[0].notes, null);
+    // Parse restores null → '' via || '' pattern
+    var parsed = parseIntermediate(intermediate);
+    ok(!parsed.errors);
+    strictEqual(parsed.glossaryNames[0].intent, '');
+    strictEqual(parsed.glossaryNames[0].notes, '');
+    strictEqual(parsed.glossaryNames[0].name, 'submit-btn');
   });
 });
 
