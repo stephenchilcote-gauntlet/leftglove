@@ -203,6 +203,9 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Test: redundant `val and len(val) > 0` assertion | Simplified to `assert val` (non-empty string is always len > 0) | `320d439` |
 | Dead: forgot-password link to non-existent route | Changed `href="/forgot-password"` to `href="#"` — element exists for glossary demo, not real feature | `0293a6f` |
 | Bug: `wait_for` curl has no timeout | Added `--connect-timeout 2 --max-time 3` — prevents hung services blocking health check for 5min (curl default) | `0293a6f` |
+| Test: brittle `get_attribute("disabled")` checks | Replaced with `is_enabled()` — attribute check is unreliable across browsers | `830237f` |
+| Test: tautological `is not None` after `wait_for` | Removed — `wait_for` already throws on element not found | `830237f` |
+| Test: redundant `errors == [] or len(errors) == 0` | Simplified to `assert errors == []` | `830237f` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -229,15 +232,15 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Structural refactors | 0.96 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + fromIntermediate single-pass. All rendering paths consistent |
 | Data fidelity | 0.97 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned with intermediate format; mode transitions consistent; race guarded; empty sieve handled gracefully |
 | Dead asset removal | 0.96 | Comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
-| Test suite quality | 0.94 | Tautological/redundant assertions fixed; health checks use `/healthz`; fixtures aligned with visible-text; 65 tests across 8 modules well-organized |
+| Test suite quality | 0.95 | Tautological/redundant/brittle assertions fixed (disabled attribute, null-after-wait, double conditions); health checks use `/healthz`; fixtures aligned with visible-text; 65 tests across 8 modules well-organized |
 | Security | 0.97 | Full XSS audit: all innerHTML paths use `escapeHtml()`. No command injection. Error handling appropriate everywhere |
 | MCP server quality | 0.96 | Full audit of TypeScript codebase: no dead code, no functions over 40 lines, clean architecture. Two minor DRY items intentionally left (one-liners used twice) |
 | Cross-references | 0.98 | All 16 glossary testids verified present in views. Feature file element references verified against glossary. Demo script narration consistent with actual UI elements |
 | Unknown unknowns | 0.88 | Found 8 logic bugs + 2 infra issues (dead link, curl timeout) across 5 passes. Fifth pass found only data/infra alignment issues — no new logic bugs. Strongly diminishing returns. Gap remains: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.97 × 0.96 × 0.94 × 0.97 × 0.96 × 0.98 × 0.88 ≈ 0.28 (28%)**
+**P(no objections) ≈ 0.96 × 0.95 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.97 × 0.96 × 0.95 × 0.97 × 0.96 × 0.98 × 0.88 ≈ 0.29 (29%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.51. Fifth pass added cross-reference verification (0.98), dead link + curl timeout fixes, and confirmed diminishing returns on logic bugs. The probability ceiling without resolving the explore mode question is approximately 51%.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.52. Fifth pass: cross-reference verification, dead link + curl timeout fixes, test assertion hardening (disabled checks, tautological asserts). Diminishing returns confirmed — no new logic bugs found.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
