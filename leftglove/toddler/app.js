@@ -115,8 +115,9 @@ function loadState() {
         buildPass2Order();
       }
       // fromIntermediate resets currentIndex to 0 — restore from _ui sidecar
-      state.currentIndex = ui.currentIndex || 0;
-      state.pass2Cursor = ui.pass2Cursor || 0;
+      var maxIdx = (state.inventory?.elements?.length || 1) - 1;
+      state.currentIndex = Math.min(ui.currentIndex || 0, maxIdx);
+      state.pass2Cursor = Math.min(ui.pass2Cursor || 0, Math.max(0, state.pass2Order.length - 1));
       if (state.mode === 'pass2') {
         var pos = state.pass2Order.indexOf(state.currentIndex);
         state.pass2Cursor = pos >= 0 ? pos : state.pass2Cursor;
