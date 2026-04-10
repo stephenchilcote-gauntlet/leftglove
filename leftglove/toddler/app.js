@@ -1961,158 +1961,123 @@ const KEY_MAP = {
   '.': 'skip',
 };
 
-document.addEventListener('keydown', function (e) {
-  var active = document.activeElement;
+function handleResolveKeydown(e) {
+  var ctx = state.resolveContext;
+  var group = ctx.allGroups[ctx.currentGroupIdx];
 
-  // Don't capture when typing in the URL input
-  if (active === document.getElementById('url-input')) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      doNavigate();
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (ctx.selectedOld !== null && ctx.selectedNew !== null) {
+      resolveSelectNew(ctx.selectedNew);
+    } else if (areAllGroupsResolved()) {
+      finishResolve();
     }
     return;
   }
+  if (e.key === 'd') {
+    e.preventDefault();
+    if (ctx.selectedOld !== null) resolveMarkOldRemoved(ctx.selectedOld);
+    else if (ctx.selectedNew !== null) resolveMarkNewAdded(ctx.selectedNew);
+    return;
+  }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    resolveNavGroup(1);
+    return;
+  }
+  var digitMatch = e.code && e.code.match(/^Digit([1-9])$/);
+  if (digitMatch) {
+    e.preventDefault();
+    var pos = parseInt(digitMatch[1]) - 1;
+    if (e.shiftKey) {
+      if (group && pos < group.newIdxs.length) resolveSelectNew(group.newIdxs[pos]);
+    } else {
+      if (group && pos < group.oldIdxs.length) resolveSelectOld(group.oldIdxs[pos]);
+    }
+  }
+}
 
-  // Resolve mode keyboard handling
-  if (state.mode === 'resolve' && state.resolveContext) {
-    var ctx = state.resolveContext;
-    var group = ctx.allGroups[ctx.currentGroupIdx];
+function handleDiffKeydown(e) {
+  var diff = state.diffResult;
+  var totalItems = diff.added.length + diff.removed.length + diff.changed.length;
 
+  if (e.key === 'Enter') { e.preventDefault(); acceptDiff(); return; }
+
+  if (e.key === 'j' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (totalItems === 0) return;
+    state.diffSelectedIdx = state.diffSelectedIdx === null ? 0 : Math.min(totalItems - 1, state.diffSelectedIdx + 1);
+    renderDiffPanel();
+    renderOverlay();
+    return;
+  }
+  if (e.key === 'k' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (totalItems === 0) return;
+    state.diffSelectedIdx = state.diffSelectedIdx === null ? 0 : Math.max(0, state.diffSelectedIdx - 1);
+    renderDiffPanel();
+    renderOverlay();
+    return;
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    state.diffSelectedIdx = null;
+    renderDiffPanel();
+    renderOverlay();
+  }
+}
+
+function handlePass2Keydown(e) {
+  var active = document.activeElement;
+  var inInput = active && (active.id === 'name-input' || active.id === 'intent-input' || active.id === 'notes-input');
+
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    if (state.mode === 'pass2') {
+      state.mode = 'review';
+    } else {
+      state.mode = 'pass2';
+      buildPass2Order();
+      if (state.pass2Order.length > 0) {
+        var pos = state.pass2Order.indexOf(state.currentIndex);
+        state.pass2Cursor = pos >= 0 ? pos : 0;
+        state.currentIndex = state.pass2Order[state.pass2Cursor];
+      }
+    }
+    _lastPass2Rendered = -1;
+    saveState();
+    renderOverlay();
+    renderPanel();
+    return;
+  }
+
+  if (state.mode === 'pass2') {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // If both old and new selected, pair them
-      if (ctx.selectedOld !== null && ctx.selectedNew !== null) {
-        resolveSelectNew(ctx.selectedNew); // triggers pairing logic
-      } else if (areAllGroupsResolved()) {
-        finishResolve();
-      }
-      return;
-    }
-    if (e.key === 'd') {
-      e.preventDefault();
-      if (ctx.selectedOld !== null) resolveMarkOldRemoved(ctx.selectedOld);
-      else if (ctx.selectedNew !== null) resolveMarkNewAdded(ctx.selectedNew);
+      if (inInput) active.blur();
+      acceptName();
       return;
     }
     if (e.key === 'Tab') {
       e.preventDefault();
-      resolveNavGroup(1);
+      if (inInput) active.blur();
+      skipName();
       return;
     }
-    // Use e.code (Digit1-Digit9) so Shift doesn't change the key on US/intl layouts
-    var digitMatch = e.code && e.code.match(/^Digit([1-9])$/);
-    if (digitMatch) {
-      e.preventDefault();
-      var pos = parseInt(digitMatch[1]) - 1;
-      if (e.shiftKey) {
-        if (group && pos < group.newIdxs.length) resolveSelectNew(group.newIdxs[pos]);
-      } else {
-        if (group && pos < group.oldIdxs.length) resolveSelectOld(group.oldIdxs[pos]);
-      }
-      return;
-    }
-    return;
   }
 
-  // Diff mode keyboard handling
-  if (state.mode === 'diff' && state.diffResult) {
-    var diff = state.diffResult;
-    var totalItems = diff.added.length + diff.removed.length + diff.changed.length;
-
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      acceptDiff();
-      return;
-    }
-    if (e.key === 'j' || e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (totalItems === 0) return;
-      if (state.diffSelectedIdx === null) {
-        state.diffSelectedIdx = 0;
-      } else {
-        state.diffSelectedIdx = Math.min(totalItems - 1, state.diffSelectedIdx + 1);
-      }
-      renderDiffPanel();
-      renderOverlay();
-      return;
-    }
-    if (e.key === 'k' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (totalItems === 0) return;
-      if (state.diffSelectedIdx === null) {
-        state.diffSelectedIdx = 0;
-      } else {
-        state.diffSelectedIdx = Math.max(0, state.diffSelectedIdx - 1);
-      }
-      renderDiffPanel();
-      renderOverlay();
-      return;
-    }
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      state.diffSelectedIdx = null;
-      renderDiffPanel();
-      renderOverlay();
-      return;
-    }
-    return;
+  if (!inInput) {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); navigate(-1); return; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); navigate(1); return; }
   }
+}
 
-  // Pass 2 / Review keyboard handling
-  if (state.mode === 'pass2' || state.mode === 'review') {
-    var inInput = active && (active.id === 'name-input' || active.id === 'intent-input' || active.id === 'notes-input');
-
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      if (state.mode === 'pass2') {
-        state.mode = 'review';
-      } else {
-        state.mode = 'pass2';
-        // Rebuild pass2Order in case classifications changed
-        buildPass2Order();
-        if (state.pass2Order.length > 0) {
-          var pos = state.pass2Order.indexOf(state.currentIndex);
-          state.pass2Cursor = pos >= 0 ? pos : 0;
-          state.currentIndex = state.pass2Order[state.pass2Cursor];
-        }
-      }
-      _lastPass2Rendered = -1;
-      saveState();
-      renderOverlay();
-      renderPanel();
-      return;
-    }
-
-    if (state.mode === 'pass2') {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (inInput) active.blur();
-        acceptName();
-        return;
-      }
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        if (inInput) active.blur();
-        skipName();
-        return;
-      }
-    }
-
-    // Arrow navigation (only when not in a text input)
-    if (!inInput) {
-      if (e.key === 'ArrowLeft') { e.preventDefault(); navigate(-1); return; }
-      if (e.key === 'ArrowRight') { e.preventDefault(); navigate(1); return; }
-    }
-    return;
-  }
-
-  // Pass 1 keyboard handling
+function handlePass1Keydown(e) {
   if (KEY_MAP[e.key]) {
     e.preventDefault();
     classify(KEY_MAP[e.key]);
     return;
   }
-
   if (e.key === 'ArrowLeft') {
     e.preventDefault();
     navigate(-1);
@@ -2120,6 +2085,19 @@ document.addEventListener('keydown', function (e) {
     e.preventDefault();
     navigate(1);
   }
+}
+
+document.addEventListener('keydown', function (e) {
+  // Don't capture when typing in the URL input
+  if (document.activeElement === document.getElementById('url-input')) {
+    if (e.key === 'Enter') { e.preventDefault(); doNavigate(); }
+    return;
+  }
+
+  if (state.mode === 'resolve' && state.resolveContext) return handleResolveKeydown(e);
+  if (state.mode === 'diff' && state.diffResult) return handleDiffKeydown(e);
+  if (state.mode === 'pass2' || state.mode === 'review') return handlePass2Keydown(e);
+  handlePass1Keydown(e);
 });
 
 // ---- Metadata strip ----
