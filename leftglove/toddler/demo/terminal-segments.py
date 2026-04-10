@@ -71,10 +71,6 @@ def show_output(events: list, t: float, lines: list, delay=LINE_DELAY) -> float:
     return t
 
 
-def blank_line(events: list, t: float) -> float:
-    events.append((t, "o", "\r\n"))
-    return t + 0.05
-
 
 def hold(events: list, t: float, secs: float) -> float:
     """Add a no-op event to hold the terminal display for `secs` seconds."""

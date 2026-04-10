@@ -700,7 +700,7 @@ function renderPanel() {
   // Element info
   if (el) {
     var locs = locatorStr(el);
-    var elType = el['element-type'] || el.elementType;
+    var elType = el['element-type'];
 
     detail.innerHTML =
       fieldHtml('tag', el.tag || '—')
@@ -999,28 +999,15 @@ function matchElements(oldEls, newEls) {
 function propagateNames(matchResult, oldClassifications, oldGlossaryNames, resolvedPairs) {
   var cls = {};
   var names = {};
+  var allPairs = matchResult.matched.concat(resolvedPairs || []);
 
-  // Auto-matched pairs
-  for (var i = 0; i < matchResult.matched.length; i++) {
-    var m = matchResult.matched[i];
-    if (oldClassifications[m.oldIdx] !== undefined) {
-      cls[m.newIdx] = oldClassifications[m.oldIdx];
+  for (var i = 0; i < allPairs.length; i++) {
+    var p = allPairs[i];
+    if (oldClassifications[p.oldIdx] !== undefined) {
+      cls[p.newIdx] = oldClassifications[p.oldIdx];
     }
-    if (oldGlossaryNames[m.oldIdx]) {
-      names[m.newIdx] = oldGlossaryNames[m.oldIdx];
-    }
-  }
-
-  // User-resolved pairs from ambiguity resolution
-  if (resolvedPairs) {
-    for (var j = 0; j < resolvedPairs.length; j++) {
-      var p = resolvedPairs[j];
-      if (oldClassifications[p.oldIdx] !== undefined) {
-        cls[p.newIdx] = oldClassifications[p.oldIdx];
-      }
-      if (oldGlossaryNames[p.oldIdx]) {
-        names[p.newIdx] = oldGlossaryNames[p.oldIdx];
-      }
+    if (oldGlossaryNames[p.oldIdx]) {
+      names[p.newIdx] = oldGlossaryNames[p.oldIdx];
     }
   }
 
@@ -1670,14 +1657,14 @@ function toIntermediate(st) {
       'category': classification || cat,
       'category-source': classification ? 'human' : 'sieve',
       'tag': el.tag || null,
-      'element-type': el['element-type'] || el.elementType || null,
+      'element-type': el['element-type'] || null,
       'label': el.label || null,
       'locators': el.locators || {},
       'state': { 'visible': true, 'disabled': false },
       'rect': { 'x': rect.x, 'y': rect.y, 'w': rect.w, 'h': rect.h },
       'region': el.region || null,
       'form': el.form || null,
-      'aria-role': el['aria-role'] || el.ariaRole || null,
+      'aria-role': el['aria-role'] || null,
       'glossary-name': st.glossaryNames[i]?.name || null,
       'glossary-intent': st.glossaryNames[i]?.intent || null,
       'glossary-source': st.glossaryNames[i]?.source || null,
