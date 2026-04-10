@@ -6,9 +6,4 @@ module.exports = {
     'alice@example.com': { password: 'password1', name: 'Alice' },
     'bob@example.com':   { password: 'password2', name: 'Bob' },
   },
-
-  behaviors: {
-    // loginDelayMs: 0,
-    // failLoginFor: [],
-  },
 };

@@ -48,9 +48,6 @@ curl -X POST http://localhost:3000/set-recurring -H 'Content-Type: application/j
 
 # Disable
 curl -X POST http://localhost:3000/set-recurring -H 'Content-Type: application/json' -d '{"enabled": false}'
-
-# Toggle
-curl -X POST http://localhost:3000/toggle-recurring
 ```
 
 The sieve detects +1 clickable element. The glossary diff shows

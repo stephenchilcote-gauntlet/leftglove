@@ -19,7 +19,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cookieSession({ name: 'session', secret: config.sessionSecret }));
-app.locals.config = config;
 
 // Toggle state for demo: controls whether the "recurring donation" element exists
 let showRecurring = false;
@@ -66,10 +65,6 @@ app.get('/fundraiser', (req, res) => {
 });
 
 // Toggle API — used by demo script to add/remove the recurring donation element
-app.post('/toggle-recurring', (req, res) => {
-  showRecurring = !showRecurring;
-  res.json({ showRecurring });
-});
 app.post('/set-recurring', (req, res) => {
   showRecurring = req.body.enabled === true;
   res.json({ showRecurring });
