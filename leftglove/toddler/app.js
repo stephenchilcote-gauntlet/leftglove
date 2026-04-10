@@ -551,31 +551,21 @@ function renderOverlay() {
 
     // Label: current element or named element in pass2
     if (isCurrent) {
-      const labelText = el.label || el.tag || '?';
-      const textY = rect.y - 4;
-      html += '<text'
-        + ' x="' + rect.x + '"'
-        + ' y="' + (textY > 12 ? textY : rect.y + 14) + '"'
-        + ' fill="#22d3ee"'
-        + ' font-size="12"'
-        + ' font-family="sans-serif"'
-        + ' font-weight="600"'
-        + '>' + escapeHtml(labelText) + '</text>';
+      html += svgLabel(rect, el.label || el.tag || '?', '#22d3ee', 12, 600);
     } else if (inPass2 && glossary) {
-      const gLabel = (glossary.intent ? glossary.intent + '.' : '') + glossary.name;
-      const textY = rect.y - 4;
-      html += '<text'
-        + ' x="' + rect.x + '"'
-        + ' y="' + (textY > 12 ? textY : rect.y + 14) + '"'
-        + ' fill="#4ade80"'
-        + ' font-size="11"'
-        + ' font-family="sans-serif"'
-        + ' font-weight="500"'
-        + '>' + escapeHtml(gLabel.slice(0, 25)) + '</text>';
+      var gLabel = ((glossary.intent ? glossary.intent + '.' : '') + glossary.name).slice(0, 25);
+      html += svgLabel(rect, gLabel, '#4ade80', 11, 500);
     }
   }
 
   svg.innerHTML = html;
+}
+
+function svgLabel(rect, text, fill, size, weight) {
+  var y = rect.y - 4;
+  return '<text x="' + rect.x + '" y="' + (y > 12 ? y : rect.y + 14) + '"'
+    + ' fill="' + fill + '" font-size="' + size + '" font-family="sans-serif"'
+    + ' font-weight="' + weight + '">' + escapeHtml(text) + '</text>';
 }
 
 function locatorStr(el) {
