@@ -52,6 +52,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/save') {
     let body = '';
     req.on('data', chunk => body += chunk);
+    req.on('error', () => { jsonResponse(res, 400, { error: 'request stream error' }); });
     req.on('end', () => {
       try {
         const data = JSON.parse(body);
@@ -73,8 +74,11 @@ const server = http.createServer((req, res) => {
 
   // GET /sessions — list saved sessions
   if (req.method === 'GET' && req.url === '/sessions') {
-    const files = fs.readdirSync(SESSIONS_DIR).filter(f => f.endsWith('.json')).sort().reverse();
-    jsonResponse(res, 200, files);
+    fs.readdir(SESSIONS_DIR, (err, entries) => {
+      if (err) { jsonResponse(res, 500, { error: err.message }); return; }
+      const files = entries.filter(f => f.endsWith('.json')).sort().reverse();
+      jsonResponse(res, 200, files);
+    });
     return;
   }
 
@@ -82,7 +86,7 @@ const server = http.createServer((req, res) => {
   let urlPath = req.url.split('?')[0]; // strip query params
   let filePath = path.join(__dirname, urlPath === '/' ? 'index.html' : urlPath);
   // Prevent directory traversal
-  if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
+  if (!filePath.startsWith(__dirname + path.sep)) { res.writeHead(403); res.end('Forbidden'); return; }
   const ext = path.extname(filePath);
   fs.readFile(filePath, (err, content) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }

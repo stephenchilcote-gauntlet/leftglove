@@ -100,5 +100,7 @@ function parseNumber(s: string, pos: number): [number, number] {
   const start = pos;
   if (s[pos] === "-") pos++;
   while (pos < s.length && s[pos]! >= "0" && s[pos]! <= "9") pos++;
-  return [parseInt(s.slice(start, pos), 10), pos];
+  const n = parseInt(s.slice(start, pos), 10);
+  if (isNaN(n)) throw new Error(`Invalid number at position ${start}`);
+  return [n, pos];
 }
