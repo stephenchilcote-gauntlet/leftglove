@@ -216,6 +216,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: stale pass2 panel after file import or diff accept | Reset `_lastPass2Rendered` when element data is replaced by import or diff | `7560262` |
 | Compat: `doExport` download anchor not appended to DOM | Added `appendChild`/`removeChild` matching `doExportGlossary` — fixes Firefox | `7560262` |
 | Bug: empty pass2Order after reload when no glossary names | `loadState` restores pass2 mode from sidecar but `fromIntermediate` skips `buildPass2Order` when no names exist | `50886d2` |
+| UX: "Start Pass 2" shown when all elements are chrome/skip | Added guard: button hidden when no nameable elements exist, preventing dead-end pass2 state | `c83dfd7` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -228,7 +229,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after eighth audit pass (stale panel, export compat, flow tracing):**
+**Updated estimate after ninth audit pass (reload edge cases, dead-end state):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
@@ -247,11 +248,11 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | MCP server quality | 0.97 | Full audit of TypeScript codebase: clean architecture. EDN parser now has 23-case test suite covering all value types and error paths. `npm test` script added |
 | Cross-references | 0.98 | All 16 glossary testids verified present in views. Feature file element references verified against glossary. Demo script narration consistent with actual UI elements |
 | Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress` |
-| Unknown unknowns | 0.90 | Found 15 logic/correctness bugs + 2 infra issues across 8 passes. Eighth pass found 2 more issues (stale panel cache, export DOM compat) via optimization-guard tracing. Intermediate format round-trip audited field-by-field — no data loss. No dead functions. Gap remains: full e2e run |
+| Unknown unknowns | 0.91 | Found 17 logic/correctness/UX bugs + 2 infra issues across 9 passes. Ninth pass found 2 more (empty pass2Order on reload, dead-end pass2 entry). Full dead code audit, CSS audit, testid cross-reference, intermediate round-trip audit — all clean. Gap: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.96 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.98 × 0.96 × 0.96 × 0.98 × 0.97 × 0.98 × 0.97 × 0.90 ≈ 0.32 (32%)**
+**P(no objections) ≈ 0.96 × 0.96 × 0.55 × 0.90 × 0.95 × 0.90 × 0.95 × 0.96 × 0.98 × 0.96 × 0.96 × 0.98 × 0.97 × 0.98 × 0.97 × 0.91 ≈ 0.32 (32%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.58. Eighth pass used optimization-guard tracing (following `_lastPass2Rendered` through all code paths) and field-level round-trip auditing. Diminishing returns on static analysis — remaining risk is almost entirely the explore mode decision and unknown unknowns that only e2e testing would reveal.
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.59. Ninth pass found state-transition bugs by tracing the loadState↔fromIntermediate interaction and the pass1→pass2 transition with degenerate inputs. Static analysis is reaching diminishing returns — the code is clean across all modules, all 65 tests pass, all cross-references verified. Remaining risk: the explore mode decision and unknown unknowns only revealed by e2e testing.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
