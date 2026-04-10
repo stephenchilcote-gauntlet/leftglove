@@ -14,7 +14,7 @@ export function registerObserveTool(server: McpServer, config: Config): void {
     },
     async ({ url }) => {
       try {
-        const endpoint = new URL("/observe", config.sieveUrl).toString();
+        const endpoint = new URL("/sieve", config.sieveUrl).toString();
         const body = url ? JSON.stringify({ url }) : "{}";
         const res = await fetch(endpoint, {
           method: "POST",
