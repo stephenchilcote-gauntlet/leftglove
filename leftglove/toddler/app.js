@@ -206,10 +206,11 @@ async function doSieve() {
       fetchScreenshot(),
     ]);
 
-    // If we have a previous inventory, match elements instead of resetting
-    if (state.inventory && state.inventory.elements?.length && inventory.elements?.length) {
+    // If we have a previous inventory, match elements instead of resetting.
+    // Enter diff path even if new sieve has 0 elements (all would show as removed).
+    if (state.inventory && state.inventory.elements?.length) {
       var oldEls = state.inventory.elements;
-      var newEls = inventory.elements;
+      var newEls = inventory.elements || [];
       var matchResult = matchElements(oldEls, newEls);
 
       var pendingSieve = {
@@ -248,7 +249,7 @@ async function doSieve() {
     renderMetadata();
     saveState();
 
-    statusEl.textContent = inventory.elements?.length + ' elements';
+    statusEl.textContent = (inventory.elements?.length || 0) + ' elements';
   } catch (e) {
     statusEl.textContent = 'Error';
     showToast('Failed to sieve: ' + e.message, 6000);
@@ -362,7 +363,7 @@ function renderDiffOverlay(svg) {
   var pending = state._pendingSieve;
   if (!diff || !pending) return;
 
-  var newEls = pending.inventory.elements;
+  var newEls = pending.inventory.elements || [];
   var dims = state.screenshotDims;
   svg.setAttribute('width', dims.w);
   svg.setAttribute('height', dims.h);
@@ -1285,7 +1286,7 @@ function finishResolve() {
 
 function enterDiffMode(matchResult, pendingSieve, resolvedPairs) {
   var oldEls = pendingSieve.oldInventory.elements;
-  var newEls = pendingSieve.inventory.elements;
+  var newEls = pendingSieve.inventory.elements || [];
 
   state.diffResult = computeDiff(oldEls, newEls, matchResult);
   state.diffClass = classifyDiff(
