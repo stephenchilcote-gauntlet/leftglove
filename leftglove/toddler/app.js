@@ -363,7 +363,6 @@ function renderDiffOverlay(svg) {
   if (!diff || !pending) return;
 
   var newEls = pending.inventory.elements;
-  var oldEls = pending.oldInventory.elements;
   var dims = state.screenshotDims;
   svg.setAttribute('width', dims.w);
   svg.setAttribute('height', dims.h);

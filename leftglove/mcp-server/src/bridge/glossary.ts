@@ -2,9 +2,9 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { parseEdn } from "../edn/parser.js";
 
-export type ElementType = "clickable" | "typable" | "readable" | "chrome";
+type ElementType = "clickable" | "typable" | "readable" | "chrome";
 
-export interface GlossaryElement {
+interface GlossaryElement {
   key: string;
   desc: string;
   type: ElementType;
@@ -12,7 +12,7 @@ export interface GlossaryElement {
   testid: string | null;
 }
 
-export interface IntentRegion {
+interface IntentRegion {
   intent: string;
   description: string;
   elements: GlossaryElement[];
