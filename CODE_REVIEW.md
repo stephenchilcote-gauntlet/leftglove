@@ -170,10 +170,13 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Dead: `fieldHtml` tautological ternary `(style ? '' : '')` | Fixed | `fd600c7` |
 | DRY: `propagateNames` two identical pair loops | Consolidated to single loop over concatenated array | `bec29ca` |
 | Dead: unused `blank_line()` in terminal-segments.py | Deleted | `bec29ca` |
+| Data: element state lost on round-trip (hardcoded to `{visible:true}`) | Preserve actual sieve state through intermediate format | `f50f1fb` |
+| Gap: `classifyDiff` has `state-mutation` but `computeDiff` never detected state changes | Added state field comparison to diff | `f50f1fb` |
+| Test: 28 fixtures using `box:{width,height}` instead of `rect:{w,h}` | Fixed to match sieve contract | `274877d` |
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after state model simplification pass:**
+**Updated estimate after data fidelity and test alignment pass:**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
@@ -184,14 +187,17 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
 | Finding #7 decision | 0.85 | Minor disagreement with reviewer, well-reasoned |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
-| Structural refactors | 0.92 | DRY extractions + state model simplification. Syntax checked, tests pass. Rect normalization eliminates a class of potential bugs |
+| Structural refactors | 0.92 | DRY extractions + state model simplification. Rect/format normalization eliminates a class of bugs |
+| Data fidelity | 0.90 | Element state preserved through intermediate format; state-mutation diff gap closed |
 | Dead asset removal | 0.95 | Verified zero references to deleted files |
-| Test suite impact | 0.87 | e2e tests updated for screenshotDataUrl removal; glossary PBT passes; no localStorage assertion drift |
-| Unknown unknowns | 0.87 | Audited every source file in the repo. Remaining gap: full e2e test run requires 3 running services |
+| Test suite impact | 0.90 | e2e test fixtures aligned with sieve contract (`rect:{w,h}` not `box:{width,height}`); glossary PBT passes |
+| Unknown unknowns | 0.88 | Audited every source file. Test fixtures now match sieve contract. Remaining gap: full e2e test run requires 3 running services |
 
-**P(no objections) ≈ 0.95 × 0.90 × 0.55 × 0.90 × 0.95 × 0.85 × 0.95 × 0.92 × 0.95 × 0.87 × 0.87 ≈ 0.24 (24%)**
+**P(no objections) ≈ 0.95 × 0.90 × 0.55 × 0.90 × 0.95 × 0.85 × 0.95 × 0.92 × 0.90 × 0.95 × 0.90 × 0.88 ≈ 0.22 (22%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.43. Second biggest: accumulated risk of 19 commits touching core rendering and state code without e2e validation.
+Note: P stayed roughly the same despite improvements because we added a new factor (data fidelity at 0.90) which introduces its own risk. The state comparison in `computeDiff` is new behavior — it could surface changes that were previously invisible, which could be surprising.
+
+**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.40. Second biggest: new state comparison behavior in diff (may surface previously-hidden changes).
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
