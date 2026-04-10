@@ -872,7 +872,6 @@ function classify(category) {
   if (!state.inventory?.elements?.length) return;
   if (isModeBlocked()) return;
   state.classifications[state.currentIndex] = category;
-  saveState();
 
   // Advance to next unclassified, or next in line
   const total = state.inventory.elements.length;
@@ -893,6 +892,7 @@ function classify(category) {
   }
 
   state.currentIndex = Math.min(next, total - 1);
+  saveState();
   renderOverlay();
   renderPanel();
   scrollToCurrentElement();
@@ -1703,7 +1703,6 @@ const KEY_MAP = {
 
 function handleResolveKeydown(e) {
   var ctx = state.resolveContext;
-  var group = ctx.allGroups[ctx.currentGroupIdx];
 
   if (e.key === 'Enter') {
     e.preventDefault();
@@ -1728,6 +1727,7 @@ function handleResolveKeydown(e) {
   var digitMatch = e.code && e.code.match(/^Digit([1-9])$/);
   if (digitMatch) {
     e.preventDefault();
+    var group = ctx.allGroups[ctx.currentGroupIdx];
     var pos = parseInt(digitMatch[1]) - 1;
     if (e.shiftKey) {
       if (group && pos < group.newIdxs.length) resolveSelectNew(group.newIdxs[pos]);
@@ -1773,8 +1773,10 @@ function handlePass2Keydown(e) {
 
   if (e.key === 'Escape') {
     e.preventDefault();
-    if (state.mode === 'pass2') {
+    if (state.mode === 'pass2' && allPass2Named()) {
       state.mode = 'review';
+    } else if (state.mode === 'pass2') {
+      return; // can't enter review until all pass2 elements are named
     } else {
       state.mode = 'pass2';
       buildPass2Order();
@@ -1997,7 +1999,7 @@ window.testAPI = {
       oldClassifications: Object.assign({}, state.classifications),
       oldGlossaryNames: Object.assign({}, state.glossaryNames),
     };
-    enterDiffMode(matchResult, pendingSieve, screenshotUrl || null);
+    enterDiffMode(matchResult, pendingSieve, null);
   },
   jumpTo: function (index) { jumpTo(index); },
   diffSelectItem: function (index) { diffSelectItem(index); },
