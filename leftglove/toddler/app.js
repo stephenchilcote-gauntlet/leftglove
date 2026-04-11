@@ -1230,6 +1230,8 @@ function acceptDiff() {
     });
     if (!allClassified) {
       state.mode = 'pass1';
+      state.pass2Order = [];
+      state.pass2Cursor = 0;
       // Jump to first unclassified element so user can continue where needed
       state.currentIndex = state.inventory.elements.findIndex(function (_, i) {
         return !state.classifications[i];
@@ -1605,6 +1607,8 @@ function fromIntermediate(data) {
     state.pass2Cursor = pos >= 0 ? pos : 0;
   } else {
     state.mode = 'pass1';
+    state.pass2Order = [];
+    state.pass2Cursor = 0;
   }
 
   return [];
@@ -2027,6 +2031,8 @@ window.testAPI = {
     if (state.mode === 'resolve') { state.resolveContext = null; state._pendingSieve = null; }
     if (state.mode === 'diff') { state.diffResult = null; state._pendingSieve = null; }
     state.mode = 'pass1';
+    state.pass2Order = [];
+    state.pass2Cursor = 0;
     state._preResolveMode = null;
     state._preDiffMode = null;
     _lastPass2Rendered = -1;
