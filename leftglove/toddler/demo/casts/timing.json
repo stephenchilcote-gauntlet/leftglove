@@ -1,18 +1,13 @@
 [
   {
-    "segment": "segment-4-interact",
-    "clipId": "act-click",
+    "segment": "segment-4-mcp-vocabulary",
+    "clipId": "mcp-vocab",
     "t": 200
   },
   {
-    "segment": "segment-4-interact",
-    "clipId": "act-fill",
-    "t": 5500
-  },
-  {
-    "segment": "segment-4-interact",
+    "segment": "segment-4-mcp-vocabulary",
     "clipId": "strict-mode",
-    "t": 11000
+    "t": 15000
   },
   {
     "segment": "segment-5-code-change",

@@ -624,6 +624,7 @@ function updateModeIndicator() {
 }
 
 var _lastPass2Rendered = -1;
+var _pass1ControlsHtml = document.getElementById('panel-controls')?.innerHTML || '';
 
 function renderPass2Panel() {
   var elements = state.inventory?.elements;
@@ -732,9 +733,16 @@ function renderPanel() {
   panelControls.style.display = '';
 
   if (state.mode === 'pass2' || state.mode === 'review') {
+    // pass2 will rebuild controls via renderPass2Panel
+    _lastPass2Rendered = -1;
     renderPass2Panel();
     return;
   }
+  // Restore pass1 controls if pass2 replaced them
+  if (!document.getElementById('progress') && _pass1ControlsHtml) {
+    panelControls.innerHTML = _pass1ControlsHtml;
+  }
+
   const elements = state.inventory?.elements;
   if (!elements || elements.length === 0) return;
 

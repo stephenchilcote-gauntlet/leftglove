@@ -18,6 +18,7 @@ import { test, type Page } from '@playwright/test';
 
 const TL_URL = 'http://localhost:8080?api=http://localhost:3333';
 const DEMO_APP = 'http://localhost:3000';
+const DEMO_PAGE = 'http://localhost:3000/fundraiser';
 const SIEVE_URL = 'http://localhost:3333';
 
 // ── Timing log ──────────────────────────────────────────────────────────────
@@ -370,7 +371,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // -- Scene: Type URL and navigate (Navigate auto-sieves) --
   await cursorClick(page, '[data-testid="url-input"]');
-  await page.fill('[data-testid="url-input"]', DEMO_APP);
+  await page.fill('[data-testid="url-input"]', DEMO_PAGE);
   await pause(page, 500);
   await cursorClick(page, '[data-testid="btn-navigate"]');
 
@@ -480,7 +481,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // Enable recurring donation element and verify sieve Chrome sees it
   await setRecurring(true);
-  await navigateSieveAndVerify(page, DEMO_APP, true);
+  await navigateSieveAndVerify(page, DEMO_PAGE, true);
 
   // Capture sieve screenshot for test-passes segment (page WITH recurring toggle)
   const testPassRes = await fetch(`${SIEVE_URL}/screenshot`);
@@ -531,7 +532,7 @@ test('LeftGlove Demo — Browser Tour', async ({ page }) => {
 
   // Disable recurring donation element and verify sieve Chrome sees removal
   await setRecurring(false);
-  await navigateSieveAndVerify(page, DEMO_APP, false);
+  await navigateSieveAndVerify(page, DEMO_PAGE, false);
 
   // Capture sieve screenshot for test-fails segment (page WITHOUT recurring toggle)
   const testFailRes = await fetch(`${SIEVE_URL}/screenshot`);
