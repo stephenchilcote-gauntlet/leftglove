@@ -59,9 +59,8 @@ app.get('/logout', (req, res) => {
   res.redirect('/login');
 });
 
-// Fundraiser page (auth required)
+// Fundraiser page (no auth — demo app is a test surface for sieve)
 app.get('/fundraiser', (req, res) => {
-  if (!req.session?.user) return res.redirect('/login');
   res.render('fundraiser', { showRecurring });
 });
 
