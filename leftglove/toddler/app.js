@@ -1599,7 +1599,11 @@ function fromIntermediate(data) {
   state.screenshotUrl = result.screenshotUrl;
 
   // Derive mode from data: pass1 → pass2 → review
-  if (Object.keys(result.glossaryNames).length > 0) {
+  // Only advance to pass2 if all elements are classified (pass1 complete)
+  var allClassified = state.inventory.elements.every(function (_, i) {
+    return !!state.classifications[i];
+  });
+  if (allClassified && Object.keys(result.glossaryNames).length > 0) {
     state.mode = 'pass2';
     buildPass2Order();
     if (allPass2Named()) state.mode = 'review';
