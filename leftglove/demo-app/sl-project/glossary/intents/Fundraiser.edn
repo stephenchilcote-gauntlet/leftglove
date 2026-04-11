@@ -4,24 +4,115 @@
 {:intent "Fundraiser"
  :description "Fundraiser page with donate button, amount/name form, social sharing"
  :elements
- {:title           {:desc "Campaign title"
+
+ ;; -- Header / Navigation --
+ {:site-header     {:desc "Sticky top navigation bar"
+                    :type :chrome
+                    :bindings {:web {:testid "site-header"}}}
+  :logo-link       {:desc "CrowdFund logo — links to home"
+                    :type :clickable
+                    :bindings {:web {:testid "logo-link"}}}
+  :nav-community   {:desc "Community nav link"
+                    :type :clickable
+                    :bindings {:web {:testid "nav-community"}}}
+  :nav-analytics   {:desc "Analytics nav link (hidden on small screens)"
+                    :type :clickable
+                    :bindings {:web {:testid "nav-analytics"}}}
+  :nav-start       {:desc "Start a CrowdFund nav button"
+                    :type :clickable
+                    :bindings {:web {:testid "nav-start"}}}
+
+  ;; -- Campaign title area --
+  :badge-fundraiser {:desc "Fundraiser category badge"
+                     :type :readable
+                     :bindings {:web {:testid "badge-fundraiser"}}}
+  :title           {:desc "Campaign title"
                     :type :readable
                     :bindings {:web {:testid "fundraiser-title"}}}
+
+  ;; -- Hero and description --
+  :hero-image      {:desc "Campaign hero image"
+                    :type :readable
+                    :bindings {:web {:testid "hero-image"}}}
+  :description     {:desc "Campaign description paragraph"
+                    :type :readable
+                    :bindings {:web {:testid "description"}}}
+
+  ;; -- Updates section --
+  :section-updates {:desc "Updates section heading"
+                    :type :readable
+                    :bindings {:web {:testid "section-updates"}}}
+  :updates-list    {:desc "Container for update timeline entries"
+                    :type :chrome
+                    :bindings {:web {:testid "updates-list"}}}
+  :update-title-1  {:desc "First update title"
+                    :type :readable
+                    :bindings {:web {:testid "update-title-1"}}}
+  :update-title-2  {:desc "Second update title"
+                    :type :readable
+                    :bindings {:web {:testid "update-title-2"}}}
+  :update-title-3  {:desc "Third update title"
+                    :type :readable
+                    :bindings {:web {:testid "update-title-3"}}}
+
+  ;; -- Comments section --
+  :section-comments {:desc "Supporter comments section heading"
+                     :type :readable
+                     :bindings {:web {:testid "section-comments"}}}
+  :comments-list   {:desc "Container for supporter comment cards"
+                    :type :chrome
+                    :bindings {:web {:testid "comments-list"}}}
+  :comment-1       {:desc "First supporter comment card"
+                    :type :readable
+                    :bindings {:web {:testid "comment-1"}}}
+  :comment-2       {:desc "Second supporter comment card"
+                    :type :readable
+                    :bindings {:web {:testid "comment-2"}}}
+  :comment-3       {:desc "Third supporter comment card"
+                    :type :readable
+                    :bindings {:web {:testid "comment-3"}}}
+
+  ;; -- More campaigns --
+  :section-more-campaigns {:desc "More campaigns section heading"
+                           :type :readable
+                           :bindings {:web {:testid "section-more-campaigns"}}}
+  :campaign-card-1 {:desc "First related campaign card link"
+                    :type :clickable
+                    :bindings {:web {:testid "campaign-card-1"}}}
+  :campaign-card-2 {:desc "Second related campaign card link"
+                    :type :clickable
+                    :bindings {:web {:testid "campaign-card-2"}}}
+
+  ;; -- Progress sidebar --
+  :progress-card   {:desc "Donation progress card container"
+                    :type :chrome
+                    :bindings {:web {:testid "progress-card"}}}
+  :amount-raised   {:desc "Total amount raised display"
+                    :type :readable
+                    :bindings {:web {:testid "amount-raised"}}}
+  :progress-bar    {:desc "Visual funding progress bar"
+                    :type :readable
+                    :bindings {:web {:testid "progress-bar"}}}
+  :donor-count     {:desc "Number of donors display"
+                    :type :readable
+                    :bindings {:web {:testid "donor-count"}}}
+  :percent-funded  {:desc "Percentage funded display"
+                    :type :readable
+                    :bindings {:web {:testid "percent-funded"}}}
+  :pace-projection {:desc "Projected time to reach goal"
+                    :type :readable
+                    :bindings {:web {:testid "pace-projection"}}}
+  :latest-donor    {:desc "Most recent donor display"
+                    :type :readable
+                    :bindings {:web {:testid "latest-donor"}}}
+
+  ;; -- Primary actions --
   :donate-button   {:desc "Donate Now button (opens donation sheet)"
                     :type :clickable
                     :bindings {:web {:testid "donate-button"}}}
-  :amount-input    {:desc "Donation amount field"
-                    :type :typable
-                    :bindings {:web {:testid "amount-input"}}}
-  :name-input      {:desc "Donor name field"
-                    :type :typable
-                    :bindings {:web {:testid "name-input"}}}
-  :comment-input   {:desc "Optional donor comment"
-                    :type :typable
-                    :bindings {:web {:testid "comment-input"}}}
-  :pledge-submit   {:desc "Submit pledge button"
-                    :type :clickable
-                    :bindings {:web {:testid "pledge-submit"}}}
+  :recurring-donation {:desc "Recurring donation toggle container (conditionally shown)"
+                       :type :chrome
+                       :bindings {:web {:testid "recurring-donation"}}}
   :recurring-checkbox {:desc "Make it monthly toggle"
                        :type :clickable
                        :bindings {:web {:testid "recurring-checkbox"}}}
@@ -30,4 +121,85 @@
                     :bindings {:web {:testid "follow-button"}}}
   :share-button    {:desc "Share campaign button"
                     :type :clickable
-                    :bindings {:web {:testid "share-button"}}}}}
+                    :bindings {:web {:testid "share-button"}}}
+
+  ;; -- Organizer / Community --
+  :organizer-card  {:desc "Organizer profile link"
+                    :type :clickable
+                    :bindings {:web {:testid "organizer-card"}}}
+  :organizer-avatar {:desc "Organizer avatar image"
+                     :type :readable
+                     :bindings {:web {:testid "organizer-avatar"}}}
+  :organizer-name  {:desc "Organizer name display"
+                    :type :readable
+                    :bindings {:web {:testid "organizer-name"}}}
+  :community-card  {:desc "Community group link"
+                    :type :clickable
+                    :bindings {:web {:testid "community-card"}}}
+  :community-name  {:desc "Community name display"
+                    :type :readable
+                    :bindings {:web {:testid "community-name"}}}
+
+  ;; -- Footer --
+  :footer-hero     {:desc "Footer hero banner section"
+                    :type :chrome
+                    :bindings {:web {:testid "footer-hero"}}}
+  :footer-links    {:desc "Footer links section"
+                    :type :chrome
+                    :bindings {:web {:testid "footer-links"}}}
+  :footer-copyright {:desc "Footer copyright bar"
+                     :type :chrome
+                     :bindings {:web {:testid "footer-copyright"}}}
+
+  ;; -- Donate sheet (slide-out panel) --
+  :donate-sheet    {:desc "Slide-out donation form panel"
+                    :type :chrome
+                    :bindings {:web {:testid "donate-sheet"}}}
+  :sheet-title     {:desc "Donation sheet heading"
+                    :type :readable
+                    :bindings {:web {:testid "sheet-title"}}}
+  :sheet-close     {:desc "Close donation sheet button"
+                    :type :clickable
+                    :bindings {:web {:testid "sheet-close"}}}
+  :amount-label    {:desc "Amount field label"
+                    :type :readable
+                    :bindings {:web {:testid "amount-label"}}}
+  :amount-presets  {:desc "Preset amount buttons container"
+                    :type :chrome
+                    :bindings {:web {:testid "amount-presets"}}}
+  :preset-10       {:desc "$10 preset amount button"
+                    :type :clickable
+                    :bindings {:web {:testid "preset-10"}}}
+  :preset-25       {:desc "$25 preset amount button"
+                    :type :clickable
+                    :bindings {:web {:testid "preset-25"}}}
+  :preset-50       {:desc "$50 preset amount button"
+                    :type :clickable
+                    :bindings {:web {:testid "preset-50"}}}
+  :preset-100      {:desc "$100 preset amount button"
+                    :type :clickable
+                    :bindings {:web {:testid "preset-100"}}}
+  :amount-input    {:desc "Donation amount field"
+                    :type :typable
+                    :bindings {:web {:testid "amount-input"}}}
+  :impact-preview  {:desc "Donation impact preview text"
+                    :type :readable
+                    :bindings {:web {:testid "impact-preview"}}}
+  :name-label      {:desc "Name field label"
+                    :type :readable
+                    :bindings {:web {:testid "name-label"}}}
+  :name-input      {:desc "Donor name field"
+                    :type :typable
+                    :bindings {:web {:testid "name-input"}}}
+  :comment-label   {:desc "Comment field label"
+                    :type :readable
+                    :bindings {:web {:testid "comment-label"}}}
+  :comment-input   {:desc "Optional donor comment"
+                    :type :typable
+                    :bindings {:web {:testid "comment-input"}}}
+  :pledge-submit   {:desc "Submit pledge button"
+                    :type :clickable
+                    :bindings {:web {:testid "pledge-submit"}}}
+  :pledge-cancel   {:desc "Cancel donation button"
+                    :type :clickable
+                    :bindings {:web {:testid "pledge-cancel"}}}}}
