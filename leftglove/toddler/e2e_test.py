@@ -232,26 +232,13 @@ def test_navigate_to_demo_app(driver):
     )
     status_text = get_text(driver, "status-indicator")
     # Should show "N elements" where N > 0
-    import re as _re
-    match = _re.search(r'(\d+)\s+element', status_text.lower())
+    match = re.search(r'(\d+)\s+element', status_text.lower())
     assert match, f"Expected 'N elements' in status, got: {status_text!r}"
     count = int(match.group(1))
     assert count > 0, f"Expected positive element count, got {count}"
 
 def test_sieve_returns_elements(driver):
-    driver.get(TL_URL + "&clear=1")
-    wait_for(driver, "url-input")
-    time.sleep(0.5)
-
-    clear_and_type(driver, "url-input", DEMO_LOGIN)
-    click(driver, "btn-navigate")
-
-    # Wait for sieve to complete and show elements
-    WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
-    )
+    _navigate_and_sieve(driver)
 
     # SVG overlay should have rects (one per element)
     rects = driver.find_elements(By.CSS_SELECTOR, '#overlay-svg rect')
@@ -262,18 +249,7 @@ def test_sieve_returns_elements(driver):
         f"Expected rect count {len(rects)} as whole number in status '{status}'"
 
 def test_screenshot_renders(driver):
-    driver.get(TL_URL + "&clear=1")
-    wait_for(driver, "url-input")
-    time.sleep(0.5)
-
-    clear_and_type(driver, "url-input", DEMO_LOGIN)
-    click(driver, "btn-navigate")
-
-    WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
-    )
+    _navigate_and_sieve(driver)
 
     img = driver.find_element(By.CSS_SELECTOR, '[data-testid="screenshot-img"]')
     src = img.get_attribute("src")
@@ -285,18 +261,7 @@ def test_screenshot_renders(driver):
         f"Screenshot should have real dimensions, got {nat_w}x{nat_h}"
 
 def test_element_detail_shows(driver):
-    driver.get(TL_URL + "&clear=1")
-    wait_for(driver, "url-input")
-    time.sleep(0.5)
-
-    clear_and_type(driver, "url-input", DEMO_LOGIN)
-    click(driver, "btn-navigate")
-
-    WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
-    )
+    _navigate_and_sieve(driver)
 
     detail_text = get_text(driver, "element-detail")
     # Detail panel should show an HTML tag name for the current element
@@ -305,18 +270,7 @@ def test_element_detail_shows(driver):
         f"Element detail should contain an HTML tag name, got: {detail_text!r}"
 
 def test_classify_element(driver):
-    driver.get(TL_URL + "&clear=1")
-    wait_for(driver, "url-input")
-    time.sleep(0.5)
-
-    clear_and_type(driver, "url-input", DEMO_LOGIN)
-    click(driver, "btn-navigate")
-
-    WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
-    )
+    _navigate_and_sieve(driver)
 
     # Get initial progress
     initial_count = get_text(driver, "classified-count")
@@ -331,18 +285,7 @@ def test_classify_element(driver):
 
 def test_pass1_complete_shows_start_pass2(driver):
     """Classify all elements in Pass 1 and verify Start Pass 2 button appears."""
-    driver.get(TL_URL + "&clear=1")
-    wait_for(driver, "url-input")
-    time.sleep(0.5)
-
-    clear_and_type(driver, "url-input", DEMO_LOGIN)
-    click(driver, "btn-navigate")
-
-    WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
-    )
+    _navigate_and_sieve(driver)
 
     # Classify all elements by pressing keyboard shortcut until done
     body = driver.find_element(By.TAG_NAME, "body")
@@ -361,18 +304,7 @@ def test_pass1_complete_shows_start_pass2(driver):
 
 def test_pass2_naming_flow(driver):
     """Full pass 2 flow: classify all, enter pass 2, name one element."""
-    driver.get(TL_URL + "&clear=1")
-    wait_for(driver, "url-input")
-    time.sleep(0.5)
-
-    clear_and_type(driver, "url-input", DEMO_LOGIN)
-    click(driver, "btn-navigate")
-
-    WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
-    )
+    _navigate_and_sieve(driver)
 
     # Classify all
     body = driver.find_element(By.TAG_NAME, "body")
@@ -453,8 +385,7 @@ def test_load_status_shows_count(driver):
         ).text.lower()
     )
     status = get_text(driver, "status-indicator")
-    import re as _re
-    match = _re.search(r'(\d+)\s+element', status.lower())
+    match = re.search(r'(\d+)\s+element', status.lower())
     assert match, f"Expected 'N elements' in status after load, got: {status!r}"
     count = int(match.group(1))
     assert count == 5, f"Fixture has 5 elements, status shows {count}"
@@ -2257,18 +2188,7 @@ def test_b6db_pure_sessions_endpoint_lists_files(driver):
 def test_b6db_auto_save_on_classify(driver):
     """Classify an element, wait for debounce, check sessions/ has a file."""
     _clear_sessions()
-    driver.get(TL_URL + "&clear=1")
-    wait_for(driver, "url-input")
-    time.sleep(0.5)
-
-    clear_and_type(driver, "url-input", DEMO_LOGIN)
-    click(driver, "btn-navigate")
-
-    WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
-    )
+    _navigate_and_sieve(driver)
 
     # Classify one element
     click(driver, "cat-clickable")
@@ -2294,18 +2214,7 @@ def test_b6db_auto_save_on_classify(driver):
 def test_b6db_auto_save_debounce(driver):
     """Rapidly classify 3 elements, verify only 1 file after debounce."""
     _clear_sessions()
-    driver.get(TL_URL + "&clear=1")
-    wait_for(driver, "url-input")
-    time.sleep(0.5)
-
-    clear_and_type(driver, "url-input", DEMO_LOGIN)
-    click(driver, "btn-navigate")
-
-    WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
-    )
+    _navigate_and_sieve(driver)
 
     # Rapidly classify 3 elements within ~300ms
     click(driver, "cat-clickable")
@@ -2331,18 +2240,7 @@ def test_b6db_auto_save_debounce(driver):
 def test_b6db_integration_saved_file_is_valid_intermediate(driver):
     """Saved file passes validateIntermediate() in the browser."""
     _clear_sessions()
-    driver.get(TL_URL + "&clear=1")
-    wait_for(driver, "url-input")
-    time.sleep(0.5)
-
-    clear_and_type(driver, "url-input", DEMO_LOGIN)
-    click(driver, "btn-navigate")
-
-    WebDriverWait(driver, 20).until(
-        lambda d: "element" in d.find_element(
-            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
-        ).text.lower()
-    )
+    _navigate_and_sieve(driver)
 
     click(driver, "cat-clickable")
     time.sleep(3)  # wait for auto-save
