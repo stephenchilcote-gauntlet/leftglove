@@ -1592,6 +1592,9 @@ function fromIntermediate(data) {
   state.pageUrl = result.pageUrl;
   state.currentIndex = 0;
   state.screenshotUrl = result.screenshotUrl;
+  // Set viewport dims from inventory so overlay aligns if screenshot loads later
+  var vp = state.inventory.viewport;
+  if (vp) state.screenshotDims = { w: vp.w, h: vp.h };
 
   // Derive mode from data: pass1 → pass2 → review
   // Only advance to pass2 if all elements are classified (pass1 complete)
