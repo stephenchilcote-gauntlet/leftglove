@@ -286,6 +286,8 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: `fromIntermediate` enters pass2 when all elements are chrome/skip | Fall back to pass1 when `buildPass2Order` produces empty array | `198690e` |
 | Bug: `fromIntermediate` leaves screenshotDims at {0,0} | Set dims from inventory viewport during import/restore | `dde1d7e` |
 | DRY: e2e test navigate-and-sieve duplication (9 tests) | Refactored to use `_navigate_and_sieve` helper (−113 lines) | `d4a3bb3` |
+| Bug: `enterResolveMode` uses stale screenshot dims | Set screenshotUrl and screenshotDims from pending sieve data (matching enterDiffMode) | `b717c40` |
+| Defensive: `handleResolveKeydown` null dereference on cleared context | Added null guard for `state.resolveContext` | `b717c40` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
