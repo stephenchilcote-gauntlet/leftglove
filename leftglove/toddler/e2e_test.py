@@ -421,7 +421,9 @@ def _wait_for_rects(driver, timeout=10):
 
 def test_load_button_present(driver):
     driver.get(TL_URL)
-    wait_for(driver, "btn-load")
+    btn = wait_for(driver, "btn-load")
+    assert btn.is_displayed(), "Load button should be visible"
+    assert btn.is_enabled(), "Load button should be enabled"
 
 def test_load_valid_fixture(driver):
     driver.get(TL_URL)
@@ -453,7 +455,8 @@ def test_load_status_shows_count(driver):
     import re as _re
     match = _re.search(r'(\d+)\s+element', status.lower())
     assert match, f"Expected 'N elements' in status after load, got: {status!r}"
-    assert int(match.group(1)) > 0, f"Element count should be > 0 after load"
+    count = int(match.group(1))
+    assert count == 5, f"Fixture has 5 elements, status shows {count}"
 
 def test_load_mode_indicator(driver):
     """Fixture is pass-1-complete + has glossary names → mode should be pass2 or review."""
@@ -487,8 +490,8 @@ def test_load_invalid_json_shows_toast(driver):
         toast = WebDriverWait(driver, 5).until(
             EC.visibility_of_element_located((By.ID, 'toast'))
         )
-        assert "invalid" in toast.text.lower() or "json" in toast.text.lower(), \
-            f"Expected JSON error toast, got: {toast.text!r}"
+        assert "invalid json" in toast.text.lower(), \
+            f"Expected 'Invalid JSON' in toast, got: {toast.text!r}"
     finally:
         os.unlink(bad_path)
 
@@ -504,8 +507,8 @@ def test_load_invalid_intermediate_shows_toast(driver):
         toast = WebDriverWait(driver, 5).until(
             EC.visibility_of_element_located((By.ID, 'toast'))
         )
-        assert "sieve-version" in toast.text.lower() or "version" in toast.text.lower() or "missing" in toast.text.lower(), \
-            f"Expected validation error mentioning schema issues, got: {toast.text!r}"
+        assert "sieve-version" in toast.text.lower(), \
+            f"Expected 'sieve-version' error in toast, got: {toast.text!r}"
     finally:
         os.unlink(bad_path)
 
