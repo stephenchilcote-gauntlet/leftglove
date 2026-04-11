@@ -59,8 +59,9 @@ app.get('/logout', (req, res) => {
   res.redirect('/login');
 });
 
-// Fundraiser page
+// Fundraiser page (auth required)
 app.get('/fundraiser', (req, res) => {
+  if (!req.session?.user) return res.redirect('/login');
   res.render('fundraiser', { showRecurring });
 });
 

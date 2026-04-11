@@ -51,9 +51,21 @@ const server = http.createServer((req, res) => {
   // POST /save
   if (req.method === 'POST' && req.url === '/save') {
     let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('error', () => { jsonResponse(res, 400, { error: 'request stream error' }); });
+    let errored = false;
+    const MAX_BODY = 10 * 1024 * 1024; // 10 MB limit
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > MAX_BODY) {
+        errored = true;
+        req.destroy();
+        jsonResponse(res, 413, { error: 'Request body too large' });
+      }
+    });
+    req.on('error', () => {
+      if (!errored) { errored = true; jsonResponse(res, 400, { error: 'request stream error' }); }
+    });
     req.on('end', () => {
+      if (errored) return;
       try {
         const data = JSON.parse(body);
         const sourceUrl = data?.source?.url || 'unknown';
@@ -63,8 +75,10 @@ const server = http.createServer((req, res) => {
           : String(Date.now());
         const filename = `${slug}-${ts}.json`;
         const filepath = path.join(SESSIONS_DIR, filename);
-        fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
-        jsonResponse(res, 200, { saved: filename });
+        fs.writeFile(filepath, JSON.stringify(data, null, 2), (writeErr) => {
+          if (writeErr) { jsonResponse(res, 500, { error: writeErr.message }); return; }
+          jsonResponse(res, 200, { saved: filename });
+        });
       } catch (e) {
         jsonResponse(res, 400, { error: e.message });
       }

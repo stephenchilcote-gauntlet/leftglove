@@ -18,6 +18,7 @@ import sys
 import threading
 import time
 import json
+import re
 import subprocess
 import tempfile
 import urllib.request
@@ -257,8 +258,8 @@ def test_sieve_returns_elements(driver):
     assert len(rects) > 0, "Expected SVG rects in overlay after sieve"
     # Status indicator shows element count — verify it matches
     status = get_text(driver, "status-indicator")
-    assert str(len(rects)) in status, \
-        f"Expected rect count {len(rects)} to appear in status '{status}'"
+    assert re.search(r'\b' + str(len(rects)) + r'\b', status), \
+        f"Expected rect count {len(rects)} as whole number in status '{status}'"
 
 def test_screenshot_renders(driver):
     driver.get(TL_URL + "&clear=1")
