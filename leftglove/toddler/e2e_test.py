@@ -238,7 +238,7 @@ def test_navigate_to_demo_app(driver):
     assert count > 0, f"Expected positive element count, got {count}"
 
 def test_sieve_returns_elements(driver):
-    driver.get(TL_URL)
+    driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
     time.sleep(0.5)
 
@@ -261,7 +261,7 @@ def test_sieve_returns_elements(driver):
         f"Expected rect count {len(rects)} to appear in status '{status}'"
 
 def test_screenshot_renders(driver):
-    driver.get(TL_URL)
+    driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
     time.sleep(0.5)
 
@@ -284,7 +284,7 @@ def test_screenshot_renders(driver):
         f"Screenshot should have real dimensions, got {nat_w}x{nat_h}"
 
 def test_element_detail_shows(driver):
-    driver.get(TL_URL)
+    driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
     time.sleep(0.5)
 
@@ -304,7 +304,7 @@ def test_element_detail_shows(driver):
         f"Element detail should contain an HTML tag name, got: {detail_text!r}"
 
 def test_classify_element(driver):
-    driver.get(TL_URL)
+    driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
     time.sleep(0.5)
 
@@ -330,7 +330,7 @@ def test_classify_element(driver):
 
 def test_pass1_complete_shows_start_pass2(driver):
     """Classify all elements in Pass 1 and verify Start Pass 2 button appears."""
-    driver.get(TL_URL)
+    driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
     time.sleep(0.5)
 
@@ -360,7 +360,7 @@ def test_pass1_complete_shows_start_pass2(driver):
 
 def test_pass2_naming_flow(driver):
     """Full pass 2 flow: classify all, enter pass 2, name one element."""
-    driver.get(TL_URL)
+    driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
     time.sleep(0.5)
 
@@ -513,7 +513,7 @@ def test_load_invalid_intermediate_shows_toast(driver):
 # qo2 — Element identity across observations
 # ---------------------------------------------------------------------------
 
-def _navigate_and_sieve(driver, clear=False):
+def _navigate_and_sieve(driver, clear=True):
     """Navigate to demo login page and run sieve. Returns when elements are loaded."""
     driver.get(TL_URL + ("&clear=1" if clear else ""))
     wait_for(driver, "url-input")
@@ -1494,20 +1494,19 @@ def test_visual_integration_diff_mode(driver):
 
 
 def test_visual_integration_diff_overlay(driver):
-    """Visual: Navigate login→about, sieve both — diff overlay shows colored rects."""
+    """Visual: Navigate login→fundraiser, sieve both — diff overlay shows colored rects."""
     judge = _get_judge()
     if not judge:
         print("    (skipped — no ANTHROPIC_API_KEY)")
         return
 
     # Sieve the login page first
-    driver.get(TL_URL)
     _navigate_and_sieve(driver, clear=True)
     _classify_n(driver, 3)
     time.sleep(0.3)
 
-    # Navigate sieve browser to /about (different page → real diff)
-    clear_and_type(driver, "url-input", "http://localhost:3000/about")
+    # Navigate sieve browser to /fundraiser (different page → real diff)
+    clear_and_type(driver, "url-input", "http://localhost:3000/fundraiser")
     click(driver, "btn-navigate")
     WebDriverWait(driver, 20).until(
         lambda d: d.find_element(
@@ -1516,7 +1515,7 @@ def test_visual_integration_diff_overlay(driver):
     )
     time.sleep(0.5)
 
-    # Re-sieve the about page — should trigger diff mode
+    # Re-sieve the fundraiser page — should trigger diff mode
     click(driver, "btn-sieve")
     time.sleep(1)
     WebDriverWait(driver, 20).until(
@@ -1848,19 +1847,31 @@ def test_o4c_integration_explore_click_no_selector_shows_toast(driver):
 
 def test_o4c_integration_explore_click_dispatches_and_resieves(driver):
     """In explore mode, clicking a link navigates and re-sieves with different content."""
-    driver.get(TL_URL)
-    _navigate_and_sieve(driver, clear=True)
+    # Start on fundraiser page — logo-link (href="/") redirects to /login
+    driver.get(TL_URL + "&clear=1")
+    wait_for(driver, "url-input")
+    time.sleep(0.5)
+
+    DEMO_FUNDRAISER = "http://localhost:3000/fundraiser"
+    clear_and_type(driver, "url-input", DEMO_FUNDRAISER)
+    click(driver, "btn-navigate")
+
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+    )
 
     pre_url = driver.execute_script("return testAPI.getPageUrl()")
-    assert "/login" in pre_url, f"Should start on login page, got: {pre_url!r}"
+    assert "/fundraiser" in pre_url, f"Should start on fundraiser page, got: {pre_url!r}"
 
     # Enable explore mode
     click(driver, "btn-explore-mode")
     time.sleep(0.3)
 
-    # Find the forgot-password link — clicking it navigates without preconditions
-    link_idx = driver.execute_script("return testAPI.findElementIndexByTestId('forgot-password')")
-    assert link_idx >= 0, "Should find forgot-password link in inventory"
+    # Find the logo link — clicking it navigates to / which redirects to /login
+    link_idx = driver.execute_script("return testAPI.findElementIndexByTestId('logo-link')")
+    assert link_idx >= 0, "Should find logo-link in inventory"
 
     pre_log_len = driver.execute_script("return testAPI.getObservationLogLength()")
 
@@ -1872,35 +1883,29 @@ def test_o4c_integration_explore_click_dispatches_and_resieves(driver):
         lambda d: d.execute_script("return testAPI.getObservationLogLength()") > pre_log_len
     )
 
-    # Verify the click actually navigated — URL should have changed
-    post_url = driver.execute_script("return testAPI.getPageUrl()")
-    assert post_url != pre_url, \
-        f"URL should have changed after clicking link, still: {post_url!r}"
-    assert "forgot" in post_url.lower(), \
-        f"Expected navigation to forgot-password page, got: {post_url!r}"
-
     # Verify observation log records the actual transition
+    # Note: state.pageUrl stays as old URL until diff is accepted — check obs2.url instead
     entry = driver.execute_script("return testAPI.getLastObservation()")
     assert entry["action"]["type"] == "click"
-    assert "forgot-password" in entry["action"]["selector"]
+    assert "logo-link" in entry["action"]["selector"]
     assert entry["obs1"]["url"] == pre_url, \
         f"obs1.url should be pre-click URL {pre_url!r}, got: {entry['obs1']['url']!r}"
-    assert entry["obs2"]["url"] == post_url, \
-        f"obs2.url should be post-click URL {post_url!r}, got: {entry['obs2']['url']!r}"
     assert entry["obs2"]["url"] != entry["obs1"]["url"], \
         "obs1 and obs2 URLs should differ after navigation click"
+    assert "/login" in entry["obs2"]["url"], \
+        f"Expected obs2.url to show /login, got: {entry['obs2']['url']!r}"
 
 
 def test_o4c_integration_explore_click_triggers_diff(driver):
     """Explore click that causes navigation triggers diff mode with 'navigation' classification."""
-    # Start on /about page, then explore-click nav-home which goes to / (redirects to /login)
-    driver.get(TL_URL)
-    driver.get(TL_URL + "&clear=1")  # reload to pick up cleared state
+    # Start on /fundraiser, then explore-click logo-link which goes to / (redirects to /login)
+    driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
     time.sleep(0.5)
 
-    # Navigate sieve browser to /about and sieve it
-    clear_and_type(driver, "url-input", "http://localhost:3000/about")
+    # Navigate sieve browser to /fundraiser and sieve it
+    DEMO_FUNDRAISER = "http://localhost:3000/fundraiser"
+    clear_and_type(driver, "url-input", DEMO_FUNDRAISER)
     click(driver, "btn-navigate")
     WebDriverWait(driver, 20).until(
         lambda d: "element" in d.find_element(
@@ -1909,34 +1914,21 @@ def test_o4c_integration_explore_click_triggers_diff(driver):
     )
     time.sleep(0.5)
 
-    # If a diff/resolve appeared from prior state, accept it first
-    mode = driver.execute_script("return testAPI.getMode()")
-    if mode in ("diff", "resolve"):
-        if mode == "resolve":
-            driver.execute_script("""
-                if (typeof finishResolve === 'function') finishResolve();
-            """)
-            time.sleep(0.5)
-        mode = driver.execute_script("return testAPI.getMode()")
-        if mode == "diff":
-            driver.execute_script("testAPI.acceptDiff()")
-            time.sleep(0.5)
-
     pre_url = driver.execute_script("return testAPI.getPageUrl()")
-    assert "/about" in pre_url, f"Should start on /about, got: {pre_url!r}"
+    assert "/fundraiser" in pre_url, f"Should start on /fundraiser, got: {pre_url!r}"
 
     # Classify a few elements so diff has old state to compare against
     _classify_n(driver, 3)
 
-    # Enable explore mode, click nav-login link (navigates from /about to /login)
+    # Enable explore mode, click logo-link (navigates from /fundraiser to /login)
     click(driver, "btn-explore-mode")
     time.sleep(0.3)
 
-    login_idx = driver.execute_script("return testAPI.findElementIndexByTestId('nav-login')")
-    assert login_idx >= 0, "Should find nav-login link in /about page inventory"
+    link_idx = driver.execute_script("return testAPI.findElementIndexByTestId('logo-link')")
+    assert link_idx >= 0, "Should find logo-link in /fundraiser page inventory"
 
     pre_log = driver.execute_script("return testAPI.getObservationLogLength()")
-    driver.execute_script(f"testAPI.jumpTo({login_idx})")
+    driver.execute_script(f"testAPI.jumpTo({link_idx})")
 
     # Wait for re-sieve cycle to complete
     WebDriverWait(driver, 25).until(
@@ -1950,7 +1942,7 @@ def test_o4c_integration_explore_click_triggers_diff(driver):
         "return testAPI.getLastObservation().obs2.url"
     )
     assert obs2_url != pre_url, \
-        f"obs2.url should differ from pre-click URL after clicking nav-login, still: {obs2_url!r}"
+        f"obs2.url should differ from pre-click URL after clicking logo-link, still: {obs2_url!r}"
     assert "/login" in obs2_url, \
         f"Expected obs2.url to show /login, got: {obs2_url!r}"
 
@@ -2096,16 +2088,16 @@ def test_visual_explore_mode_overlay(driver):
 
 
 def test_visual_integration_explore_after_click(driver):
-    """Visual: After explore click on a link from /about, diff view appears showing navigation."""
+    """Visual: After explore click on a link from /fundraiser, diff view appears showing navigation."""
     judge = _get_judge()
     if not judge:
         print("    (skipped — no ANTHROPIC_API_KEY)")
         return
 
-    # Start on /about so clicking nav-home actually navigates
+    # Start on /fundraiser so clicking logo-link actually navigates to /login
     driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
-    clear_and_type(driver, "url-input", "http://localhost:3000/about")
+    clear_and_type(driver, "url-input", "http://localhost:3000/fundraiser")
     click(driver, "btn-navigate")
     WebDriverWait(driver, 20).until(
         lambda d: "element" in d.find_element(
@@ -2114,14 +2106,14 @@ def test_visual_integration_explore_after_click(driver):
     )
     _classify_n(driver, 3)
 
-    # Enable explore mode and click the nav-login link (navigates from /about to /login)
+    # Enable explore mode and click the logo-link (navigates from /fundraiser to /login)
     click(driver, "btn-explore-mode")
     time.sleep(0.3)
 
-    link_idx = driver.execute_script("return testAPI.findElementIndexByTestId('nav-login')")
+    link_idx = driver.execute_script("return testAPI.findElementIndexByTestId('logo-link')")
 
     if link_idx < 0:
-        print("    (skipped — nav-login not found in /about inventory)")
+        print("    (skipped — logo-link not found in /fundraiser inventory)")
         return
 
     pre_url = driver.execute_script("return testAPI.getPageUrl()")
@@ -2298,7 +2290,7 @@ def test_b6db_auto_save_on_classify(driver):
 def test_b6db_auto_save_debounce(driver):
     """Rapidly classify 3 elements, verify only 1 file after debounce."""
     _clear_sessions()
-    driver.get(TL_URL)
+    driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
     time.sleep(0.5)
 
@@ -2335,7 +2327,7 @@ def test_b6db_auto_save_debounce(driver):
 def test_b6db_integration_saved_file_is_valid_intermediate(driver):
     """Saved file passes validateIntermediate() in the browser."""
     _clear_sessions()
-    driver.get(TL_URL)
+    driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
     time.sleep(0.5)
 
