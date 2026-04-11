@@ -654,12 +654,12 @@ function renderPass2Panel() {
       + '<label>Notes</label>'
       + '<textarea id="notes-input" placeholder="optional">' + escapeHtml(notesVal) + '</textarea>'
       + '<div class="pass2-btn-row">'
-      + '<button class="btn btn-primary" data-testid="btn-accept-name" onclick="acceptName()">Accept (Enter)</button>'
-      + '<button class="btn" data-testid="btn-skip-name" onclick="skipName()">Skip (Tab)</button>'
+      + '<button type="button" class="btn btn-primary" data-testid="btn-accept-name" onclick="acceptName()">Accept (Enter)</button>'
+      + '<button type="button" class="btn" data-testid="btn-skip-name" onclick="skipName()">Skip (Tab)</button>'
       + '</div>'
       + '<div class="pass2-btn-row">'
-      + '<button class="nav-btn" data-testid="nav-prev" onclick="navigate(-1)">&larr;</button>'
-      + '<button class="nav-btn" data-testid="nav-next" onclick="navigate(1)">&rarr;</button>'
+      + '<button type="button" class="nav-btn" data-testid="nav-prev" onclick="navigate(-1)">&larr;</button>'
+      + '<button type="button" class="nav-btn" data-testid="nav-next" onclick="navigate(1)">&rarr;</button>'
       + '<span data-testid="pass2-progress" style="font-size:12px;color:#888;">'
       + namedCount + ' of ' + totalPass2 + ' named</span>'
       + '</div>'
@@ -786,7 +786,7 @@ function showSummary() {
       return cat && cat !== 'chrome' && cat !== 'skip';
     });
     if (hasNamable) {
-      html += '<button class="btn btn-primary" data-testid="btn-start-pass2" onclick="startPass2()" '
+      html += '<button type="button" class="btn btn-primary" data-testid="btn-start-pass2" onclick="startPass2()" '
         + 'style="margin-top:8px;padding:6px 16px;">Start Pass 2 &rarr;</button>';
     }
   }
@@ -1307,7 +1307,7 @@ function renderDiffPanel() {
 
   // Accept button
   html += '<div class="diff-actions">'
-    + '<button class="btn" data-testid="btn-accept-diff" onclick="acceptDiff()"'
+    + '<button type="button" class="btn" data-testid="btn-accept-diff" onclick="acceptDiff()"'
     + ' style="background:#1e3a5f;color:#60a5fa;border:1px solid #60a5fa;">'
     + 'Accept \u2014 apply changes</button>'
     + '</div>';
@@ -1359,11 +1359,11 @@ function resolveColumnHtml(els, idxs, ctx, pending, side) {
       var otherId = pair[otherKey];
       var arrow = isOld ? 'paired\u2192#' + otherId : '\u2190paired#' + otherId;
       html += '<span style="color:#22c55e;font-size:11px;">' + arrow + '</span>'
-        + '<button class="btn" style="' + btnStyle + '" onclick="resolveUndoPair('
+        + '<button type="button" class="btn" style="' + btnStyle + '" onclick="resolveUndoPair('
         + (isOld ? idx + ',' + otherId : otherId + ',' + idx) + ')">undo</button>';
     } else if (isMarked) {
       html += '<span style="color:' + markColor + ';font-size:11px;">' + markLabel + '</span>'
-        + '<button class="btn" style="' + btnStyle + '" onclick="' + undoMarkFn + '(' + idx + ')">undo</button>';
+        + '<button type="button" class="btn" style="' + btnStyle + '" onclick="' + undoMarkFn + '(' + idx + ')">undo</button>';
     } else {
       // Unresolved item — show metadata, select/mark buttons
       if (isOld) {
@@ -1382,8 +1382,8 @@ function resolveColumnHtml(els, idxs, ctx, pending, side) {
           html += '<span style="color:#666;font-size:10px;">' + Math.round(rect.x) + ',' + Math.round(rect.y) + '</span>';
         }
       }
-      html += '<button class="btn" style="' + btnStyle + '" onclick="' + selectFn + '(' + idx + ')">select</button>'
-        + '<button class="btn" style="' + btnStyle + 'color:' + markColor + ';border-color:' + markColor + ';" onclick="' + markFn + '(' + idx + ')">' + markLabel + '</button>';
+      html += '<button type="button" class="btn" style="' + btnStyle + '" onclick="' + selectFn + '(' + idx + ')">select</button>'
+        + '<button type="button" class="btn" style="' + btnStyle + 'color:' + markColor + ';border-color:' + markColor + ';" onclick="' + markFn + '(' + idx + ')">' + markLabel + '</button>';
     }
     html += '</div>';
   }
@@ -1429,13 +1429,13 @@ function renderResolvePanel() {
   var allDone = areAllGroupsResolved();
   html += '<div class="resolve-actions">';
   if (ctx.allGroups.length > 1) {
-    html += '<button class="btn" onclick="resolveNavGroup(-1)"'
+    html += '<button type="button" class="btn" onclick="resolveNavGroup(-1)"'
       + (ctx.currentGroupIdx === 0 ? ' disabled style="opacity:0.4"' : '') + '>&larr; Prev group</button>';
-    html += '<button class="btn" onclick="resolveNavGroup(1)"'
+    html += '<button type="button" class="btn" onclick="resolveNavGroup(1)"'
       + (ctx.currentGroupIdx >= ctx.allGroups.length - 1 ? ' disabled style="opacity:0.4"' : '') + '>Next group &rarr;</button>';
   }
   html += '<span style="flex:1;"></span>';
-  html += '<button class="btn btn-primary" data-testid="btn-resolve-done" onclick="finishResolve()"'
+  html += '<button type="button" class="btn btn-primary" data-testid="btn-resolve-done" onclick="finishResolve()"'
     + (allDone ? '' : ' disabled style="opacity:0.4"') + '>Done — apply matches</button>';
   html += '</div>';
 

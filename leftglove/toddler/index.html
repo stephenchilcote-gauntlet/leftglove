@@ -10,13 +10,13 @@
 
 <!-- Toolbar -->
 <div id="toolbar">
-  <input type="text" id="url-input" data-testid="url-input" placeholder="Enter URL and press Navigate...">
-  <button class="btn" id="btn-navigate" data-testid="btn-navigate">Navigate</button>
+  <input type="text" id="url-input" data-testid="url-input" placeholder="Enter URL and press Navigate..." aria-label="Target URL">
+  <button type="button" class="btn" id="btn-navigate" data-testid="btn-navigate">Navigate</button>
   <button class="btn btn-primary" id="btn-sieve" data-testid="btn-sieve">Sieve</button>
-  <button class="btn" id="btn-export" data-testid="btn-export">Export</button>
-  <button class="btn" id="btn-export-glossary" data-testid="btn-export-glossary" style="display:none">Export Glossary</button>
-  <button class="btn" id="btn-load" data-testid="btn-load">Load</button>
-  <button class="btn" id="btn-explore-mode" data-testid="btn-explore-mode">Explore</button>
+  <button type="button" class="btn" id="btn-export" data-testid="btn-export">Export</button>
+  <button type="button" class="btn" id="btn-export-glossary" data-testid="btn-export-glossary" style="display:none">Export Glossary</button>
+  <button type="button" class="btn" id="btn-load" data-testid="btn-load">Load</button>
+  <button type="button" class="btn" id="btn-explore-mode" data-testid="btn-explore-mode">Explore</button>
   <input type="file" id="file-input" accept=".json" style="display:none">
   <span id="status-indicator" data-testid="status-indicator">Ready</span>
   <span id="mode-indicator" data-testid="mode-indicator"></span>
@@ -47,19 +47,19 @@
   </div>
   <div id="panel-controls">
     <div class="category-row">
-      <button class="cat-btn" data-cat="clickable" data-testid="cat-clickable" onclick="classify('clickable')"><u>c</u>lick</button>
-      <button class="cat-btn" data-cat="typable" data-testid="cat-typable" onclick="classify('typable')"><u>t</u>ype</button>
-      <button class="cat-btn" data-cat="readable" data-testid="cat-readable" onclick="classify('readable')"><u>r</u>ead</button>
-      <button class="cat-btn" data-cat="chrome" data-testid="cat-chrome" onclick="classify('chrome')">chr(<u>x</u>)</button>
-      <button class="cat-btn" data-cat="custom" data-testid="cat-custom" onclick="classify('custom')">c<u>u</u>stom</button>
+      <button type="button" class="cat-btn" data-cat="clickable" data-testid="cat-clickable" onclick="classify('clickable')"><u>c</u>lick</button>
+      <button type="button" class="cat-btn" data-cat="typable" data-testid="cat-typable" onclick="classify('typable')"><u>t</u>ype</button>
+      <button type="button" class="cat-btn" data-cat="readable" data-testid="cat-readable" onclick="classify('readable')"><u>r</u>ead</button>
+      <button type="button" class="cat-btn" data-cat="chrome" data-testid="cat-chrome" onclick="classify('chrome')">chr(<u>x</u>)</button>
+      <button type="button" class="cat-btn" data-cat="custom" data-testid="cat-custom" onclick="classify('custom')">c<u>u</u>stom</button>
     </div>
     <div class="category-row">
-      <button class="cat-btn" data-cat="split" data-testid="cat-split" onclick="classify('split')"><u>/</u> split</button>
-      <button class="cat-btn" data-cat="skip" data-testid="cat-skip" onclick="classify('skip')"><u>.</u> skip</button>
+      <button type="button" class="cat-btn" data-cat="split" data-testid="cat-split" onclick="classify('split')"><u>/</u> split</button>
+      <button type="button" class="cat-btn" data-cat="skip" data-testid="cat-skip" onclick="classify('skip')"><u>.</u> skip</button>
     </div>
     <div class="nav-row">
-      <button class="nav-btn" data-testid="nav-prev" onclick="navigate(-1)" title="Previous element">&larr;</button>
-      <button class="nav-btn" data-testid="nav-next" onclick="navigate(1)" title="Next element">&rarr;</button>
+      <button type="button" class="nav-btn" data-testid="nav-prev" onclick="navigate(-1)" title="Previous element">&larr;</button>
+      <button type="button" class="nav-btn" data-testid="nav-next" onclick="navigate(1)" title="Next element">&rarr;</button>
       <span id="progress" data-testid="progress">—</span>
       <span id="classified-count" data-testid="classified-count"></span>
     </div>
