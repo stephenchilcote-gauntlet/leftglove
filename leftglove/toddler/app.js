@@ -617,6 +617,7 @@ function renderPass2Panel() {
   if (!elements) return;
 
   var el = elements[state.currentIndex];
+  if (!el) return;
   var detail = document.getElementById('element-detail');
   var controls = document.getElementById('panel-controls');
   var summary = document.getElementById('summary');
