@@ -1601,7 +1601,14 @@ function fromIntermediate(data) {
   if (allClassified && Object.keys(result.glossaryNames).length > 0) {
     state.mode = 'pass2';
     buildPass2Order();
-    if (allPass2Named()) state.mode = 'review';
+    if (state.pass2Order.length === 0) {
+      // All elements are chrome/skip — nothing to name, stay in pass1
+      state.mode = 'pass1';
+      state.pass2Order = [];
+      state.pass2Cursor = 0;
+    } else if (allPass2Named()) {
+      state.mode = 'review';
+    }
     var pos = state.pass2Order.indexOf(state.currentIndex);
     state.pass2Cursor = pos >= 0 ? pos : 0;
   } else {
