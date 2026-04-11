@@ -252,6 +252,14 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Test: stale /about (404) references in explore tests | Replaced with /fundraiser (real page) | `b8f0e01` |
 | Test: dead forgot-password (href=#) in explore tests | Replaced with logo-link (href=/) for real navigation | `b8f0e01` |
 | Test: explore click asserted pageUrl instead of obs2.url | pageUrl stays old until diff accepted — check obs2.url instead | `b8f0e01` |
+| Bug: review mode navigation used all-elements instead of pass2Order | Include review in pass2 navigation path | `78fe226` |
+| Bug: jumpTo in review mode didn't update pass2Cursor | Include review in pass2Cursor sync | `78fe226` |
+| Bug: Enter/Tab keys didn't work in review mode | Include review in pass2 keyboard handler | `78fe226` |
+| Bug: loadState didn't sync pass2Cursor for review mode | Include review in cursor-from-index sync | `78fe226` |
+| Bug: file-load renderScreenshot unhandled rejection | Wrap in try/catch | `3ece322` |
+| Bug: doNavigate conflated navigate and sieve errors | Separate try/catch blocks | `3ece322` |
+| Bug: jumpTo accepted out-of-bounds index | Add bounds check | `3270d50` |
+| Validation: viewport/rect accepted NaN/Infinity | Add isFinite checks | `3270d50` |
 | Bug: demo selectAmount CSS class swap fragile — orphaned hover classes | Use `classList.add/remove` instead of string replace | `0ae6c3e` |
 | Bug: donate-button had split handlers (inline onclick + addEventListener) | Consolidated to single listener | `0ae6c3e` |
 | Bug: `observe` MCP tool url parameter silently ignored | Navigate to URL before sieving | `e576312` |
@@ -286,7 +294,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Finding #4 fix | 0.95 | AST-based linter enforces whitelist. 21 tests recategorized. Pre-commit hook. All 69/69 e2e tests pass. Test isolation fixed: clear localStorage between tests. `?clear=1` replaces execute_script |
 | Finding #5 fix | 0.95 | Shared lib works, dead script removed. `--no-sieve` respected with `--use-dev`. demo-test runs features individually. recurring-donation.feature uses valid built-in steps |
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
-| Finding #7 decision | 0.92 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar. Escape toggle now guarded: pass2→review only when all named |
+| Finding #7 decision | 0.96 | Review mode shares pass2 navigation/keyboard/cursor. 4 review-mode bugs fixed: navigate, jumpTo, Enter/Tab keys, loadState sync. Escape toggle guarded. Mode persisted in `_ui` sidecar |
 | Finding #8 fix | 0.95 | Trivial, correct fixes |
 | Structural refactors | 0.97 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + diff module extraction + intermediate module extraction + svgLabel helper + downloadBlob utility. Pure `parseIntermediate` eliminates state-mutation coupling. `escapeHtml` no longer allocates DOM. app.js reduced from 2151 to ~1900 lines. 4 modules (glossary, diff, intermediate, app) with clear responsibilities |
 | Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement; `buildPass2Order` rejects unclassified elements; viewport dims correct in diff mode; observationLog capped at 100 entries; cursor positions clamped on restore; glossary field normalization verified. `classify()` saves state after index advancement. `simulateDiff` no longer corrupts resolvedPairs. `acceptDiff` preserves pass2 cursor. `renderMetadata` shows correct inventory in diff mode. Explore click blocked when diff pending. `acceptName` works in review mode |
@@ -301,9 +309,9 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Unknown unknowns | 0.99 | Found 46+ bugs across 20+ passes. Deep architectural audit of every module. Full e2e suite: 69/69 pass. 113 unit tests pass. Very strong diminishing returns on last passes |
 | Test isolation | 0.99 | All e2e tests start from clean localStorage. Test ordering no longer causes failures. Stale /about refs replaced with /fundraiser. URL assertion correctness verified |
 
-**P(no objections) ≈ 0.96 × 0.97 × 0.95 × 0.95 × 0.95 × 0.95 × 0.92 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.97 × 0.99 × 0.99 ≈ 0.80 (80%)**
+**P(no objections) ≈ 0.96 × 0.97 × 0.95 × 0.95 × 0.95 × 0.95 × 0.96 × 0.95 × 0.97 × 0.98 × 0.96 × 0.99 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.97 × 0.99 × 0.99 ≈ 0.84 (84%)**
 
-**Biggest remaining risks**: Finding #7 review mode (0.92), finding #4 test coupling (0.95). All 69 e2e tests + 113 unit tests pass. ~109 commits since `before_loop`. Every module in the repo has been audited. e2e test discipline enforced by AST linter + pre-commit hook.
+**Biggest remaining risks**: Finding #4 test coupling (0.95), finding #1/3/5/6/8 (0.95-0.96). All 69 e2e tests + 113 unit tests pass. ~112 commits since `before_loop`. Every module audited. Review mode now fully consistent with pass2 navigation/keyboard.
 
 **E2e test results (full suite with sieve)**: **69/69 pass (100%)**. Root cause of prior 19 failures: test isolation — localStorage state leaked between tests, triggering diff mode instead of fresh sieve. Fixed by adding `&clear=1` to all sieve-dependent tests. Also fixed stale `/about` (404) references → `/fundraiser`, dead `forgot-password` (href=#) → `logo-link` (href=/), and incorrect URL assertion (pageUrl vs obs2.url).
 
