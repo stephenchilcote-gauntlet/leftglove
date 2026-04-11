@@ -137,7 +137,7 @@ Working assumption: the core invariant is a truthful, simple loop around `observ
 
 | Finding | Decision | Reasoning |
 |---------|----------|-----------|
-| #3 (High) Explore mode | **Kept** | Part of product vision (o4c in implementation tracker, described in LEFT-GLOVE-VISION.md, toddler-loop.md, feature-vision.md). Not dead code. |
+| #3 (High) Explore mode | **Kept** | Core feature, not optional complexity. The observation loop is how agents discover what elements *do*. Confirmed by project owner. |
 | #4 (Medium) Test coupling | **Addressed** | AST-based linter (`lint_e2e.py`) enforces whitelist of allowed Selenium methods. 21 tests recategorized as `_pure_` or `_integration_`. Pre-commit hook blocks violations. e2e tests now use only clicks, keys, and DOM reads. `b1dcaae` |
 | #7 (Medium) Review mode | **Kept** | Low complexity cost (few `\|\| mode === 'review'` checks). Provides real UX value: Escape toggles editing/reviewing. |
 
@@ -277,7 +277,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 |--------|-------|-------|
 | Finding #1 fix | 0.96 | Clean deletion, build verified. Demo segments updated to match |
 | Finding #2 fix | 0.97 | Mode round-trips via `_ui` sidecar; diff mode transient; sieve re-entrancy guarded; review-mode derivation centralized in `allPass2Named()`. acceptDiff handles upgrade, downgrade, and pass1 fallback. Serialization now extracted with 35-case round-trip test suite. Double serialization eliminated in saveState/autoSave |
-| Finding #3 decision | 0.55 | Code review rated High; I overrode based on vision docs. User may agree with reviewer |
+| Finding #3 decision | 0.95 | Core feature confirmed by project owner. Reviewer misjudged it as optional complexity |
 | Finding #4 fix | 0.93 | AST-based linter enforces whitelist of allowed Selenium methods. 21 tests recategorized. Pre-commit hook blocks violations. All 69 test references verified. `?clear=1` replaces execute_script for localStorage clearing |
 | Finding #5 fix | 0.95 | Shared lib works, dead script removed. `--no-sieve` respected with `--use-dev`. demo-test runs features individually. recurring-donation.feature uses valid built-in steps |
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
@@ -295,11 +295,11 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Server robustness | 0.97 | Directory traversal fix, error handler, async readdir. Demo CSS fixed. Donate handler consolidated |
 | Unknown unknowns | 0.96 | Found 46 bugs across 20 passes. Deep architectural audit of every module. Full server, demo, MCP, shell script, feature file audit. All JS modules, HTML, CSS reviewed. 20 passes — very strong diminishing returns on last 3 passes. Gap: full e2e run |
 
-**P(no objections) ≈ 0.96 × 0.97 × 0.55 × 0.93 × 0.95 × 0.95 × 0.92 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.97 × 0.96 ≈ 0.41 (41%)**
+**P(no objections) ≈ 0.96 × 0.97 × 0.95 × 0.93 × 0.95 × 0.95 × 0.92 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.97 × 0.96 ≈ 0.71 (71%)**
 
-**Biggest risk**: Still the explore mode decision (0.55). Without that factor, P ≈ 0.74. 113 tests pass across 4 modules. ~105 commits since `before_loop`. Every module in the repo has been audited: app.js (deep architectural review + state machine trace), diff.js, intermediate.js, glossary.js, server.js, MCP server (TypeScript), demo app (Express + EJS), shell scripts, feature files, glossary EDN, CSS. e2e test discipline enforced by AST linter + pre-commit hook.
+**Biggest remaining risks**: Finding #4 test coupling (0.93), finding #7 review mode (0.92). 113 tests pass across 4 modules. ~105 commits since `before_loop`. Every module in the repo has been audited. e2e test discipline enforced by AST linter + pre-commit hook.
 
-**What would raise P above 90%**: User confirming explore mode decision (removes 0.55 factor → P ≈ 0.74), then running full e2e suite.
+**What would raise P above 90%**: Running the full e2e test suite against the changed code.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
