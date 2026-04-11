@@ -2082,7 +2082,7 @@ def test_visual_explore_mode_overlay(driver):
         critical("Is there a dark-themed web application UI with a toolbar at the top?"),
         critical("Is there a screenshot of a web page displayed in the main area with rectangular overlays?"),
         critical("Is there a button in the toolbar that says 'Explore ON' or similar explore-related text with an orange/highlighted appearance?"),
-        critical("Are the overlay rectangles on the screenshot tinted orange or have orange-colored outlines (not the default cyan/blue)?"),
+        critical("Are there dashed rectangular outlines in orange (#f97316) color around page elements, distinct from the default cyan/teal overlays? Look for orange dashed borders around the form, nav bar, or input fields."),
         advisory("Is there a mode indicator or status text visible in the toolbar area?"),
     ], test_name="o4c_explore_mode_overlay")
 
