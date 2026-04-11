@@ -160,13 +160,13 @@ function showToast(msg, duration) {
 
 // ---- API calls ----
 async function fetchSieve() {
-  const res = await fetch(API + '/sieve', { method: 'POST' });
+  const res = await fetch(API + '/sieve', { method: 'POST', signal: AbortSignal.timeout(30000) });
   if (!res.ok) throw new Error('Sieve request failed: ' + res.status);
   return res.json();
 }
 
 async function fetchScreenshot() {
-  const res = await fetch(API + '/screenshot');
+  const res = await fetch(API + '/screenshot', { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error('Screenshot request failed: ' + res.status);
   const blob = await res.blob();
   return blobToDataUrl(blob);
@@ -186,13 +186,14 @@ async function fetchNavigate(url) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),
+    signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) throw new Error('Navigate request failed: ' + res.status);
   return res.json();
 }
 
 async function fetchStatus() {
-  const res = await fetch(API + '/status');
+  const res = await fetch(API + '/status', { signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error('Status request failed: ' + res.status);
   return res.json();
 }
@@ -202,6 +203,7 @@ async function fetchClick(selector) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ selector }),
+    signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) throw new Error('Click request failed: ' + res.status);
   return res.json();
