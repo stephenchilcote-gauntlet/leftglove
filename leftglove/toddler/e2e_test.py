@@ -2257,7 +2257,7 @@ def test_b6db_pure_sessions_endpoint_lists_files(driver):
 def test_b6db_auto_save_on_classify(driver):
     """Classify an element, wait for debounce, check sessions/ has a file."""
     _clear_sessions()
-    driver.get(TL_URL)
+    driver.get(TL_URL + "&clear=1")
     wait_for(driver, "url-input")
     time.sleep(0.5)
 
