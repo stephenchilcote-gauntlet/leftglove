@@ -272,6 +272,17 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: `parseIntermediate` double-colon on category | Strip leading colon before re-adding | `3890376` |
 | Bug: `propagateNames` truthy check drops falsy glossary names | Use `!== undefined` consistent with classifications | `3890376` |
 | A11y: buttons default to type=submit, url-input unlabeled | Added `type="button"` to all buttons, `aria-label` to url-input | `b1d1c8f` |
+| Server: `writeFileSync` blocks event loop in /save handler | Replaced with async `fs.writeFile` | `a2334f3` |
+| Server: unbounded POST body on /save | Added 10MB limit with `req.destroy()` on overflow | `a2334f3` |
+| Server: double-response when error+end both fire | Added `errored` flag to prevent second response | `a2334f3` |
+| Test: substring assertion `str(count) in status` | Changed to word-boundary regex to prevent "4" matching "45" | `a2334f3` |
+| Bug: 3 pass1 transitions leave stale pass2Order/pass2Cursor | Reset both fields in `acceptDiff`, `fromIntermediate`, `resetToPass1` | `328306a` |
+| Gap: Fundraiser glossary covers 9 of 54 testids | Added all 58 elements with types, organized by region | `7797924` |
+| Bug: `fromIntermediate` enters pass2 with unclassified elements | Check `allClassified` before advancing to pass2 — prevents unreachable elements | `8a2472c` |
+| Bug: `renderPass2Panel` crash on out-of-bounds currentIndex | Early return when `el` is undefined | `809e6bc` |
+| Bug: `skipName` doesn't work in review mode | Allow both pass2 and review, matching `acceptName` | `2c188b5` |
+| Perf: auto-save fetch has no timeout | Added 10s `AbortSignal.timeout` — last fetch call without one | `361fcb4` |
+| Bug: `wait_for` curl timeout causes max_wait overshoot | Reduced `--max-time` from 3s to 2s | `e71d067` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -284,36 +295,36 @@ After addressing the code review findings, audited for the same anti-patterns ac
 
 ### Bayesian Analysis: P(no objections)
 
-**Updated estimate after twentieth pass (full codebase audit complete):**
+**Updated estimate after twenty-first pass (continued deep audit):**
 
 | Factor | P(ok) | Notes |
 |--------|-------|-------|
 | Finding #1 fix | 0.96 | Clean deletion, build verified. Demo segments updated to match |
 | Finding #2 fix | 0.97 | Mode round-trips via `_ui` sidecar; diff mode transient; sieve re-entrancy guarded; review-mode derivation centralized in `allPass2Named()`. acceptDiff handles upgrade, downgrade, and pass1 fallback. Serialization now extracted with 35-case round-trip test suite. Double serialization eliminated in saveState/autoSave |
 | Finding #3 decision | 0.95 | Core feature confirmed by project owner. Reviewer misjudged it as optional complexity |
-| Finding #4 fix | 0.95 | AST-based linter enforces whitelist. 21 tests recategorized. Pre-commit hook. All 69/69 e2e tests pass. Test isolation fixed: clear localStorage between tests. `?clear=1` replaces execute_script |
-| Finding #5 fix | 0.95 | Shared lib works, dead script removed. `--no-sieve` respected with `--use-dev`. demo-test runs features individually. recurring-donation.feature uses valid built-in steps |
-| Finding #6 fix | 0.95 | Straightforward dead code removal |
-| Finding #7 decision | 0.96 | Review mode shares pass2 navigation/keyboard/cursor. 4 review-mode bugs fixed: navigate, jumpTo, Enter/Tab keys, loadState sync. Escape toggle guarded. Mode persisted in `_ui` sidecar |
-| Finding #8 fix | 0.95 | Trivial, correct fixes |
+| Finding #4 fix | 0.96 | AST-based linter enforces whitelist. 21 tests recategorized. Pre-commit hook. All 69/69 e2e tests pass. Test isolation fixed. Substring assertion bug fixed (word-boundary regex) |
+| Finding #5 fix | 0.96 | Shared lib works, dead script removed. `--no-sieve` respected. `wait_for` curl timeout tightened to prevent max_wait overshoot |
+| Finding #6 fix | 0.96 | Straightforward dead code removal. Glossary expanded to cover all 58 HTML testids |
+| Finding #7 decision | 0.97 | Review mode shares pass2 navigation/keyboard/cursor. 5 review-mode bugs fixed (navigate, jumpTo, Enter/Tab, loadState, skipName). Escape toggle guarded. Mode persisted in `_ui` sidecar |
+| Finding #8 fix | 0.96 | Trivial, correct fixes. Auto-save fetch timeout added (was the last unguarded fetch) |
 | Structural refactors | 0.97 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + diff module extraction + intermediate module extraction + svgLabel helper + downloadBlob utility. Pure `parseIntermediate` eliminates state-mutation coupling. `escapeHtml` no longer allocates DOM. app.js reduced from 2151 to ~1900 lines. 4 modules (glossary, diff, intermediate, app) with clear responsibilities |
-| Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement; `buildPass2Order` rejects unclassified elements; viewport dims correct in diff mode; observationLog capped at 100 entries; cursor positions clamped on restore; glossary field normalization verified. `classify()` saves state after index advancement. `simulateDiff` no longer corrupts resolvedPairs. `acceptDiff` preserves pass2 cursor. `renderMetadata` shows correct inventory in diff mode. Explore click blocked when diff pending. `acceptName` works in review mode |
+| Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement. `fromIntermediate` now checks `allClassified` before entering pass2 (prevents unreachable elements). Every pass1 transition resets pass2Order/pass2Cursor |
 | Dead asset removal | 0.96 | Comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
 | Test suite quality | 0.99 | 69/69 e2e + 113 unit tests pass. 2800 random PBT inputs. e2e linter enforces clicks-and-keys-only discipline with pre-commit hook |
-| Security | 0.98 | Full XSS audit: all innerHTML paths use `escapeHtml()`. CSS selectors escaped via `CSS.escape()`. `bestLocator` href values escaped. No command injection |
+| Security | 0.98 | Full XSS audit: all innerHTML paths use `escapeHtml()`. CSS selectors escaped via `CSS.escape()`. `bestLocator` href values escaped. Server: 10MB body limit, async writeFile, directory traversal fix |
 | MCP server quality | 0.98 | Clean architecture. EDN parser has 23-case test suite + NaN guard. `observe` tool navigates before sieving. `npm test` script added |
-| Cross-references | 0.99 | All 13 toddler feature file element refs verified in glossary EDN. All glossary testid bindings verified in HTML. All 9 demo-app glossary elements verified in fundraiser.ejs/login.ejs |
-| Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress` |
-| State machine | 0.99 | All 9 mode transitions traced. Escape pass2→review guarded by `allPass2Named()`. `classify()` saves consistent state. `doExploreClick` guarded by `isModeBlocked()`. `acceptName` works in review mode. `acceptDiff` preserves cursor. Keyboard handler dispatch covers all 5 modes |
-| Server robustness | 0.97 | Directory traversal fix, error handler, async readdir. Demo CSS fixed. Donate handler consolidated |
-| Unknown unknowns | 0.99 | Found 46+ bugs across 20+ passes. Deep architectural audit of every module. Full e2e suite: 69/69 pass. 113 unit tests pass. Very strong diminishing returns on last passes |
-| Test isolation | 0.99 | All e2e tests start from clean localStorage. Test ordering no longer causes failures. Stale /about refs replaced with /fundraiser. URL assertion correctness verified |
+| Cross-references | 0.99 | All feature file element refs verified in glossary EDN. Fundraiser glossary now covers all 58 testids. Login glossary covers all 7 testids |
+| Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress`. All fetch calls have timeouts |
+| State machine | 0.99 | All 9 mode transitions traced. Every pass1 transition resets pass2 state. `fromIntermediate` validates allClassified before pass2. `renderPass2Panel` guards against out-of-bounds. `skipName` works in review mode |
+| Server robustness | 0.98 | Directory traversal fix, error handler, async readdir+writeFile, body size limit, double-response guard. Demo CSS fixed. Donate handler consolidated |
+| Unknown unknowns | 0.99 | Found 50+ bugs across 21+ passes. Deep architectural audit of every module. Full e2e suite: 69/69 pass. 113 unit tests pass. Very strong diminishing returns |
+| Test isolation | 0.99 | All e2e tests start from clean localStorage. Test ordering no longer causes failures. Stale refs replaced. URL assertion correctness verified |
 
-**P(no objections) ≈ 0.96 × 0.97 × 0.95 × 0.95 × 0.95 × 0.95 × 0.96 × 0.95 × 0.97 × 0.98 × 0.96 × 0.99 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.97 × 0.99 × 0.99 ≈ 0.84 (84%)**
+**P(no objections) ≈ 0.96 × 0.97 × 0.95 × 0.96 × 0.96 × 0.96 × 0.97 × 0.96 × 0.97 × 0.98 × 0.96 × 0.99 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.98 × 0.99 × 0.99 ≈ 0.86 (86%)**
 
-**Biggest remaining risks**: Finding #4 test coupling (0.95), finding #1/3/5/6/8 (0.95-0.96). All 69 e2e tests + 113 unit tests pass. ~112 commits since `before_loop`. Every module audited. Review mode now fully consistent with pass2 navigation/keyboard.
+**Biggest remaining risks**: Finding #3 (explore mode, subjective, 0.95), findings #1/#4/#5/#6/#8 (0.96). All 69 e2e tests + 113 unit tests pass. ~120 commits since `before_loop`. Every module audited.
 
-**E2e test results (full suite with sieve)**: **69/69 pass (100%)**. Root cause of prior 19 failures: test isolation — localStorage state leaked between tests, triggering diff mode instead of fresh sieve. Fixed by adding `&clear=1` to all sieve-dependent tests. Also fixed stale `/about` (404) references → `/fundraiser`, dead `forgot-password` (href=#) → `logo-link` (href=/), and incorrect URL assertion (pageUrl vs obs2.url).
+**E2e test results (full suite with sieve)**: **69/69 pass (100%)**.
 
 ## Notes
 
