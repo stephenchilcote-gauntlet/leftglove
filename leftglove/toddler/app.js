@@ -150,6 +150,18 @@ function showModeBlockedToast() {
     : 'Accept or review the current diff first.');
 }
 
+// ---- Render helpers ----
+function commitAndRender() {
+  saveState();
+  renderOverlay();
+  renderPanel();
+}
+
+function commitRenderScroll() {
+  commitAndRender();
+  scrollToCurrentElement();
+}
+
 // ---- Toast ----
 function showToast(msg, duration) {
   const el = document.getElementById('toast');
@@ -813,10 +825,7 @@ function startPass2() {
     state.currentIndex = state.pass2Order[0];
   }
   _lastPass2Rendered = -1;
-  saveState();
-  renderOverlay();
-  renderPanel();
-  scrollToCurrentElement();
+  commitRenderScroll();
 }
 
 function acceptName() {
@@ -841,9 +850,7 @@ function acceptName() {
   if (allPass2Named()) {
     state.mode = 'review';
     _lastPass2Rendered = -1;
-    saveState();
-    renderOverlay();
-    renderPanel();
+    commitAndRender();
     return;
   }
 
@@ -858,10 +865,7 @@ function acceptName() {
     }
   }
   _lastPass2Rendered = -1;
-  saveState();
-  renderOverlay();
-  renderPanel();
-  scrollToCurrentElement();
+  commitRenderScroll();
 }
 
 function skipName() {
@@ -871,10 +875,7 @@ function skipName() {
   state.pass2Cursor = (state.pass2Cursor + 1) % len;
   state.currentIndex = state.pass2Order[state.pass2Cursor];
   _lastPass2Rendered = -1;
-  saveState();
-  renderOverlay();
-  renderPanel();
-  scrollToCurrentElement();
+  commitRenderScroll();
 }
 
 // ---- Classification ----
@@ -902,10 +903,7 @@ function classify(category) {
   }
 
   state.currentIndex = Math.min(next, total - 1);
-  saveState();
-  renderOverlay();
-  renderPanel();
-  scrollToCurrentElement();
+  commitRenderScroll();
 }
 
 // ---- Pass 2 Helpers ----
@@ -1479,10 +1477,7 @@ function navigate(delta) {
     const total = state.inventory.elements.length;
     state.currentIndex = Math.max(0, Math.min(total - 1, state.currentIndex + delta));
   }
-  saveState();
-  renderOverlay();
-  renderPanel();
-  scrollToCurrentElement();
+  commitRenderScroll();
 }
 
 async function jumpTo(index) {
@@ -1498,9 +1493,7 @@ async function jumpTo(index) {
     if (pos >= 0) state.pass2Cursor = pos;
     _lastPass2Rendered = -1;
   }
-  saveState();
-  renderOverlay();
-  renderPanel();
+  commitAndRender();
 }
 
 async function doExploreClick(index) {
@@ -1815,9 +1808,7 @@ function handlePass2Keydown(e) {
       }
     }
     _lastPass2Rendered = -1;
-    saveState();
-    renderOverlay();
-    renderPanel();
+    commitAndRender();
     return;
   }
 
