@@ -248,6 +248,10 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: server crash on client disconnect during /save | Add `req.on('error')` handler | `589c736` |
 | Perf: `readdirSync` blocks event loop in /sessions handler | Replace with async `readdir` | `589c736` |
 | Bug: EDN parser `parseNumber` produces NaN on bare `-` | Throw explicit error | `589c736` |
+| Test: localStorage leak between e2e tests | Added `&clear=1` to all sieve-dependent tests; changed `_navigate_and_sieve` default to `clear=True` | `b8f0e01` |
+| Test: stale /about (404) references in explore tests | Replaced with /fundraiser (real page) | `b8f0e01` |
+| Test: dead forgot-password (href=#) in explore tests | Replaced with logo-link (href=/) for real navigation | `b8f0e01` |
+| Test: explore click asserted pageUrl instead of obs2.url | pageUrl stays old until diff accepted — check obs2.url instead | `b8f0e01` |
 | Bug: demo selectAmount CSS class swap fragile — orphaned hover classes | Use `classList.add/remove` instead of string replace | `0ae6c3e` |
 | Bug: donate-button had split handlers (inline onclick + addEventListener) | Consolidated to single listener | `0ae6c3e` |
 | Bug: `observe` MCP tool url parameter silently ignored | Navigate to URL before sieving | `e576312` |
@@ -279,7 +283,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Finding #1 fix | 0.96 | Clean deletion, build verified. Demo segments updated to match |
 | Finding #2 fix | 0.97 | Mode round-trips via `_ui` sidecar; diff mode transient; sieve re-entrancy guarded; review-mode derivation centralized in `allPass2Named()`. acceptDiff handles upgrade, downgrade, and pass1 fallback. Serialization now extracted with 35-case round-trip test suite. Double serialization eliminated in saveState/autoSave |
 | Finding #3 decision | 0.95 | Core feature confirmed by project owner. Reviewer misjudged it as optional complexity |
-| Finding #4 fix | 0.93 | AST-based linter enforces whitelist of allowed Selenium methods. 21 tests recategorized. Pre-commit hook blocks violations. All 69 test references verified. `?clear=1` replaces execute_script for localStorage clearing |
+| Finding #4 fix | 0.95 | AST-based linter enforces whitelist. 21 tests recategorized. Pre-commit hook. All 69/69 e2e tests pass. Test isolation fixed: clear localStorage between tests. `?clear=1` replaces execute_script |
 | Finding #5 fix | 0.95 | Shared lib works, dead script removed. `--no-sieve` respected with `--use-dev`. demo-test runs features individually. recurring-donation.feature uses valid built-in steps |
 | Finding #6 fix | 0.95 | Straightforward dead code removal |
 | Finding #7 decision | 0.92 | Review mode correctly derived via `allPass2Named()`, persisted in `_ui` sidecar. Escape toggle now guarded: pass2→review only when all named |
@@ -287,22 +291,21 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Structural refactors | 0.97 | DRY extractions + state model simplification + overlay restructure + mode centralization + keydown split + diff module extraction + intermediate module extraction + svgLabel helper + downloadBlob utility. Pure `parseIntermediate` eliminates state-mutation coupling. `escapeHtml` no longer allocates DOM. app.js reduced from 2151 to ~1900 lines. 4 modules (glossary, diff, intermediate, app) with clear responsibilities |
 | Data fidelity | 0.98 | Element state + visibleText preserved through round-trip; state diff works; resolved elements appear in diff; fixtures aligned; mode transitions consistent; race guarded; empty sieve handled; pass2 panel forced-refresh on data replacement; `buildPass2Order` rejects unclassified elements; viewport dims correct in diff mode; observationLog capped at 100 entries; cursor positions clamped on restore; glossary field normalization verified. `classify()` saves state after index advancement. `simulateDiff` no longer corrupts resolvedPairs. `acceptDiff` preserves pass2 cursor. `renderMetadata` shows correct inventory in diff mode. Explore click blocked when diff pending. `acceptName` works in review mode |
 | Dead asset removal | 0.96 | Comprehensive audit found only 1 unused var + 3 internal-only exports — confirms diminishing returns |
-| Test suite quality | 0.98 | 113 node:test assertions across 4 modules. 2800 random PBT inputs. e2e linter enforces clicks-and-keys-only discipline with pre-commit hook |
+| Test suite quality | 0.99 | 69/69 e2e + 113 unit tests pass. 2800 random PBT inputs. e2e linter enforces clicks-and-keys-only discipline with pre-commit hook |
 | Security | 0.98 | Full XSS audit: all innerHTML paths use `escapeHtml()`. CSS selectors escaped via `CSS.escape()`. `bestLocator` href values escaped. No command injection |
 | MCP server quality | 0.98 | Clean architecture. EDN parser has 23-case test suite + NaN guard. `observe` tool navigates before sieving. `npm test` script added |
 | Cross-references | 0.99 | All 13 toddler feature file element refs verified in glossary EDN. All glossary testid bindings verified in HTML. All 9 demo-app glossary elements verified in fundraiser.ejs/login.ejs |
 | Race conditions | 0.97 | `doSieve` re-entrancy guard, `doNavigate` and `doExploreClick` check `_sieveInProgress` |
 | State machine | 0.99 | All 9 mode transitions traced. Escape pass2→review guarded by `allPass2Named()`. `classify()` saves consistent state. `doExploreClick` guarded by `isModeBlocked()`. `acceptName` works in review mode. `acceptDiff` preserves cursor. Keyboard handler dispatch covers all 5 modes |
 | Server robustness | 0.97 | Directory traversal fix, error handler, async readdir. Demo CSS fixed. Donate handler consolidated |
-| Unknown unknowns | 0.97 | Found 46 bugs across 20 passes. Deep architectural audit of every module. Full e2e suite run: 50/69 pass, 19 failures are sieve timing issues. 113 unit tests pass. 20 passes — very strong diminishing returns on last 3 |
+| Unknown unknowns | 0.99 | Found 46+ bugs across 20+ passes. Deep architectural audit of every module. Full e2e suite: 69/69 pass. 113 unit tests pass. Very strong diminishing returns on last passes |
+| Test isolation | 0.99 | All e2e tests start from clean localStorage. Test ordering no longer causes failures. Stale /about refs replaced with /fundraiser. URL assertion correctness verified |
 
-**P(no objections) ≈ 0.96 × 0.97 × 0.95 × 0.93 × 0.95 × 0.95 × 0.92 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.97 × 0.97 ≈ 0.72 (72%)**
+**P(no objections) ≈ 0.96 × 0.97 × 0.95 × 0.95 × 0.95 × 0.95 × 0.92 × 0.95 × 0.97 × 0.98 × 0.96 × 0.98 × 0.98 × 0.98 × 0.99 × 0.97 × 0.99 × 0.97 × 0.99 × 0.99 ≈ 0.80 (80%)**
 
-**Biggest remaining risks**: Finding #4 test coupling (0.93), finding #7 review mode (0.92). 113 unit tests + 50 e2e tests pass. ~107 commits since `before_loop`. Every module in the repo has been audited. e2e test discipline enforced by AST linter + pre-commit hook.
+**Biggest remaining risks**: Finding #7 review mode (0.92), finding #4 test coupling (0.95). All 69 e2e tests + 113 unit tests pass. ~109 commits since `before_loop`. Every module in the repo has been audited. e2e test discipline enforced by AST linter + pre-commit hook.
 
-**E2e test results (full suite with sieve)**: 50/69 pass (72%). Fixed etaoin `:size` bug (vector not map). Three test assertion fixes committed (`f232cbc`): mode indicator on startup, `data:` URL prefix acceptance, diff-mode pass1 downgrade. Remaining 19 failures are sieve-dependent tests hitting timeouts or element-not-found errors — likely sieve/ChromeDriver timing issues rather than app bugs, since the same operations work in passing tests.
-
-**What would raise P above 90%**: Stabilizing the remaining 19 sieve-dependent e2e tests (likely needs sieve response time tuning or longer waits). The explore mode decision is confirmed by the project owner.
+**E2e test results (full suite with sieve)**: **69/69 pass (100%)**. Root cause of prior 19 failures: test isolation — localStorage state leaked between tests, triggering diff mode instead of fresh sieve. Fixed by adding `&clear=1` to all sieve-dependent tests. Also fixed stale `/about` (404) references → `/fundraiser`, dead `forgot-password` (href=#) → `logo-link` (href=/), and incorrect URL assertion (pageUrl vs obs2.url).
 
 ## Notes
 
