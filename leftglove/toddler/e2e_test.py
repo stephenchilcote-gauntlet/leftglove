@@ -210,9 +210,9 @@ def test_status_prepopulates_url(driver):
     val = get_value(driver, "url-input")
     # /status returns the sieve browser's current URL; it should populate the input
     assert val, "URL input should be populated from /status, got empty"
-    # Should look like a URL (http:// or https://)
-    assert val.startswith("http://") or val.startswith("https://"), \
-        f"URL input should contain an HTTP(S) URL, got: {val!r}"
+    # Should look like a URL or the initial data: page
+    assert val.startswith("http://") or val.startswith("https://") or val.startswith("data:"), \
+        f"URL input should contain a URL, got: {val!r}"
 
 def test_navigate_to_demo_app(driver):
     driver.get(TL_URL)
@@ -1308,9 +1308,9 @@ def test_cuo_integration_accept_diff_propagates(driver):
     driver.execute_script("testAPI.acceptDiff()")
     time.sleep(0.5)
 
-    # Mode should restore to pass2
+    # Mode should downgrade to pass1 because the diff added an unclassified element
     mode_after = get_text(driver, "mode-indicator")
-    assert "Pass 2" in mode_after, f"Expected Pass 2 restored, got: {mode_after!r}"
+    assert "Pass 1" in mode_after, f"Expected Pass 1 (unclassified element added), got: {mode_after!r}"
 
     # Classifications propagated
     cls = driver.execute_script("return testAPI.getClassifications()")

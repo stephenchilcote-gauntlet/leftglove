@@ -2041,6 +2041,9 @@ window.testAPI = {
   acceptDiff: function () { acceptDiff(); },
 };
 
+// Set initial mode indicator
+updateModeIndicator();
+
 // Try to get status on load
 fetchStatus()
   .then(function (s) {
