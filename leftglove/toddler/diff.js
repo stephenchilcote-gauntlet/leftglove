@@ -73,7 +73,7 @@
       if (oldClassifications[p.oldIdx] !== undefined) {
         cls[p.newIdx] = oldClassifications[p.oldIdx];
       }
-      if (oldGlossaryNames[p.oldIdx]) {
+      if (oldGlossaryNames[p.oldIdx] !== undefined) {
         names[p.newIdx] = oldGlossaryNames[p.oldIdx];
       }
     }

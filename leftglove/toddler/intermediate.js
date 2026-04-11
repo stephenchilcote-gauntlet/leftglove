@@ -24,7 +24,9 @@
         if (!el['sieve-id']) errors.push('Element ' + i + ': missing sieve-id');
         if (!el.category) errors.push('Element ' + i + ': missing category');
         if (!el['category-source']) errors.push('Element ' + i + ': missing category-source');
-        if (!el.rect || typeof el.rect.x !== 'number') errors.push('Element ' + i + ': missing or invalid rect');
+        if (!el.rect || typeof el.rect.x !== 'number' || typeof el.rect.y !== 'number'
+            || typeof el.rect.w !== 'number' || typeof el.rect.h !== 'number')
+          errors.push('Element ' + i + ': missing or invalid rect (need x, y, w, h)');
       });
     }
     if (!data.metadata || typeof data.metadata !== 'object') errors.push('Missing metadata object');
@@ -82,7 +84,7 @@
         },
         'tabs': inv.tabs || 1,
       },
-      'pass-1-complete': Object.keys(st.classifications).length >= (inv.elements.length || 0),
+      'pass-1-complete': inv.elements.every(function (_, i) { return i in st.classifications; }),
       'pass-2-progress': Object.keys(st.glossaryNames).length,
     };
   }
@@ -102,7 +104,7 @@
         tag: el.tag,
         'element-type': el['element-type'],
         label: el.label,
-        category: ':' + el.category,
+        category: ':' + String(el.category || '').replace(/^:/, ''),
         locators: el.locators,
         state: el.state,
         visibleText: el['visible-text'] || null,
