@@ -88,6 +88,7 @@ function autoSave(data) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: payload,
+      signal: AbortSignal.timeout(10000),
     }).then(function (res) {
       if (!res.ok) throw new Error('Save failed: ' + res.status);
     }).catch(function (e) {
