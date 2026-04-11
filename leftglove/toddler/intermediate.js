@@ -12,8 +12,9 @@
       errors.push('Missing source object');
     } else {
       if (!data.source.url) errors.push('Missing source.url');
-      if (!data.source.viewport || typeof data.source.viewport.w !== 'number' || typeof data.source.viewport.h !== 'number') {
-        errors.push('Missing or invalid source.viewport (need w and h as numbers)');
+      if (!data.source.viewport || typeof data.source.viewport.w !== 'number' || typeof data.source.viewport.h !== 'number'
+          || !isFinite(data.source.viewport.w) || !isFinite(data.source.viewport.h)) {
+        errors.push('Missing or invalid source.viewport (need w and h as finite numbers)');
       }
       if (!data.source.timestamp) errors.push('Missing source.timestamp');
     }
@@ -25,8 +26,9 @@
         if (!el.category) errors.push('Element ' + i + ': missing category');
         if (!el['category-source']) errors.push('Element ' + i + ': missing category-source');
         if (!el.rect || typeof el.rect.x !== 'number' || typeof el.rect.y !== 'number'
-            || typeof el.rect.w !== 'number' || typeof el.rect.h !== 'number')
-          errors.push('Element ' + i + ': missing or invalid rect (need x, y, w, h)');
+            || typeof el.rect.w !== 'number' || typeof el.rect.h !== 'number'
+            || !isFinite(el.rect.x) || !isFinite(el.rect.y) || !isFinite(el.rect.w) || !isFinite(el.rect.h))
+          errors.push('Element ' + i + ': missing or invalid rect (need x, y, w, h as finite numbers)');
       });
     }
     if (!data.metadata || typeof data.metadata !== 'object') errors.push('Missing metadata object');

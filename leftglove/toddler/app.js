@@ -1481,6 +1481,7 @@ function navigate(delta) {
 
 async function jumpTo(index) {
   if (!state.inventory?.elements?.length) return;
+  if (index < 0 || index >= state.inventory.elements.length) return;
   if (state.exploreMode && state.mode !== 'resolve' && state.mode !== 'diff') {
     await doExploreClick(index);
     return;
