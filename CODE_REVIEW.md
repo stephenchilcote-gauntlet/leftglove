@@ -259,6 +259,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 | Bug: `pass-1-complete` counted stale classification keys | Use `.every()` to verify each index 0..n-1 | `3890376` |
 | Bug: `parseIntermediate` double-colon on category | Strip leading colon before re-adding | `3890376` |
 | Bug: `propagateNames` truthy check drops falsy glossary names | Use `!== undefined` consistent with classifications | `3890376` |
+| A11y: buttons default to type=submit, url-input unlabeled | Added `type="button"` to all buttons, `aria-label` to url-input | `b1d1c8f` |
 
 ### Evaluated, Not Refactored (fifth pass)
 
@@ -299,7 +300,7 @@ After addressing the code review findings, audited for the same anti-patterns ac
 
 **Biggest remaining risks**: Finding #4 test coupling (0.93), finding #7 review mode (0.92). 113 tests pass across 4 modules. ~105 commits since `before_loop`. Every module in the repo has been audited. e2e test discipline enforced by AST linter + pre-commit hook.
 
-**What would raise P above 90%**: Running the full e2e test suite against the changed code.
+**What would raise P above 90%**: Running the full e2e test suite against the changed code. Blocked by etaoin/ChromeDriver compatibility bug in shiftlefter (`nth not supported on PersistentArrayMap` in `_connect_driver` — etaoin expects vector for `:size` but gets map with ChromeDriver 142.x). 15/15 pure e2e tests pass with the tests that don't need sieve.
 
 **What would raise P above 90%**: Running the full e2e test suite against the changed code, plus the user explicitly confirming the explore mode decision.
 
