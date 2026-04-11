@@ -285,10 +285,16 @@ async function doNavigate() {
   statusEl.textContent = 'Navigating...';
   try {
     await fetchNavigate(url);
-    await doSieve();
   } catch (e) {
     statusEl.textContent = 'Error';
     showToast('Failed to navigate: ' + e.message, 6000);
+    return;
+  }
+  try {
+    await doSieve();
+  } catch (e) {
+    statusEl.textContent = 'Error';
+    showToast('Failed to sieve: ' + e.message, 6000);
   }
 }
 
@@ -1685,7 +1691,11 @@ document.getElementById('file-input').addEventListener('change', async function 
     const n = state.inventory ? state.inventory.elements.length : 0;
     document.getElementById('status-indicator').textContent =
       n + ' element' + (n !== 1 ? 's' : '') + ' (loaded)';
-    await renderScreenshot();
+    try {
+      await renderScreenshot();
+    } catch (err) {
+      showToast('Screenshot failed to load');
+    }
     renderOverlay();
     renderPanel();
     renderMetadata();
