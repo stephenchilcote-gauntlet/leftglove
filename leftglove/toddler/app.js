@@ -122,7 +122,7 @@ function loadState() {
       var maxIdx = (state.inventory?.elements?.length || 1) - 1;
       state.currentIndex = Math.min(ui.currentIndex || 0, maxIdx);
       state.pass2Cursor = Math.min(ui.pass2Cursor || 0, Math.max(0, state.pass2Order.length - 1));
-      if (state.mode === 'pass2') {
+      if (state.mode === 'pass2' || state.mode === 'review') {
         var pos = state.pass2Order.indexOf(state.currentIndex);
         state.pass2Cursor = pos >= 0 ? pos : state.pass2Cursor;
       }
@@ -1457,7 +1457,7 @@ function resolveNavGroup(delta) {
 function navigate(delta) {
   if (!state.inventory?.elements?.length) return;
   if (isModeBlocked()) return;
-  if (state.mode === 'pass2') {
+  if (state.mode === 'pass2' || state.mode === 'review') {
     var len = state.pass2Order.length;
     if (len === 0) return;
     state.pass2Cursor = Math.max(0, Math.min(len - 1, state.pass2Cursor + delta));
@@ -1480,7 +1480,7 @@ async function jumpTo(index) {
     return;
   }
   state.currentIndex = index;
-  if (state.mode === 'pass2') {
+  if (state.mode === 'pass2' || state.mode === 'review') {
     var pos = state.pass2Order.indexOf(index);
     if (pos >= 0) state.pass2Cursor = pos;
     _lastPass2Rendered = -1;
@@ -1798,7 +1798,7 @@ function handlePass2Keydown(e) {
     return;
   }
 
-  if (state.mode === 'pass2') {
+  if (state.mode === 'pass2' || state.mode === 'review') {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (inInput) active.blur();
