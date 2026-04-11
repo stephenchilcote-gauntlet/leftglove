@@ -864,7 +864,7 @@ function acceptName() {
 }
 
 function skipName() {
-  if (state.mode !== 'pass2') return;
+  if (state.mode !== 'pass2' && state.mode !== 'review') return;
   var len = state.pass2Order.length;
   if (len === 0) return;
   state.pass2Cursor = (state.pass2Cursor + 1) % len;
