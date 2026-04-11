@@ -990,6 +990,11 @@ function enterResolveMode(matchResult, pendingSieve) {
   state.mode = 'resolve';
   state._pendingSieve = pendingSieve;
 
+  // Show new screenshot so overlay rects align with new element positions
+  state.screenshotUrl = pendingSieve.screenshotUrl;
+  var newVp = pendingSieve.inventory.viewport;
+  if (newVp) state.screenshotDims = { w: newVp.w, h: newVp.h };
+
   var groups = matchResult.ambiguous;
   state.resolveContext = {
     allGroups: groups,
@@ -1734,6 +1739,7 @@ const KEY_MAP = {
 
 function handleResolveKeydown(e) {
   var ctx = state.resolveContext;
+  if (!ctx) return;
 
   if (e.key === 'Enter') {
     e.preventDefault();
