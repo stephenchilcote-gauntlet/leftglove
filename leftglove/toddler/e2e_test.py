@@ -445,6 +445,74 @@ def test_load_invalid_intermediate_shows_toast(driver):
         os.unlink(bad_path)
 
 # ---------------------------------------------------------------------------
+# Auto-classify (LLM)
+# ---------------------------------------------------------------------------
+
+def test_auto_button_present(driver):
+    driver.get(TL_URL)
+    btn = wait_for(driver, "btn-auto-classify")
+    assert btn.is_displayed(), "Auto button should be visible"
+
+def test_auto_classify_no_elements_shows_toast(driver):
+    """Clicking Auto with no elements loaded should show a toast."""
+    driver.get(TL_URL)
+    wait_for(driver, "btn-auto-classify")
+    time.sleep(0.5)
+    click(driver, "btn-auto-classify")
+    toast = WebDriverWait(driver, 5).until(
+        EC.visibility_of_element_located((By.ID, 'toast'))
+    )
+    assert "sieve" in toast.text.lower(), \
+        f"Expected 'run Sieve first' toast, got: {toast.text!r}"
+
+def test_auto_classify_real_workflow(driver):
+    """Navigate to demo app, sieve, click Auto, verify LLM classifies elements."""
+    _navigate_and_sieve(driver)
+
+    # Verify we have unclassified elements
+    count_text = get_text(driver, "classified-count")
+    assert "0 classified" in count_text or count_text.strip() == "", \
+        f"Expected 0 classified before auto, got: {count_text!r}"
+
+    # Click Auto
+    click(driver, "btn-auto-classify")
+
+    # Wait for auto-classify to finish (status changes during, toast appears after)
+    WebDriverWait(driver, 30).until(
+        lambda d: "auto-classified" in (
+            d.find_element(By.ID, 'toast').text.lower()
+        ) or "auto-classify failed" in (
+            d.find_element(By.ID, 'toast').text.lower()
+        )
+    )
+
+    toast_text = driver.find_element(By.ID, 'toast').text
+    assert "auto-classified" in toast_text.lower(), \
+        f"Expected success toast, got: {toast_text!r}"
+
+    # Toast should report how many were classified (e.g. "Auto-classified 5 elements, named 3.")
+    match = re.search(r'auto-classified\s+(\d+)\s+element', toast_text.lower())
+    assert match, f"Expected 'Auto-classified N elements' in toast, got: {toast_text!r}"
+    classified_n = int(match.group(1))
+    assert classified_n > 0, f"Expected positive classified count, got {classified_n}"
+
+    # Toast should also report named count
+    name_match = re.search(r'named\s+(\d+)', toast_text.lower())
+    assert name_match, f"Expected 'named N' in toast, got: {toast_text!r}"
+    named_n = int(name_match.group(1))
+    assert named_n > 0, f"Expected at least one named element, got {named_n}"
+
+    # Mode should have advanced past pass1 (all elements classified + named → pass2 or review)
+    time.sleep(0.5)
+    mode_text = get_text(driver, "mode-indicator")
+    assert "Pass 2" in mode_text or "Review" in mode_text, \
+        f"Expected pass2 or review mode after auto-classify, got: {mode_text!r}"
+
+    # Overlay rects should still be visible (classifications rendered)
+    rects = driver.find_elements(By.CSS_SELECTOR, '#overlay-svg rect')
+    assert len(rects) > 0, "Expected overlay rects after auto-classify"
+
+# ---------------------------------------------------------------------------
 # qo2 — Element identity across observations
 # ---------------------------------------------------------------------------
 
@@ -2412,6 +2480,10 @@ TESTS = [
     ("o4c: re-entrant guard", test_o4c_integration_explore_reentrant_guard),
     ("o4c: observation log structure", test_o4c_integration_observation_log_structure),
     ("o4c: explore overlay visual feedback", test_o4c_integration_explore_overlay_visual_feedback),
+    # Auto-classify (LLM)
+    ("auto: button present", test_auto_button_present),
+    ("auto: no elements shows toast", test_auto_classify_no_elements_shows_toast),
+    ("auto: real workflow", test_auto_classify_real_workflow),
     # b6d-b — Auto-save wiring
     ("b6d-b: server serves UI", test_b6db_server_serves_ui),
     ("b6d-b: save endpoint writes file", test_b6db_pure_save_endpoint_writes_file),

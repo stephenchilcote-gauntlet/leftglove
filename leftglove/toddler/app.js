@@ -1930,11 +1930,140 @@ function downloadBlob(content, filename, mimeType) {
   URL.revokeObjectURL(url);
 }
 
+// ---- Auto-Classify (LLM) ----
+async function doAutoClassify() {
+  if (!state.inventory?.elements?.length) {
+    showToast('No elements — run Sieve first.');
+    return;
+  }
+  if (isModeBlocked()) { showModeBlockedToast(); return; }
+
+  // Get screenshot as base64 (strip data:image/png;base64, prefix)
+  var screenshotB64 = null;
+  if (state.screenshotUrl && state.screenshotUrl.startsWith('data:')) {
+    screenshotB64 = state.screenshotUrl.replace(/^data:image\/\w+;base64,/, '');
+  }
+
+  // Build element list — include all unclassified, or all if none classified yet
+  var elements = state.inventory.elements;
+  var toClassify = [];
+  for (var i = 0; i < elements.length; i++) {
+    if (state.classifications[i]) continue; // already classified
+    var el = elements[i];
+    toClassify.push({
+      index: i,
+      tag: el.tag,
+      elementType: el['element-type'] || null,
+      label: el.label || null,
+      visibleText: el.visibleText || null,
+      ariaRole: el['aria-role'] || null,
+      locators: el.locators || null,
+      rect: el.rect || null,
+      region: el.region || null,
+    });
+  }
+
+  if (toClassify.length === 0) {
+    showToast('All elements already classified.');
+    return;
+  }
+
+  var statusEl = document.getElementById('status-indicator');
+  var origStatus = statusEl.textContent;
+  statusEl.textContent = 'Auto-classifying ' + toClassify.length + ' elements...';
+
+  // Batch: send up to 40 elements at a time (keep prompt manageable)
+  var BATCH_SIZE = 40;
+  var totalClassified = 0;
+  var totalNamed = 0;
+
+  try {
+    for (var batchStart = 0; batchStart < toClassify.length; batchStart += BATCH_SIZE) {
+      var batch = toClassify.slice(batchStart, batchStart + BATCH_SIZE);
+      statusEl.textContent = 'Auto-classifying... (' + batchStart + '/' + toClassify.length + ')';
+
+      var payload = {
+        screenshotB64: screenshotB64,
+        elements: batch,
+        pageUrl: state.pageUrl,
+        batchStart: batchStart,
+        batchEnd: Math.min(batchStart + BATCH_SIZE, toClassify.length),
+      };
+
+      var res = await fetch('/auto-classify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        var errData = await res.json().catch(function () { return {}; });
+        throw new Error(errData.error || 'Server returned ' + res.status);
+      }
+
+      var result = await res.json();
+      var classifications = result.classifications;
+      if (!Array.isArray(classifications)) {
+        throw new Error('Invalid response from LLM');
+      }
+
+      // Apply classifications
+      var validCategories = { clickable: 1, typable: 1, readable: 1, selectable: 1, chrome: 1, skip: 1, custom: 1 };
+      for (var j = 0; j < classifications.length; j++) {
+        var c = classifications[j];
+        if (c.index === undefined || !c.category) continue;
+        // Map 'selectable' to 'clickable' since TL UI doesn't have a selectable category
+        var cat = c.category === 'selectable' ? 'clickable' : c.category;
+        if (!validCategories[cat]) continue;
+        state.classifications[c.index] = cat;
+        totalClassified++;
+
+        // Apply name if provided and category is not chrome/skip
+        if (c.name && cat !== 'chrome' && cat !== 'skip') {
+          state.glossaryNames[c.index] = {
+            name: c.name,
+            intent: deriveIntentName(elements[c.index]?.region),
+            source: 'auto',
+            notes: '',
+          };
+          totalNamed++;
+        }
+      }
+
+      // Re-render after each batch so user sees progress
+      renderOverlay();
+      renderPanel();
+    }
+
+    // If all classified, build pass2 order
+    var allClassified = elements.every(function (_, i) {
+      return !!state.classifications[i];
+    });
+    if (allClassified && Object.keys(state.glossaryNames).length > 0) {
+      state.mode = 'pass2';
+      buildPass2Order();
+      if (allPass2Named()) {
+        state.mode = 'review';
+      }
+    }
+
+    commitAndRender();
+    statusEl.textContent = origStatus;
+    showToast('Auto-classified ' + totalClassified + ' elements, named ' + totalNamed + '.', 5000);
+  } catch (err) {
+    statusEl.textContent = origStatus;
+    showToast('Auto-classify failed: ' + err.message, 8000);
+    // Still save whatever we got
+    commitAndRender();
+  }
+}
+
 // ---- Init ----
 document.getElementById('btn-sieve').addEventListener('click', doSieve);
 document.getElementById('btn-navigate').addEventListener('click', doNavigate);
 document.getElementById('btn-export').addEventListener('click', doExport);
 document.getElementById('btn-export-glossary').addEventListener('click', doExportGlossary);
+document.getElementById('btn-auto-classify').addEventListener('click', doAutoClassify);
 
 // Restore state on load
 loadState();
