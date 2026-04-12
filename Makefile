@@ -1,6 +1,8 @@
 .PHONY: demo-browser demo-terminal demo-audio demo-final demo-rebuild demo-run
+.PHONY: demo2-browser demo2-terminal demo2-audio demo2-final demo2-rebuild demo2-quick
 
 DEMO_DIR = leftglove/toddler/demo
+DEMO2_DIR = leftglove/toddler/demo2
 
 # Start all demo services (demo app + TL UI + sieve)
 demo-run:
@@ -34,3 +36,34 @@ demo-rebuild:
 # Terminal segments only → concatenated video (no browser, no audio)
 demo-quick:
 	cd $(DEMO_DIR) && python3 terminal-segments.py && bash assemble.sh
+
+# ── Demo 2: LeftGlove + OpenClaw hype demo (Amazon + Campsite) ──────────
+
+# Record browser segments via Playwright (requires sieve running)
+demo2-browser:
+	cd $(DEMO2_DIR) && npm install --silent && npx playwright test --config playwright.config.ts
+
+# Generate terminal segment .cast files and convert to .mp4
+demo2-terminal:
+	cd $(DEMO2_DIR) && python3 terminal-segments.py
+
+# Generate TTS audio from narration script (requires Fish Speech)
+demo2-audio:
+	cd /home/login/PycharmProjects/chat_reader_zonos && \
+	  source .venv/bin/activate && \
+	  python $(CURDIR)/$(DEMO2_DIR)/gen-demo-audio.py
+
+# Full pipeline: browser + terminal + audio → demo2-final.mp4
+demo2-final: demo2-browser demo2-terminal demo2-audio
+	cd $(DEMO2_DIR) && bash assemble.sh
+
+# Regenerate audio + re-assemble (no re-record)
+demo2-rebuild:
+	cd /home/login/PycharmProjects/chat_reader_zonos && \
+	  source .venv/bin/activate && \
+	  python $(CURDIR)/$(DEMO2_DIR)/gen-demo-audio.py $(if $(FORCE),--force,)
+	cd $(DEMO2_DIR) && bash assemble.sh
+
+# Terminal segments only → concatenated video (no browser, no audio)
+demo2-quick:
+	cd $(DEMO2_DIR) && python3 terminal-segments.py && bash assemble.sh

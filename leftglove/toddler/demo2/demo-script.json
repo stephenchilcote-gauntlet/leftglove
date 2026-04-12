@@ -1,0 +1,58 @@
+[
+  {
+    "id": "cold-open",
+    "spoken": "Your AI agent just looked at Amazon. Here's what it saw."
+  },
+  {
+    "id": "amazon-sieve",
+    "spoken": "A hundred and forty-two interactive elements on one Amazon product page. The sieve found every button, every dropdown, every price tag. No LLM. No vision model. Zero tokens."
+  },
+  {
+    "id": "amazon-classify",
+    "spoken": "Classify the whole page in seconds. Clickable. Readable. Typable. Done."
+  },
+  {
+    "id": "amazon-vocab",
+    "spoken": "The agent connects through our MCP server. It sees the glossary. Amazon dot add-to-cart is clickable. Amazon dot price is readable. Amazon dot quantity-selector is selectable. Structured. Deterministic."
+  },
+  {
+    "id": "contrast-without",
+    "spoken": "Without LeftGlove? The agent takes a screenshot. Sends it to a vision model. Burns two thousand tokens. And it still guesses wrong on the selector."
+  },
+  {
+    "id": "contrast-with",
+    "spoken": "With LeftGlove? Zero tokens. The agent knows exactly what's on the page. Every element named, located, typed."
+  },
+  {
+    "id": "amazon-tagline",
+    "spoken": "Taming the most complex DOM on the web."
+  },
+  {
+    "id": "campsite-intro",
+    "spoken": "Now let's try something harder. A state park reservation form. Date pickers. Dropdowns. Availability grids. Everyone's favorite."
+  },
+  {
+    "id": "campsite-sieve",
+    "spoken": "Eighty-seven elements. Every form field mapped. Every dropdown option inventoried. Every date picker decoded."
+  },
+  {
+    "id": "campsite-vocab",
+    "spoken": "The glossary gives the agent a vocabulary for the form. Park selector. Arrival date. Departure date. Campsite type. Search button. All named. All typed."
+  },
+  {
+    "id": "campsite-plan",
+    "spoken": "Book site forty-seven at Big Basin for the Fourth of July weekend. Six steps."
+  },
+  {
+    "id": "campsite-steps",
+    "spoken": "Select the park. Fill the dates. Pick tent camping. Search availability. Reserve the site. Every action uses a vocabulary name. Not a CSS selector. Not a guess."
+  },
+  {
+    "id": "campsite-done",
+    "spoken": "Six steps. Zero fumbling. Your AI just booked your campsite."
+  },
+  {
+    "id": "closing",
+    "spoken": "The sieve sees everything. The glossary names everything. The agent knows everything. LeftGlove plus OpenClaw. Deterministic page understanding for AI agents."
+  }
+]

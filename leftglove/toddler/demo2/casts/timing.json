@@ -1,0 +1,37 @@
+[
+  {
+    "segment": "segment-1-amazon-vocab",
+    "clipId": "amazon-vocab",
+    "t": 200
+  },
+  {
+    "segment": "segment-2-contrast",
+    "clipId": "contrast-without",
+    "t": 200
+  },
+  {
+    "segment": "segment-2-contrast",
+    "clipId": "contrast-with",
+    "t": 12000
+  },
+  {
+    "segment": "segment-3-campsite-vocab",
+    "clipId": "campsite-vocab",
+    "t": 200
+  },
+  {
+    "segment": "segment-4-campsite-interact",
+    "clipId": "campsite-plan",
+    "t": 200
+  },
+  {
+    "segment": "segment-4-campsite-interact",
+    "clipId": "campsite-steps",
+    "t": 4000
+  },
+  {
+    "segment": "segment-4-campsite-interact",
+    "clipId": "campsite-done",
+    "t": 34000
+  }
+]
