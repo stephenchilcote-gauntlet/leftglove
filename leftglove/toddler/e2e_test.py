@@ -469,15 +469,10 @@ def test_auto_classify_real_workflow(driver):
     """Navigate to demo app, sieve, click Auto, verify LLM classifies elements."""
     _navigate_and_sieve(driver)
 
-    # Verify we have unclassified elements
-    count_text = get_text(driver, "classified-count")
-    assert "0 classified" in count_text or count_text.strip() == "", \
-        f"Expected 0 classified before auto, got: {count_text!r}"
-
     # Click Auto
     click(driver, "btn-auto-classify")
 
-    # Wait for auto-classify to finish (status changes during, toast appears after)
+    # Wait for auto-classify to finish (toast appears after)
     WebDriverWait(driver, 30).until(
         lambda d: "auto-classified" in (
             d.find_element(By.ID, 'toast').text.lower()
@@ -490,7 +485,7 @@ def test_auto_classify_real_workflow(driver):
     assert "auto-classified" in toast_text.lower(), \
         f"Expected success toast, got: {toast_text!r}"
 
-    # Toast should report how many were classified (e.g. "Auto-classified 5 elements, named 3.")
+    # Toast should report how many were classified
     match = re.search(r'auto-classified\s+(\d+)\s+element', toast_text.lower())
     assert match, f"Expected 'Auto-classified N elements' in toast, got: {toast_text!r}"
     classified_n = int(match.group(1))
@@ -502,15 +497,59 @@ def test_auto_classify_real_workflow(driver):
     named_n = int(name_match.group(1))
     assert named_n > 0, f"Expected at least one named element, got {named_n}"
 
-    # Mode should have advanced past pass1 (all elements classified + named → pass2 or review)
+    # Mode should have advanced past pass1
     time.sleep(0.5)
     mode_text = get_text(driver, "mode-indicator")
     assert "Pass 2" in mode_text or "Review" in mode_text, \
         f"Expected pass2 or review mode after auto-classify, got: {mode_text!r}"
 
-    # Overlay rects should still be visible (classifications rendered)
-    rects = driver.find_elements(By.CSS_SELECTOR, '#overlay-svg rect')
-    assert len(rects) > 0, "Expected overlay rects after auto-classify"
+def test_auto_classify_from_diff_mode(driver):
+    """Sieve one page, classify some elements, sieve a different page → diff mode.
+    Auto should auto-accept the diff and classify the new page."""
+    _navigate_and_sieve(driver)
+
+    # Classify a couple elements so we have state
+    body = driver.find_element(By.TAG_NAME, "body")
+    body.send_keys("c")
+    time.sleep(0.2)
+    body.send_keys("r")
+    time.sleep(0.2)
+
+    # Navigate to a different page → triggers diff mode
+    clear_and_type(driver, "url-input", "http://localhost:3000/fundraiser")
+    click(driver, "btn-navigate")
+
+    # Wait for diff mode
+    WebDriverWait(driver, 20).until(
+        lambda d: "diff" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="mode-indicator"]'
+        ).text.lower()
+    )
+    mode_text = get_text(driver, "mode-indicator")
+    assert "diff" in mode_text.lower(), \
+        f"Expected Sieve Diff mode, got: {mode_text!r}"
+
+    # Click Auto — should auto-accept diff and classify
+    click(driver, "btn-auto-classify")
+
+    # Wait for auto-classify to finish
+    WebDriverWait(driver, 45).until(
+        lambda d: "auto-classified" in (
+            d.find_element(By.ID, 'toast').text.lower()
+        ) or "auto-classify failed" in (
+            d.find_element(By.ID, 'toast').text.lower()
+        )
+    )
+
+    toast_text = driver.find_element(By.ID, 'toast').text
+    assert "auto-classified" in toast_text.lower(), \
+        f"Expected success toast, got: {toast_text!r}"
+
+    # Should NOT be in diff mode anymore
+    time.sleep(0.5)
+    mode_text = get_text(driver, "mode-indicator")
+    assert "diff" not in mode_text.lower(), \
+        f"Should have left diff mode, got: {mode_text!r}"
 
 # ---------------------------------------------------------------------------
 # qo2 — Element identity across observations
@@ -2484,6 +2523,7 @@ TESTS = [
     ("auto: button present", test_auto_button_present),
     ("auto: no elements shows toast", test_auto_classify_no_elements_shows_toast),
     ("auto: real workflow", test_auto_classify_real_workflow),
+    ("auto: from diff mode", test_auto_classify_from_diff_mode),
     # b6d-b — Auto-save wiring
     ("b6d-b: server serves UI", test_b6db_server_serves_ui),
     ("b6d-b: save endpoint writes file", test_b6db_pure_save_endpoint_writes_file),

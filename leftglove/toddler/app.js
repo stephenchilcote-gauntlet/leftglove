@@ -1932,11 +1932,18 @@ function downloadBlob(content, filename, mimeType) {
 
 // ---- Auto-Classify (LLM) ----
 async function doAutoClassify() {
+  // If in diff mode, auto-accept so we can classify the new inventory
+  if (state.mode === 'diff') {
+    acceptDiff();
+  }
+  if (state.mode === 'resolve') {
+    showToast('Finish resolving ambiguous matches first, then try Auto again.');
+    return;
+  }
   if (!state.inventory?.elements?.length) {
     showToast('No elements — run Sieve first.');
     return;
   }
-  if (isModeBlocked()) { showModeBlockedToast(); return; }
 
   // Get screenshot as base64 (strip data:image/png;base64, prefix)
   var screenshotB64 = null;
