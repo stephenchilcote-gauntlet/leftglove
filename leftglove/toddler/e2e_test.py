@@ -503,9 +503,8 @@ def test_auto_classify_real_workflow(driver):
     assert "Pass 2" in mode_text or "Review" in mode_text, \
         f"Expected pass2 or review mode after auto-classify, got: {mode_text!r}"
 
-def test_auto_classify_from_diff_mode(driver):
-    """Sieve one page, classify some elements, sieve a different page → diff mode.
-    Auto should auto-accept the diff and classify the new page."""
+def test_navigate_clears_state_no_diff(driver):
+    """Classify elements on one page, navigate to another — should NOT enter diff mode."""
     _navigate_and_sieve(driver)
 
     # Classify a couple elements so we have state
@@ -515,11 +514,46 @@ def test_auto_classify_from_diff_mode(driver):
     body.send_keys("r")
     time.sleep(0.2)
 
-    # Navigate to a different page → triggers diff mode
+    # Navigate to a different page
     clear_and_type(driver, "url-input", "http://localhost:3000/fundraiser")
     click(driver, "btn-navigate")
 
-    # Wait for diff mode
+    # Wait for sieve to complete on new page
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
+    )
+
+    # Should be in pass1 mode, NOT diff mode
+    mode_text = get_text(driver, "mode-indicator")
+    assert "Pass 1" in mode_text, \
+        f"Expected Pass 1 mode after navigate, got: {mode_text!r}"
+    assert "diff" not in mode_text.lower(), \
+        f"Should NOT enter diff mode after navigate, got: {mode_text!r}"
+
+    # Element count should be for the new page (fundraiser has ~80+ elements)
+    status = get_text(driver, "status-indicator")
+    match = re.search(r'(\d+)\s+element', status.lower())
+    assert match, f"Expected element count in status, got: {status!r}"
+    count = int(match.group(1))
+    assert count > 20, f"Fundraiser should have many elements, got {count}"
+
+def test_resieve_with_classifications_diffs(driver):
+    """Classify elements then re-sieve same page — SHOULD enter diff mode."""
+    _navigate_and_sieve(driver)
+
+    # Classify a couple elements
+    body = driver.find_element(By.TAG_NAME, "body")
+    body.send_keys("c")
+    time.sleep(0.2)
+    body.send_keys("r")
+    time.sleep(0.2)
+
+    # Re-sieve the same page (click Sieve, not Navigate)
+    click(driver, "btn-sieve")
+
+    # Should enter diff mode since we have classifications
     WebDriverWait(driver, 20).until(
         lambda d: "diff" in d.find_element(
             By.CSS_SELECTOR, '[data-testid="mode-indicator"]'
@@ -527,29 +561,26 @@ def test_auto_classify_from_diff_mode(driver):
     )
     mode_text = get_text(driver, "mode-indicator")
     assert "diff" in mode_text.lower(), \
-        f"Expected Sieve Diff mode, got: {mode_text!r}"
+        f"Expected diff mode after re-sieve with classifications, got: {mode_text!r}"
 
-    # Click Auto — should auto-accept diff and classify
-    click(driver, "btn-auto-classify")
+def test_resieve_without_classifications_no_diff(driver):
+    """Sieve a page but don't classify anything, then re-sieve — should NOT diff."""
+    _navigate_and_sieve(driver)
 
-    # Wait for auto-classify to finish
-    WebDriverWait(driver, 45).until(
-        lambda d: "auto-classified" in (
-            d.find_element(By.ID, 'toast').text.lower()
-        ) or "auto-classify failed" in (
-            d.find_element(By.ID, 'toast').text.lower()
-        )
+    # Don't classify anything — re-sieve immediately
+    click(driver, "btn-sieve")
+
+    # Wait for sieve to complete
+    WebDriverWait(driver, 20).until(
+        lambda d: "element" in d.find_element(
+            By.CSS_SELECTOR, '[data-testid="status-indicator"]'
+        ).text.lower()
     )
 
-    toast_text = driver.find_element(By.ID, 'toast').text
-    assert "auto-classified" in toast_text.lower(), \
-        f"Expected success toast, got: {toast_text!r}"
-
-    # Should NOT be in diff mode anymore
-    time.sleep(0.5)
+    # Should be in pass1, not diff mode
     mode_text = get_text(driver, "mode-indicator")
-    assert "diff" not in mode_text.lower(), \
-        f"Should have left diff mode, got: {mode_text!r}"
+    assert "Pass 1" in mode_text, \
+        f"Expected Pass 1 after re-sieve with no classifications, got: {mode_text!r}"
 
 # ---------------------------------------------------------------------------
 # qo2 — Element identity across observations
@@ -2523,7 +2554,9 @@ TESTS = [
     ("auto: button present", test_auto_button_present),
     ("auto: no elements shows toast", test_auto_classify_no_elements_shows_toast),
     ("auto: real workflow", test_auto_classify_real_workflow),
-    ("auto: from diff mode", test_auto_classify_from_diff_mode),
+    ("auto: navigate clears state, no diff", test_navigate_clears_state_no_diff),
+    ("auto: re-sieve with classifications diffs", test_resieve_with_classifications_diffs),
+    ("auto: re-sieve without classifications no diff", test_resieve_without_classifications_no_diff),
     # b6d-b — Auto-save wiring
     ("b6d-b: server serves UI", test_b6db_server_serves_ui),
     ("b6d-b: save endpoint writes file", test_b6db_pure_save_endpoint_writes_file),

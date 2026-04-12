@@ -237,9 +237,12 @@ async function doSieve() {
       fetchScreenshot(),
     ]);
 
-    // If we have a previous inventory, match elements instead of resetting.
-    // Enter diff path even if new sieve has 0 elements (all would show as removed).
-    if (state.inventory && state.inventory.elements?.length) {
+    // Only enter diff path if we have classified elements worth preserving.
+    // An inventory with no classifications is not worth diffing against.
+    var hasClassifications = state.inventory
+      && state.inventory.elements?.length
+      && Object.keys(state.classifications).length > 0;
+    if (hasClassifications) {
       var oldEls = state.inventory.elements;
       var newEls = inventory.elements || [];
       var matchResult = matchElements(oldEls, newEls);
@@ -291,11 +294,28 @@ async function doSieve() {
 
 async function doNavigate() {
   if (_sieveInProgress) return;
-  if (isModeBlocked()) { showModeBlockedToast(); return; }
   let url = document.getElementById('url-input').value.trim();
   if (!url) return;
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
   document.getElementById('url-input').value = url;
+
+  // Navigate = new page. Clear all classification state so doSieve starts fresh.
+  state.inventory = null;
+  state.classifications = {};
+  state.glossaryNames = {};
+  state.currentIndex = 0;
+  state.mode = 'pass1';
+  state.pass2Order = [];
+  state.pass2Cursor = 0;
+  state.resolveContext = null;
+  state._pendingSieve = null;
+  state._preResolveMode = null;
+  state._preDiffMode = null;
+  state.diffResult = null;
+  state.diffClass = null;
+  state.diffSelectedIdx = null;
+  state._diffResolvedPairs = null;
+
   const statusEl = document.getElementById('status-indicator');
   statusEl.textContent = 'Navigating...';
   try {
