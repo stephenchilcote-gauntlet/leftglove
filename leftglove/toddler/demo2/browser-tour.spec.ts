@@ -3,13 +3,10 @@
 // Records browser-side demo segments as WebM video via Playwright.
 // Two segments: Amazon product page + state park campsite reservation.
 //
-// Pre-conditions (start via bin/demo-run):
-//   TL UI:     http://localhost:8080
-//   Sieve:     http://localhost:3333
-//
-// Modes:
-//   Default (cached): Loads frozen sieve JSON + screenshots from cached-sieve/
-//   Live (LIVE_MODE=1): Navigates sieve to real URLs, saves output to cached-sieve/
+// Pre-conditions:
+//   TL UI running: http://localhost:8080
+//   Fixtures exist: fixtures/amazon-product.json, fixtures/campsite-booking.json
+//   (No sieve server needed — fixtures are pre-classified)
 //
 // Output: test-results/browser-tour-{hash}/video.webm
 //         audio-clips/timing.json
@@ -19,17 +16,8 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { test, type Page } from '@playwright/test';
 
-const TL_URL = 'http://localhost:8080?api=http://localhost:3333';
-const SIEVE_URL = 'http://localhost:3333';
-
-// Real target URLs for live capture
-const AMAZON_URL = 'https://www.amazon.com/dp/B0BSHF7WHW';
-const CAMPSITE_URL = 'https://www.reservecalifornia.com/';
-
-// Set LIVE_MODE=1 to capture from real sites; default uses cached data
-const LIVE_MODE = process.env.LIVE_MODE === '1';
-
-const CACHED_DIR = path.join(__dirname, 'cached-sieve');
+const TL_URL = 'http://localhost:8080';
+const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
 // ── Timing log ──────────────────────────────────────────────────────────────
 
@@ -184,142 +172,96 @@ async function clearHighlights(page: Page) {
   });
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────���──
-
-async function cursorClick(page: Page, selector: string) {
-  await moveTo(page, selector);
-  await highlight(page, selector);
-  await page.waitForTimeout(300);
-  await page.locator(selector).first().click();
-  await clearHighlights(page);
-}
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 async function pause(page: Page, ms = 1500) {
   await page.waitForTimeout(ms);
 }
 
-async function waitForSieve(page: Page, timeoutMs = 30000) {
-  await page.waitForFunction(
-    () => {
-      const el = document.querySelector('[data-testid="status-indicator"]');
-      if (!el) return false;
-      const text = el.textContent || '';
-      if (/\d+\s+element/i.test(text)) return true;
-      if (/diff ready/i.test(text)) return true;
-      if (/ambiguous/i.test(text)) return true;
-      return false;
-    },
-    { timeout: timeoutMs },
-  );
+// Highlight an element by its glossary name in the overlay SVG.
+// The overlay renders <rect> elements with data-idx; glossary names are in state.glossaryNames.
+// We find the element index by name, then highlight the corresponding overlay rect.
+async function highlightByGlossaryName(page: Page, glossaryName: string, captionText: string) {
+  const rect = await page.evaluate((name) => {
+    const s = (window as any).state;
+    if (!s?.glossaryNames) return null;
+    for (const [idx, gn] of Object.entries(s.glossaryNames) as any) {
+      if (gn.name === name) {
+        const el = s.inventory?.elements?.[Number(idx)];
+        if (el?.rect) return { x: el.rect.x, y: el.rect.y, w: el.rect.w, h: el.rect.h };
+      }
+    }
+    return null;
+  }, glossaryName);
+
+  if (rect) {
+    // Highlight using the element's rect in screenshot coordinates,
+    // but we need to translate to viewport coords via the screenshot container offset
+    await page.evaluate((r) => {
+      document.querySelectorAll('.demo-highlight').forEach(e => e.remove());
+      const container = document.getElementById('screenshot-container');
+      const img = document.getElementById('screenshot-img') as HTMLImageElement;
+      if (!container || !img) return;
+      const containerRect = container.getBoundingClientRect();
+      // Scale from sieve coords to displayed screenshot coords
+      const scaleX = img.clientWidth / (img.naturalWidth || img.clientWidth);
+      const scaleY = img.clientHeight / (img.naturalHeight || img.clientHeight);
+      const ring = document.createElement('div');
+      ring.className = 'demo-highlight';
+      ring.style.cssText = `
+        position: fixed; z-index: 99997;
+        left: ${containerRect.left + r.x * scaleX - 4}px;
+        top: ${containerRect.top + r.y * scaleY - 4}px;
+        width: ${r.w * scaleX + 8}px; height: ${r.h * scaleY + 8}px;
+        border: 2px solid #00d9ff;
+        border-radius: 6px;
+        box-shadow: 0 0 12px rgba(0,217,255,0.5);
+        pointer-events: none;
+        transition: all 0.3s ease;
+      `;
+      document.body.appendChild(ring);
+    }, rect);
+  }
+
+  await caption(page, captionText, 3000);
+  await clearHighlights(page);
+  await clearCaption(page);
+  await pause(page, 300);
 }
 
-// ── Cached sieve injection ──────────────────────────────────────────────────
+// ── Fixture loading ─────────────────────────────────────────────────────────
 
-async function loadCachedSieve(name: string): Promise<{ inventory: any; screenshotB64: string }> {
-  const inventoryPath = path.join(CACHED_DIR, `${name}.json`);
-  const screenshotPath = path.join(CACHED_DIR, `${name}-screenshot.png`);
-  const inventory = JSON.parse(await fs.readFile(inventoryPath, 'utf-8'));
-  const screenshotB64 = (await fs.readFile(screenshotPath)).toString('base64');
-  return { inventory, screenshotB64 };
+async function loadFixture(fixtureName: string): Promise<any> {
+  const fixturePath = path.join(FIXTURES_DIR, `${fixtureName}.json`);
+  if (!fsSync.existsSync(fixturePath)) {
+    throw new Error(
+      `Fixture not found: ${fixturePath}\n` +
+      `Run the manual classification workflow first:\n` +
+      `  1. bin/demo-run\n` +
+      `  2. Classify in TL UI\n` +
+      `  3. Export to fixtures/${fixtureName}.json`
+    );
+  }
+  return JSON.parse(await fs.readFile(fixturePath, 'utf-8'));
 }
 
-async function injectCachedInventory(page: Page, cached: { inventory: any; screenshotB64: string }) {
-  await page.evaluate(({ inventory, screenshot }) => {
-    const s = (window as any).state || (state as any);
-    s.inventory = inventory;
-    s.classifications = {};
-    s.glossaryNames = {};
-    s.mode = 'pass1';
-    s.pass1Index = 0;
-
-    const img = document.getElementById('screenshot-img') as HTMLImageElement;
-    if (img) img.src = `data:image/png;base64,${screenshot}`;
-
-    const status = document.querySelector('[data-testid="status-indicator"]');
-    if (status) status.textContent = `${inventory.elements?.length || 0} elements`;
-
-    (window as any).renderOverlay?.();
-    (window as any).renderPanel?.();
-  }, { inventory: cached.inventory, screenshot: cached.screenshotB64 });
-}
-
-// ── Live sieve capture ──────────────────────────────────────────────────────
-
-async function liveSieveCapture(page: Page, url: string, cacheName: string) {
-  // Navigate sieve to the real URL
-  await page.evaluate(async (args) => {
-    const API = new URLSearchParams(window.location.search).get('api') || '';
-    await fetch(API + '/navigate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: args.url }),
+async function injectFixture(page: Page, fixtureData: any): Promise<number> {
+  return await page.evaluate((data) => {
+    const errors = (window as any).fromIntermediate(data);
+    if (errors.length) throw new Error('Load failed: ' + errors.join('; '));
+    (window as any)._lastPass2Rendered = -1;
+    const n = (window as any).state.inventory
+      ? (window as any).state.inventory.elements.length
+      : 0;
+    document.getElementById('status-indicator')!.textContent =
+      n + ' element' + (n !== 1 ? 's' : '') + ' (loaded)';
+    return (window as any).renderScreenshot().then(() => {
+      (window as any).renderOverlay();
+      (window as any).renderPanel();
+      (window as any).renderMetadata();
+      return n;
     });
-  }, { url });
-
-  // Run sieve
-  const sieveResult = await page.evaluate(async () => {
-    const API = new URLSearchParams(window.location.search).get('api') || '';
-    const res = await fetch(API + '/sieve', { method: 'POST' });
-    return res.json();
-  });
-
-  // Save screenshot
-  const screenshotRes = await fetch(`${SIEVE_URL}/screenshot`);
-  const screenshotBuf = Buffer.from(await screenshotRes.arrayBuffer());
-
-  // Write to cache
-  await fs.mkdir(CACHED_DIR, { recursive: true });
-  await fs.writeFile(path.join(CACHED_DIR, `${cacheName}.json`), JSON.stringify(sieveResult, null, 2));
-  await fs.writeFile(path.join(CACHED_DIR, `${cacheName}-screenshot.png`), screenshotBuf);
-
-  return { inventory: sieveResult, screenshotB64: screenshotBuf.toString('base64') };
-}
-
-// ── Batch classify + name ───────────────────────────────────────────────────
-
-async function batchClassifyAndName(page: Page, intentName: string) {
-  await page.evaluate(({ intent }) => {
-    const s = (window as any).state || (state as any);
-    if (!s.inventory?.elements?.length) return;
-    const els = s.inventory.elements;
-
-    // Pass 1: classify every element using the sieve's category field
-    for (let i = 0; i < els.length; i++) {
-      const cat = els[i].category;
-      if (cat && !s.classifications[i]) {
-        s.classifications[i] = cat;
-      }
-    }
-
-    // Pass 2: auto-name elements that have a data-testid locator
-    const pass2 = [];
-    for (let i = 0; i < els.length; i++) {
-      const cat = s.classifications[i];
-      if (cat === 'chrome' || cat === 'skip') continue;
-      pass2.push(i);
-    }
-    s.pass2Order = pass2;
-
-    for (const i of pass2) {
-      const el = els[i];
-      const testid = el.locators?.testid || el.locators?.['data-testid'];
-      const label = el.label || '';
-      const name = testid || label.replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase().replace(/\s+/g, '-').slice(0, 30);
-      if (name && !s.glossaryNames[i]) {
-        s.glossaryNames[i] = {
-          name: name,
-          intent: intent,
-          source: 'human',
-          notes: '',
-        };
-      }
-    }
-
-    s.mode = 'review';
-    (window as any).saveState?.();
-    (window as any).renderOverlay?.();
-    (window as any).renderPanel?.();
-  }, { intent: intentName });
+  }, fixtureData);
 }
 
 // ── Screenshot dir ──────────────────────────────────────────────────────────
@@ -342,119 +284,63 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   const pageFrameDir = path.join(__dirname, 'page-frames');
   await fs.mkdir(pageFrameDir, { recursive: true });
 
+  // Load fixtures upfront — fail fast if missing
+  const amazonFixture = await loadFixture('amazon-product');
+  const campsiteFixture = await loadFixture('campsite-booking');
+
   // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 1 — AMAZON PRODUCT PAGE (~30s browser segment)
+  // SECTION 1 — AMAZON PRODUCT PAGE
   // ═══════════════════════════════════════════════════════════════════════════
 
   // -- Scene: Load TL UI (clean state) --
   await page.goto(TL_URL);
-  await page.waitForSelector('[data-testid="url-input"]');
-  await page.evaluate(() => {
-    localStorage.clear();
-    const s = (window as any).state || (state as any);
-    s.inventory = null;
-    s.classifications = {};
-    s.glossaryNames = {};
-    s.pageUrl = '';
-    const img = document.getElementById('screenshot-img') as HTMLImageElement;
-    if (img) img.src = '';
-    const overlay = document.getElementById('overlay-svg');
-    if (overlay) overlay.innerHTML = '';
-    const status = document.getElementById('status-indicator');
-    if (status) status.textContent = 'Ready';
-  });
+  await page.waitForSelector('#status-indicator');
   await ensureCursor(page);
   await pause(page, 1000);
 
-  // -- Scene: Type Amazon URL and sieve --
-  await cursorClick(page, '[data-testid="url-input"]');
-  await page.fill('[data-testid="url-input"]', AMAZON_URL);
-  await pause(page, 500);
-
-  let amazonData: { inventory: any; screenshotB64: string };
-
-  if (LIVE_MODE) {
-    await cursorClick(page, '[data-testid="btn-navigate"]');
-    await waitForSieve(page, 60000); // Amazon may be slow
-    amazonData = await liveSieveCapture(page, AMAZON_URL, 'amazon-product');
-  } else {
-    // Fake the navigate click, then inject cached data
-    await cursorClick(page, '[data-testid="btn-navigate"]');
-    await pause(page, 1000); // Simulate sieve running
-    amazonData = await loadCachedSieve('amazon-product');
-    await injectCachedInventory(page, amazonData);
-  }
-
-  await pause(page, 500);
-  await snap(page, 'amazon-after-sieve');
+  // -- Scene: Inject Amazon fixture --
+  const amazonCount = await injectFixture(page, amazonFixture);
+  await pause(page, 1000);
+  await snap(page, 'amazon-after-load');
 
   // Caption: sieve result
-  const amazonCount = amazonData.inventory.elements?.length || 142;
   await caption(page,
     `${amazonCount} interactive elements on one Amazon product page. No LLM. No vision model. Zero tokens.`,
     10500, 'amazon-sieve',
-    '[data-testid="status-indicator"]',
+    '#status-indicator',
   );
   await clearCaption(page);
 
-  // -- Scene: Rapid-fire classify --
+  // -- Scene: Classification overview --
   await caption(page,
     'Classify the whole page in seconds. Clickable. Readable. Typable. Done.',
     6000, 'amazon-classify',
-    '[data-testid="progress"]',
   );
-
-  // Classify first few elements with keyboard shortcuts
-  const classifyKeys = ['c', 'c', 'r', 'r', 't', 'c', 'x'];
-  for (const key of classifyKeys) {
-    await page.keyboard.press(key);
-    await pause(page, 400);
-  }
   await clearCaption(page);
   await pause(page, 500);
 
-  // Batch classify + name with Amazon intent
-  await batchClassifyAndName(page, 'Amazon');
-  await pause(page, 2000);
+  // -- Scene: Walk through key Amazon elements --
+  await highlightByGlossaryName(page, 'add-to-cart',
+    'Amazon.add-to-cart — clickable');
+  await highlightByGlossaryName(page, 'price',
+    'Amazon.price — readable');
+  await highlightByGlossaryName(page, 'quantity-selector',
+    'Amazon.quantity-selector — selectable');
   await snap(page, 'amazon-classified');
 
-  // Capture page frame for terminal split-screen segments
-  if (LIVE_MODE) {
-    const screenshotRes = await fetch(`${SIEVE_URL}/screenshot`);
-    const buf = Buffer.from(await screenshotRes.arrayBuffer());
-    await fs.writeFile(path.join(pageFrameDir, 'amazon-page.png'), buf);
-  } else {
-    // Use cached screenshot as page frame
+  // Extract page-frame screenshot from fixture source data
+  if (amazonFixture.source?.screenshot) {
     await fs.writeFile(
       path.join(pageFrameDir, 'amazon-page.png'),
-      Buffer.from(amazonData.screenshotB64, 'base64'),
+      Buffer.from(amazonFixture.source.screenshot, 'base64'),
     );
   }
 
   await pause(page, 1500);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 2 — CAMPSITE RESERVATION (~25s browser segment)
+  // SECTION 2 — CAMPSITE RESERVATION
   // ═══════════════════════════════════════════════════════════════════════════
-
-  // Clear state for second demo
-  await page.evaluate(() => {
-    const s = (window as any).state || (state as any);
-    s.inventory = null;
-    s.classifications = {};
-    s.glossaryNames = {};
-    s.pageUrl = '';
-    s.mode = 'pass1';
-    s.pass1Index = 0;
-    const img = document.getElementById('screenshot-img') as HTMLImageElement;
-    if (img) img.src = '';
-    const overlay = document.getElementById('overlay-svg');
-    if (overlay) overlay.innerHTML = '';
-    const status = document.getElementById('status-indicator');
-    if (status) status.textContent = 'Ready';
-    (window as any).renderOverlay?.();
-    (window as any).renderPanel?.();
-  });
 
   // Caption: transition to campsite
   await caption(page,
@@ -463,106 +349,46 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   );
   await clearCaption(page);
 
-  // -- Scene: Type campsite URL and sieve --
-  await cursorClick(page, '[data-testid="url-input"]');
-  await page.fill('[data-testid="url-input"]', '');
-  await page.fill('[data-testid="url-input"]', CAMPSITE_URL);
-  await pause(page, 500);
-
-  let campsiteData: { inventory: any; screenshotB64: string };
-
-  if (LIVE_MODE) {
-    await cursorClick(page, '[data-testid="btn-navigate"]');
-    await waitForSieve(page, 60000);
-    campsiteData = await liveSieveCapture(page, CAMPSITE_URL, 'campsite-booking');
-  } else {
-    await cursorClick(page, '[data-testid="btn-navigate"]');
-    await pause(page, 1000);
-    campsiteData = await loadCachedSieve('campsite-booking');
-    await injectCachedInventory(page, campsiteData);
-  }
-
-  await pause(page, 500);
-  await snap(page, 'campsite-after-sieve');
+  // -- Scene: Inject campsite fixture --
+  const campsiteCount = await injectFixture(page, campsiteFixture);
+  await pause(page, 1000);
+  await snap(page, 'campsite-after-load');
 
   // Caption: sieve result
-  const campsiteCount = campsiteData.inventory.elements?.length || 87;
   await caption(page,
     `${campsiteCount} elements. Every form field mapped. Every dropdown inventoried.`,
     8000, 'campsite-sieve',
-    '[data-testid="status-indicator"]',
+    '#status-indicator',
   );
   await clearCaption(page);
 
-  // Rapid-fire classify campsite
-  const campsiteKeys = ['s', 't', 't', 's', 'c', 'r', 'x'];
-  for (const key of campsiteKeys) {
-    await page.keyboard.press(key);
-    await pause(page, 400);
-  }
-
-  // Batch classify + name with Campsite intent
-  await batchClassifyAndName(page, 'Campsite');
-  await pause(page, 2000);
+  // -- Scene: Walk through key campsite elements --
+  await highlightByGlossaryName(page, 'park-selector',
+    'Campsite.park-selector — selectable');
+  await highlightByGlossaryName(page, 'arrival-date',
+    'Campsite.arrival-date — typable');
+  await highlightByGlossaryName(page, 'departure-date',
+    'Campsite.departure-date — typable');
+  await highlightByGlossaryName(page, 'campsite-type',
+    'Campsite.campsite-type — selectable');
+  await highlightByGlossaryName(page, 'search-button',
+    'Campsite.search-button — clickable');
   await snap(page, 'campsite-classified');
 
-  // Capture page frames for campsite interaction split-screen
-  if (LIVE_MODE) {
-    // Capture the base campsite page
-    const baseRes = await fetch(`${SIEVE_URL}/screenshot`);
-    const baseBuf = Buffer.from(await baseRes.arrayBuffer());
-    await fs.writeFile(path.join(pageFrameDir, 'campsite-base.png'), baseBuf);
-
-    // Interact with the form and capture each step
-    const steps = [
-      { action: 'click', selector: '[data-testid="park-select"]', name: 'campsite-step-1-park' },
-      { action: 'fill', selector: '[data-testid="arrival-date"]', text: '07/03/2026', name: 'campsite-step-2-arrival' },
-      { action: 'fill', selector: '[data-testid="departure-date"]', text: '07/06/2026', name: 'campsite-step-3-departure' },
-      { action: 'click', selector: '[data-testid="site-type"]', name: 'campsite-step-4-type' },
-      { action: 'click', selector: '[data-testid="search-btn"]', name: 'campsite-step-5-search' },
-    ];
-
-    for (const step of steps) {
-      if (step.action === 'click') {
-        await fetch(`${SIEVE_URL}/click`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ selector: step.selector }),
-        });
-      } else if (step.action === 'fill' && step.text) {
-        await fetch(`${SIEVE_URL}/fill`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ selector: step.selector, text: step.text }),
-        });
-      }
-      const stepRes = await fetch(`${SIEVE_URL}/screenshot`);
-      const stepBuf = Buffer.from(await stepRes.arrayBuffer());
-      await fs.writeFile(path.join(pageFrameDir, `${step.name}.png`), stepBuf);
-    }
-  } else {
-    // Use cached screenshot as base page frame
+  // Extract page-frame screenshot from fixture source data
+  if (campsiteFixture.source?.screenshot) {
     await fs.writeFile(
       path.join(pageFrameDir, 'campsite-base.png'),
-      Buffer.from(campsiteData.screenshotB64, 'base64'),
+      Buffer.from(campsiteFixture.source.screenshot, 'base64'),
     );
-    // Copy any cached step screenshots that exist
-    for (let i = 1; i <= 6; i++) {
-      const stepFile = path.join(CACHED_DIR, `campsite-step-${i}.png`);
-      const destFile = path.join(pageFrameDir, `campsite-step-${i}.png`);
-      if (fsSync.existsSync(stepFile)) {
-        await fs.copyFile(stepFile, destFile);
-      }
-    }
   }
 
   await pause(page, 1500);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CLOSING — Side-by-side stats (~15s browser segment)
+  // CLOSING — Side-by-side stats
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Show closing stats overlay
   await page.evaluate(({ amazonCount, campsiteCount }) => {
     const overlay = document.createElement('div');
     overlay.id = 'demo-closing-overlay';
