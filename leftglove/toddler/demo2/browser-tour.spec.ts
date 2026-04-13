@@ -169,13 +169,31 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   const tEbaySieve = Date.now() - _t0;
   timingLog.push({ id: 'ebay-sieve', clipId: 'ebay-sieve', t: tEbaySieve, duration: 8000 });
 
-  // Auto-classify — click the button and wait for names to start appearing
+  // Auto-classify — click the button and show progress on terminal
   await page.click('[data-testid="btn-auto-classify"]');
   cast.typeCommand('mcp call auto-classify');
   cast.write('\x1b[90mAuto-classifying with LLM...\x1b[0m\r\n');
 
-  // Wait for auto-classify to finish all batches
-  await waitForAutoComplete(page);
+  // Poll status and show progress in terminal while auto-classify runs
+  {
+    let lastProgress = '';
+    const deadline = Date.now() + 300000;
+    while (Date.now() < deadline) {
+      const mode = await page.evaluate(() =>
+        document.querySelector('[data-testid="mode-indicator"]')?.textContent ?? ''
+      );
+      if (/review/i.test(mode)) break;
+      const status = await page.evaluate(() =>
+        document.getElementById('status-indicator')?.textContent ?? ''
+      );
+      const m = status.match(/\((\d+\/\d+)\)/);
+      if (m && m[1] !== lastProgress) {
+        lastProgress = m[1];
+        cast.write(`\x1b[90m  batch ${lastProgress}\x1b[0m\r\n`);
+      }
+      await pause(page, 3000);
+    }
+  }
   // Read counts immediately (toast disappears after 5s)
   const ebayStatus = await getAutoClassifyCounts(page);
   // Let the overlay settle visually
@@ -242,7 +260,25 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   cast.typeCommand('mcp call auto-classify');
   cast.write('\x1b[90mAuto-classifying...\x1b[0m\r\n');
 
-  await waitForAutoComplete(page);
+  {
+    let lastProgress = '';
+    const deadline = Date.now() + 300000;
+    while (Date.now() < deadline) {
+      const mode = await page.evaluate(() =>
+        document.querySelector('[data-testid="mode-indicator"]')?.textContent ?? ''
+      );
+      if (/review/i.test(mode)) break;
+      const status = await page.evaluate(() =>
+        document.getElementById('status-indicator')?.textContent ?? ''
+      );
+      const m = status.match(/\((\d+\/\d+)\)/);
+      if (m && m[1] !== lastProgress) {
+        lastProgress = m[1];
+        cast.write(`\x1b[90m  batch ${lastProgress}\x1b[0m\r\n`);
+      }
+      await pause(page, 3000);
+    }
+  }
   const campsiteStatus = await getAutoClassifyCounts(page);
   await pause(page, 3000);
   const campsiteOverlayNames = await getGlossaryNamesFromOverlay(page);
