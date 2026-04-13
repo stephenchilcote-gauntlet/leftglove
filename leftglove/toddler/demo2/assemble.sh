@@ -308,6 +308,116 @@ else
   cp "$SEGMENTS_DIR/final-silent.mp4" "$ROOT_DIR/demo2-final.mp4"
 fi
 
+# ── Step 7: Generate and burn in subtitles ──────────────────────────────
+
+if [[ "$HAS_AUDIO" == "true" ]] && [[ -f "$TIMING_JSON" ]]; then
+  echo ""
+  echo "Generating subtitles..."
+
+  python3 - "$TIMING_JSON" "subtitles.srt" <<'SUBEOF'
+import json, sys
+
+TIMING_FILE = sys.argv[1]
+SRT_OUT = sys.argv[2]
+TITLE_CARD_OFFSET_MS = 6000
+PAD_MS = 300
+GAP_MS = 200
+
+with open(TIMING_FILE) as f:
+    timing = json.load(f)
+
+with open("audio-clips/manifest.json") as f:
+    manifest = {c["id"]: c for c in json.load(f)}
+
+# Calculate actual clip start times (same logic as voiceover assembly)
+clip_starts = {}
+prev_end_ms = 0
+for event in timing:
+    cid = event.get("clipId")
+    entry = manifest.get(cid)
+    if not entry or entry.get("duration_ms", 0) == 0:
+        continue
+    desired_ms = event["t"] + TITLE_CARD_OFFSET_MS + PAD_MS
+    start_ms = max(desired_ms, prev_end_ms + GAP_MS)
+    clip_starts[cid] = {"start_s": start_ms / 1000.0, "dur_s": entry["duration_ms"] / 1000.0}
+    prev_end_ms = start_ms + entry["duration_ms"]
+
+# Script text for each clip (matches demo-script.json narration)
+script = {
+    "ebay-sieve": [
+        "Hundreds of elements on a live eBay search page.",
+        "Every button, every link, every filter.",
+        "The sieve found them all.",
+        "No LLM. No vision model. Zero tokens.",
+    ],
+    "ebay-highlights": [
+        "Nav.sign-in is clickable.",
+        "Nav.deals is clickable.",
+        "Nav.cart is clickable.",
+        "Structured. Deterministic. Named.",
+    ],
+    "campsite-intro": [
+        "Now a state park reservation system.",
+        "Completely different site. Live.",
+    ],
+    "campsite-sieve": [
+        "Over a hundred elements.",
+        "Park info, login controls, navigation, share buttons.",
+        "All detected instantly.",
+    ],
+    "campsite-highlights": [
+        "Banner.park-title is readable.",
+        "Nav.login-button is clickable.",
+        "Banner.directions-button is clickable.",
+        "Every element named.",
+    ],
+    "closing": [
+        "The sieve sees everything.",
+        "The glossary names everything.",
+        "The agent knows everything.",
+        "LeftGlove + OpenClaw.",
+        "Deterministic page understanding for AI agents.",
+    ],
+}
+
+def ts(s):
+    h = int(s // 3600)
+    m = int((s % 3600) // 60)
+    sec = int(s % 60)
+    ms = int((s % 1) * 1000)
+    return f"{h:02d}:{m:02d}:{sec:02d},{ms:03d}"
+
+subs = []
+idx = 1
+for cid, info in clip_starts.items():
+    lines = script.get(cid, [])
+    if not lines:
+        continue
+    line_dur = info["dur_s"] / len(lines)
+    for i, line in enumerate(lines):
+        ls = info["start_s"] + i * line_dur
+        le = info["start_s"] + (i + 1) * line_dur
+        subs.append((idx, ls, le, line))
+        idx += 1
+
+with open(SRT_OUT, "w") as f:
+    for i, start, end, text in subs:
+        f.write(f"{i}\n{ts(start)} --> {ts(end)}\n{text}\n\n")
+
+print(f"  Generated {len(subs)} subtitle entries")
+SUBEOF
+
+  if [[ -f "subtitles.srt" ]]; then
+    echo "  Burning subtitles into video..."
+    ffmpeg -y -i "$ROOT_DIR/demo2-final.mp4" \
+      -vf "subtitles=subtitles.srt:force_style='FontSize=22,FontName=DejaVu Sans,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Shadow=1,Alignment=2,MarginV=40'" \
+      -c:v libx264 -crf 18 -preset fast -movflags +faststart \
+      -c:a copy \
+      "$ROOT_DIR/demo2-final-subs.mp4" 2>/dev/null
+    echo "  Subtitled version: $ROOT_DIR/demo2-final-subs.mp4"
+  fi
+fi
+
 echo ""
 if command -v ffprobe &>/dev/null; then
   DUR=$(ffprobe -v quiet -show_entries format=duration \

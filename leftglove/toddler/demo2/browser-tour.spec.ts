@@ -235,9 +235,6 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   cast.typeCommand('mcp call observe --url "reservecalifornia.com/park/720"');
   cast.write('\x1b[90mNavigating to Reserve California...\x1b[0m\r\n');
 
-  const tCampsiteIntro = Date.now() - _t0;
-  timingLog.push({ id: 'campsite-intro', clipId: 'campsite-intro', t: tCampsiteIntro, duration: 3000 });
-
   await waitForSieve(page);
 
   // Wait for interstitial to clear, then re-sieve (not re-navigate, which
@@ -245,6 +242,11 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   await pause(page, 5000);
   await page.click('[data-testid="btn-sieve"]');
   await waitForSieve(page);
+
+  // Fire campsite-intro timing AFTER interstitial clears so narration
+  // aligns with the real campsite page, not the spinner.
+  const tCampsiteIntro = Date.now() - _t0;
+  timingLog.push({ id: 'campsite-intro', clipId: 'campsite-intro', t: tCampsiteIntro, duration: 3000 });
 
   const campsiteCount = await getElementCount(page);
   await pause(page, 1500);
@@ -316,7 +318,7 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   const tClosing = Date.now() - _t0;
   timingLog.push({ id: 'closing', clipId: 'closing', t: tClosing, duration: 10000 });
 
-  await pause(page, 8000);
+  await pause(page, 14000);
 
   // ── Save outputs ─────────────────────────────────────────────────────────
 
