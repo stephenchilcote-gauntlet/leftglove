@@ -249,7 +249,8 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   timingLog.push({ id: 'campsite-intro', clipId: 'campsite-intro', t: tCampsiteIntro, duration: 3000 });
 
   const campsiteCount = await getElementCount(page);
-  await pause(page, 1500);
+  // Let campsite-intro narration (5s) finish before campsite-sieve fires
+  await pause(page, 5500);
 
   cast.output(`\x1b[1;32m✓\x1b[0m \x1b[1m${campsiteCount} elements detected\x1b[0m`);
   cast.output('');
@@ -299,8 +300,8 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   const tCampsiteHighlights = Date.now() - _t0;
   timingLog.push({ id: 'campsite-highlights', clipId: 'campsite-highlights', t: tCampsiteHighlights, duration: 6000 });
 
-  // Let viewer see the classified overlay
-  await pause(page, 4000);
+  // Let campsite-highlights narration (9.6s) finish and viewer see overlay
+  await pause(page, 10000);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CLOSING
