@@ -16,14 +16,14 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: 'list',
-  timeout: 480000,
+  timeout: 900000,
   use: {
     baseURL: 'http://localhost:8080',
-    viewport: { width: 1920, height: 1080 },
+    viewport: { width: 960, height: 1080 },
     headless: true,
     video: {
       mode: 'on',
-      size: { width: 1920, height: 1080 },
+      size: { width: 960, height: 1080 },
     },
     launchOptions: {
       args: ['--disable-infobars', '--no-sandbox'],
