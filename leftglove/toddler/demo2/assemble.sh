@@ -122,14 +122,22 @@ fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf" \
 }
 
 generate_title_card \
-  "Your AI agent just looked at eBay." \
+  "What does your AI agent actually see?" \
   "$SEGMENTS_DIR/title-cards/cold-open.mp4" \
-  6 48
+  5 48
 
-generate_title_card \
-  "LeftGlove + OpenClaw" \
-  "$SEGMENTS_DIR/title-cards/closing-card.mp4" \
-  5 56
+# Closing card with tagline (two lines)
+ffmpeg -y \
+  -f lavfi -i "color=c=0x1a1a2e:s=1920x1080:d=6" \
+  -vf "drawtext=text='LeftGlove + OpenClaw':fontcolor=#cce8ff:fontsize=56:\
+x=(w-text_w)/2:y=(h/2)-50:\
+fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf,\
+drawtext=text='Deterministic page understanding for AI agents.':fontcolor=#7799bb:fontsize=28:\
+x=(w-text_w)/2:y=(h/2)+30:\
+fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf" \
+  -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
+  "$SEGMENTS_DIR/title-cards/closing-card.mp4" 2>/dev/null
+echo "  Title card: closing-card.mp4 (6s)"
 
 # ── Step 4: Build final concat list ──────────────────────────────────────────
 
@@ -179,7 +187,7 @@ PAD_MS = 300
 GAP_MS = 200
 
 # Title card duration (cold-open) shifts all timing
-TITLE_CARD_OFFSET_MS = 6000
+TITLE_CARD_OFFSET_MS = 5000
 
 if not os.path.exists(BROWSER_TIMING):
     print("WARNING: No timing.json found. Skipping voiceover.")
@@ -319,7 +327,7 @@ import json, sys
 
 TIMING_FILE = sys.argv[1]
 SRT_OUT = sys.argv[2]
-TITLE_CARD_OFFSET_MS = 6000
+TITLE_CARD_OFFSET_MS = 5000
 PAD_MS = 300
 GAP_MS = 200
 
