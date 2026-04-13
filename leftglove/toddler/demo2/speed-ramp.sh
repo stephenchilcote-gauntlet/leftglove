@@ -245,11 +245,35 @@ with open(srt_path, "w") as f:
         f.write(f"{i}\n{ts(start)} --> {ts(end)}\n{text}\n\n")
 print(f"Generated {len(subs)} adjusted subtitle entries → {srt_path}")
 
-# Burn subtitles
+# Calculate speed-up zone timestamps in the output video for the indicator
+speed_zones = []
+out_cursor = 0.0
+for seg in segments:
+    out_start = out_cursor
+    dur = (seg["end"] - seg["start"]) / seg["speed"]
+    out_end = out_start + dur
+    if seg["speed"] > 1:
+        speed_zones.append((out_start, out_end, seg["speed"]))
+    out_cursor = out_end
+
+# Build enable expression for speed indicator
+enable_parts = [f"between(t\\,{s:.2f}\\,{e:.2f})" for s, e, _ in speed_zones]
+enable_expr = "+".join(enable_parts) if enable_parts else "0"
+speed_label = f"{int(speed_zones[0][2])}x" if speed_zones else "6x"
+
+# Burn subtitles + speed indicator
 OUTPUT_SUBS = OUTPUT.replace(".mp4", "-subs.mp4")
+vf = (
+    f"subtitles={srt_path}:force_style='FontSize=22,FontName=DejaVu Sans,"
+    f"PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Shadow=1,"
+    f"Alignment=2,MarginV=40',"
+    f"drawtext=text='▶▶ {speed_label}':fontcolor=#55ccff:fontsize=22:"
+    f"x=w-tw-20:y=18:fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf:"
+    f"borderw=2:bordercolor=black:enable='{enable_expr}'"
+)
 cmd_subs = [
     "ffmpeg", "-y", "-i", OUTPUT,
-    "-vf", f"subtitles={srt_path}:force_style='FontSize=22,FontName=DejaVu Sans,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Shadow=1,Alignment=2,MarginV=40'",
+    "-vf", vf,
     "-c:v", "libx264", "-crf", "18", "-preset", "fast", "-movflags", "+faststart",
     "-c:a", "copy",
     OUTPUT_SUBS,
