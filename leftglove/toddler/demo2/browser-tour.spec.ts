@@ -222,8 +222,11 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   const tEbayHighlights = Date.now() - _t0;
   timingLog.push({ id: 'ebay-highlights', clipId: 'ebay-highlights', t: tEbayHighlights, duration: 6000 });
 
-  // Let viewer see the classified overlay
-  await pause(page, 4000);
+  // Wait for ebay-highlights narration to finish before navigating away.
+  // The clip is 9.4s and starts ~300ms after the timing event (in recording
+  // time). Navigate must happen AFTER 9700ms + buffer so the viewer sees
+  // the eBay overlay while hearing about eBay elements.
+  await pause(page, 12000);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ACT 2: CAMPSITE — Booking a state park reservation

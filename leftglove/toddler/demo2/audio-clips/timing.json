@@ -1,0 +1,38 @@
+[
+  {
+    "id": "ebay-sieve",
+    "clipId": "ebay-sieve",
+    "t": 7121,
+    "duration": 8000
+  },
+  {
+    "id": "ebay-highlights",
+    "clipId": "ebay-highlights",
+    "t": 73696,
+    "duration": 6000
+  },
+  {
+    "id": "campsite-intro",
+    "clipId": "campsite-intro",
+    "t": 93340,
+    "duration": 3000
+  },
+  {
+    "id": "campsite-sieve",
+    "clipId": "campsite-sieve",
+    "t": 98866,
+    "duration": 6000
+  },
+  {
+    "id": "campsite-highlights",
+    "clipId": "campsite-highlights",
+    "t": 126066,
+    "duration": 6000
+  },
+  {
+    "id": "closing",
+    "clipId": "closing",
+    "t": 136107,
+    "duration": 10000
+  }
+]
