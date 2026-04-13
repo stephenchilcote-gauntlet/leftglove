@@ -1924,7 +1924,7 @@
         "x": 302,
         "y": 227
       },
-      "glossary-name": "share-button",
+      "glossary-name": "share-container",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -2415,7 +2415,7 @@
         "x": 360,
         "y": 481
       },
-      "glossary-name": "availability-status",
+      "glossary-name": "availability-status-detail",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -2443,7 +2443,7 @@
         "x": 360,
         "y": 478
       },
-      "glossary-name": "availability-status-duplicate",
+      "glossary-name": "availability-restock-notice",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3462,7 +3462,7 @@
         "x": 150,
         "y": 2451
       },
-      "glossary-name": "feature-heading",
+      "glossary-name": "feature-portability-heading",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3488,7 +3488,7 @@
         "x": 150,
         "y": 2514
       },
-      "glossary-name": "feature-description",
+      "glossary-name": "feature-portability-description",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3538,7 +3538,7 @@
         "x": 150,
         "y": 3231
       },
-      "glossary-name": "feature-heading",
+      "glossary-name": "feature-display-heading",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3564,7 +3564,7 @@
         "x": 150,
         "y": 3294
       },
-      "glossary-name": "feature-description",
+      "glossary-name": "feature-display-description",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3614,7 +3614,7 @@
         "x": 150,
         "y": 4131
       },
-      "glossary-name": "feature-heading",
+      "glossary-name": "feature-comfort-heading",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3640,7 +3640,7 @@
         "x": 150,
         "y": 4194
       },
-      "glossary-name": "feature-description",
+      "glossary-name": "feature-comfort-description",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3690,7 +3690,7 @@
         "x": 646,
         "y": 4636
       },
-      "glossary-name": "feature-heading",
+      "glossary-name": "feature-distraction-free-heading",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3716,7 +3716,7 @@
         "x": 646,
         "y": 4747
       },
-      "glossary-name": "feature-description",
+      "glossary-name": "feature-distraction-free-description",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3766,7 +3766,7 @@
         "x": 150,
         "y": 5661
       },
-      "glossary-name": "feature-heading",
+      "glossary-name": "feature-battery-heading",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3792,7 +3792,7 @@
         "x": 150,
         "y": 5724
       },
-      "glossary-name": "feature-description",
+      "glossary-name": "feature-battery-description",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3842,7 +3842,7 @@
         "x": 150,
         "y": 6358
       },
-      "glossary-name": "feature-heading",
+      "glossary-name": "feature-selection-heading",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -3868,7 +3868,7 @@
         "x": 150,
         "y": 6421
       },
-      "glossary-name": "feature-description",
+      "glossary-name": "feature-selection-description",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -4314,7 +4314,7 @@
         "x": 175,
         "y": 7432
       },
-      "glossary-name": "faq-question",
+      "glossary-name": "faq-question-2",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -4340,7 +4340,7 @@
         "x": 175,
         "y": 7463
       },
-      "glossary-name": "faq-answer",
+      "glossary-name": "faq-answer-2",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -6612,7 +6612,7 @@
         "x": 19,
         "y": 9272
       },
-      "glossary-name": "color-label",
+      "glossary-name": "comparison-color-header",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -7771,7 +7771,7 @@
         "x": 800,
         "y": 10087
       },
-      "glossary-name": "charger-rating",
+      "glossary-name": "usb-charger-5w-rating",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -7799,7 +7799,7 @@
         "x": 800,
         "y": 10107
       },
-      "glossary-name": "charger-price",
+      "glossary-name": "usb-charger-5w-price",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -8897,7 +8897,7 @@
         "x": 396,
         "y": 10965
       },
-      "glossary-name": "read-full-review",
+      "glossary-name": "read-full-review-1",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -8956,7 +8956,7 @@
         "x": 397,
         "y": 11138
       },
-      "glossary-name": "mark-helpful",
+      "glossary-name": "mark-helpful-review-1",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -8985,7 +8985,7 @@
         "x": 522,
         "y": 11144
       },
-      "glossary-name": "report-review",
+      "glossary-name": "report-review-1",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9039,7 +9039,7 @@
         "x": 396,
         "y": 11191
       },
-      "glossary-name": "reviewer-profile",
+      "glossary-name": "reviewer-profile-2",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9067,7 +9067,7 @@
         "x": 396,
         "y": 11231
       },
-      "glossary-name": "review-link",
+      "glossary-name": "review-link-2",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9096,7 +9096,7 @@
         "x": 396,
         "y": 11291
       },
-      "glossary-name": "verified-purchase-info",
+      "glossary-name": "verified-purchase-review-2",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9126,7 +9126,7 @@
         "x": 396,
         "y": 11589
       },
-      "glossary-name": "read-full-review",
+      "glossary-name": "read-full-review-2",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9156,7 +9156,7 @@
         "x": 397,
         "y": 11650
       },
-      "glossary-name": "mark-helpful",
+      "glossary-name": "mark-helpful-review-2",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9185,7 +9185,7 @@
         "x": 522,
         "y": 11656
       },
-      "glossary-name": "report-review",
+      "glossary-name": "report-review-2",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9239,7 +9239,7 @@
         "x": 396,
         "y": 11703
       },
-      "glossary-name": "reviewer-profile",
+      "glossary-name": "reviewer-profile-3",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9267,7 +9267,7 @@
         "x": 396,
         "y": 11743
       },
-      "glossary-name": "review-link",
+      "glossary-name": "review-link-3",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9296,7 +9296,7 @@
         "x": 396,
         "y": 11803
       },
-      "glossary-name": "verified-purchase-info",
+      "glossary-name": "verified-purchase-review-3",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9326,7 +9326,7 @@
         "x": 397,
         "y": 12162
       },
-      "glossary-name": "mark-helpful",
+      "glossary-name": "mark-helpful-review-3",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -9355,7 +9355,7 @@
         "x": 522,
         "y": 12168
       },
-      "glossary-name": "report-review",
+      "glossary-name": "report-review-3",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
@@ -10660,7 +10660,7 @@
         "x": 449,
         "y": 12910
       },
-      "glossary-name": "language-selector",
+      "glossary-name": "footer-language-selector",
       "glossary-intent": "",
       "glossary-source": "auto"
     },
