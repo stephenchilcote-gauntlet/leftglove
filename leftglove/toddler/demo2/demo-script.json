@@ -1,26 +1,26 @@
 [
   {
     "id": "ebay-sieve",
-    "spoken": "Hundreds of elements on a live eBay search page. Every button, every link, every filter. The sieve found them all. No LLM. No vision model. Zero tokens."
+    "spoken": "You're a small seller researching competitor prices. Your agent opens eBay, searches wireless earbuds. The sieve maps every element on the page. No LLM. No vision model. Zero tokens."
   },
   {
     "id": "ebay-highlights",
-    "spoken": "Nav dot sign-in is clickable. Nav dot deals is clickable. Nav dot cart is clickable. Structured. Deterministic. Named."
+    "spoken": "Product titles. Listing prices. Seller ratings. Shipping details. Every element structured and named. Ready for your agent to extract and compare."
   },
   {
     "id": "campsite-intro",
-    "spoken": "Now a state park reservation system. Completely different site. Live."
+    "spoken": "Now a completely different site. A state park reservation system."
   },
   {
     "id": "campsite-sieve",
-    "spoken": "Over a hundred elements. Park info, login controls, navigation, share buttons. All detected instantly."
+    "spoken": "Different layout, different purpose. The sieve maps it just the same. Over a hundred elements, detected instantly."
   },
   {
     "id": "campsite-highlights",
-    "spoken": "Banner dot park-title is readable. Nav dot login-button is clickable. Banner dot directions-button is clickable. Every element named."
+    "spoken": "Park name. Available dates. Booking controls. Your agent understands this page too. No retraining. No new prompts."
   },
   {
     "id": "closing",
-    "spoken": "The sieve sees everything. The glossary names everything. The agent knows everything. LeftGlove plus OpenClaw. Deterministic page understanding for AI agents."
+    "spoken": "The sieve sees the page. The glossary names every element. Your agent knows what to click, what to read, what to compare. LeftGlove plus OpenClaw. Deterministic page understanding for AI agents."
   }
 ]
