@@ -143,6 +143,13 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   // ─── Open TL UI ──────────────────────────────────────────────────────────
   await page.goto(`${TL_URL}?api=${SIEVE_URL}`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('[data-testid="url-input"]');
+
+  // Hide the bottom detail panel for a cleaner demo view — more space for
+  // the page content and overlay labels
+  await page.addStyleTag({ content: `
+    #panel-info, #panel-controls, #nav-buttons { display: none !important; }
+    #page-frame { height: calc(100vh - 40px) !important; }
+  `});
   await pause(page, 1000);
 
   // ═══════════════════════════════════════════════════════════════════════════
