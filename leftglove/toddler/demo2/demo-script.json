@@ -1,11 +1,11 @@
 [
   {
     "id": "ebay-sieve",
-    "spoken": "Four hundred and seventy-six elements on a live eBay search page. Every button, every link, every filter. The sieve found them all. No LLM. No vision model. Zero tokens."
+    "spoken": "Hundreds of elements on a live eBay search page. Every button, every link, every filter. The sieve found them all. No LLM. No vision model. Zero tokens."
   },
   {
     "id": "ebay-highlights",
-    "spoken": "Nav dot sign-in-link is clickable. Nav dot deals-link is clickable. Search dot category-dropdown is typable. Structured. Deterministic. Named."
+    "spoken": "Nav dot sign-in is clickable. Nav dot deals is clickable. Nav dot cart is clickable. Structured. Deterministic. Named."
   },
   {
     "id": "campsite-intro",
@@ -13,7 +13,7 @@
   },
   {
     "id": "campsite-sieve",
-    "spoken": "A hundred and seventeen elements. Date cells in the availability calendar. Navigation controls. Map interactions. All detected."
+    "spoken": "Over a hundred elements. Park info, login controls, navigation, share buttons. All detected instantly."
   },
   {
     "id": "campsite-highlights",
