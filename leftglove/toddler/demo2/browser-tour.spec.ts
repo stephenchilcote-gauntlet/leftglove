@@ -96,26 +96,37 @@ async function waitForAutoComplete(page: Page, timeoutMs = 300000) {
   );
 }
 
+/** Parse element count from status indicator text like "485 elements (12 visible)" */
 async function getElementCount(page: Page): Promise<number> {
-  return await page.evaluate(() =>
-    (window as any).state?.inventory?.elements?.length ?? 0
-  );
+  const text = await page.textContent('[data-testid="status-indicator"]') ?? '';
+  const m = text.match(/(\d+)\s+element/i);
+  return m ? parseInt(m[1], 10) : 0;
 }
 
-async function getClassifiedCount(page: Page): Promise<number> {
-  return await page.evaluate(() =>
-    Object.keys((window as any).state?.classifications ?? {}).length
+/** Parse counts from the toast message "Auto-classified N elements, named M." */
+async function getAutoClassifyCounts(page: Page): Promise<{ classified: number; named: number }> {
+  const text = await page.evaluate(() =>
+    document.getElementById('toast')?.textContent ?? ''
   );
+  const cm = text.match(/classified\s+(\d+)/i);
+  const nm = text.match(/named\s+(\d+)/i);
+  return {
+    classified: cm ? parseInt(cm[1], 10) : 0,
+    named: nm ? parseInt(nm[1], 10) : 0,
+  };
 }
 
-async function getGlossaryCount(page: Page): Promise<number> {
-  return await page.evaluate(() =>
-    Object.keys((window as any).state?.glossaryNames ?? {}).length
-  );
-}
-
-async function getGlossaryNames(page: Page): Promise<Record<string, { name: string; intent: string }>> {
-  return await page.evaluate(() => (window as any).state?.glossaryNames ?? {});
+/** Read glossary names from the overlay SVG text labels. */
+async function getGlossaryNamesFromOverlay(page: Page): Promise<string[]> {
+  return await page.evaluate(() => {
+    const labels: string[] = [];
+    document.querySelectorAll('[data-testid="overlay-svg"] text').forEach((el) => {
+      const t = el.textContent?.trim();
+      // Skip empty, duplicates, and long accessibility text blobs
+      if (t && t.length < 40 && !labels.includes(t)) labels.push(t);
+    });
+    return labels;
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -165,28 +176,21 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
 
   // Wait for auto-classify to finish all batches
   await waitForAutoComplete(page);
+  // Read counts immediately (toast disappears after 5s)
+  const ebayStatus = await getAutoClassifyCounts(page);
   // Let the overlay settle visually
   await pause(page, 3000);
-
-  const ebayGlossaryCount = await getGlossaryCount(page);
-  const ebayClassifiedCount = await getClassifiedCount(page);
-  const ebayGlossary = await getGlossaryNames(page);
+  const ebayOverlayNames = await getGlossaryNamesFromOverlay(page);
 
   // Show named elements in terminal
-  cast.output(`\x1b[1;32m✓\x1b[0m \x1b[1m${ebayClassifiedCount} classified, ${ebayGlossaryCount} named\x1b[0m`);
+  cast.output(`\x1b[1;32m✓\x1b[0m \x1b[1m${ebayStatus.classified} classified, ${ebayStatus.named} named\x1b[0m`);
   cast.output('');
 
-  const shownNames: string[] = [];
-  for (const [, entry] of Object.entries(ebayGlossary)) {
-    if (shownNames.length >= 12) break;
-    if (entry.name && !shownNames.includes(entry.name)) {
-      const intent = entry.intent || 'eBay';
-      cast.output(`  \x1b[32m✓\x1b[0m \x1b[1m${intent}.${entry.name}\x1b[0m`);
-      shownNames.push(entry.name);
-    }
+  for (const name of ebayOverlayNames.slice(0, 12)) {
+    cast.output(`  \x1b[32m✓\x1b[0m \x1b[1m${name}\x1b[0m`);
   }
-  if (ebayGlossaryCount > shownNames.length) {
-    cast.output(`  \x1b[90m... ${ebayGlossaryCount - shownNames.length} more\x1b[0m`);
+  if (ebayOverlayNames.length > 12) {
+    cast.output(`  \x1b[90m... ${ebayOverlayNames.length - 12} more\x1b[0m`);
   }
   cast.output('');
 
@@ -239,26 +243,18 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   cast.write('\x1b[90mAuto-classifying...\x1b[0m\r\n');
 
   await waitForAutoComplete(page);
+  const campsiteStatus = await getAutoClassifyCounts(page);
   await pause(page, 3000);
+  const campsiteOverlayNames = await getGlossaryNamesFromOverlay(page);
 
-  const campsiteGlossaryCount = await getGlossaryCount(page);
-  const campsiteClassifiedCount = await getClassifiedCount(page);
-  const campsiteGlossary = await getGlossaryNames(page);
-
-  cast.output(`\x1b[1;32m✓\x1b[0m \x1b[1m${campsiteClassifiedCount} classified, ${campsiteGlossaryCount} named\x1b[0m`);
+  cast.output(`\x1b[1;32m✓\x1b[0m \x1b[1m${campsiteStatus.classified} classified, ${campsiteStatus.named} named\x1b[0m`);
   cast.output('');
 
-  const campsiteShown: string[] = [];
-  for (const [, entry] of Object.entries(campsiteGlossary)) {
-    if (campsiteShown.length >= 10) break;
-    if (entry.name && !campsiteShown.includes(entry.name)) {
-      const intent = entry.intent || 'Campsite';
-      cast.output(`  \x1b[32m✓\x1b[0m \x1b[1m${intent}.${entry.name}\x1b[0m`);
-      campsiteShown.push(entry.name);
-    }
+  for (const name of campsiteOverlayNames.slice(0, 10)) {
+    cast.output(`  \x1b[32m✓\x1b[0m \x1b[1m${name}\x1b[0m`);
   }
-  if (campsiteGlossaryCount > campsiteShown.length) {
-    cast.output(`  \x1b[90m... ${campsiteGlossaryCount - campsiteShown.length} more\x1b[0m`);
+  if (campsiteOverlayNames.length > 10) {
+    cast.output(`  \x1b[90m... ${campsiteOverlayNames.length - 10} more\x1b[0m`);
   }
   cast.output('');
 
@@ -275,8 +271,8 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   // Summary stats
   cast.typeCommand('mcp call list_vocabulary');
   cast.output('');
-  cast.output(`\x1b[1;36m${ebayCount}\x1b[0m eBay elements → \x1b[1;32m${ebayGlossaryCount}\x1b[0m named`);
-  cast.output(`\x1b[1;36m${campsiteCount}\x1b[0m Campsite elements → \x1b[1;32m${campsiteGlossaryCount}\x1b[0m named`);
+  cast.output(`\x1b[1;36m${ebayCount}\x1b[0m eBay elements → \x1b[1;32m${ebayStatus.named}\x1b[0m named`);
+  cast.output(`\x1b[1;36m${campsiteCount}\x1b[0m Campsite elements → \x1b[1;32m${campsiteStatus.named}\x1b[0m named`);
   cast.output('');
   cast.output('\x1b[1mZero tokens for detection. Deterministic. Every time.\x1b[0m');
   cast.output('');
