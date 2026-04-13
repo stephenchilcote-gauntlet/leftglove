@@ -1,27 +1,23 @@
 [
   {
-    "id": "amazon-sieve",
-    "spoken": "Four hundred and twenty-seven elements on a live Amazon product page. Every button, every link, every dropdown. The sieve found them all. No LLM. No vision model. Zero tokens."
+    "id": "ebay-sieve",
+    "spoken": "Four hundred and seventy-six elements on a live eBay search page. Every button, every link, every filter. The sieve found them all. No LLM. No vision model. Zero tokens."
   },
   {
-    "id": "amazon-highlights",
-    "spoken": "Amazon dot product-title is readable. Amazon dot search-amazon is typable. Amazon dot denim-color-option is clickable. Structured. Deterministic. Named."
-  },
-  {
-    "id": "amazon-clicks",
-    "spoken": "Watch — the agent clicks the color option. The page responds. Clicks the rating button. The reviews expand. Real interaction, zero guessing."
+    "id": "ebay-highlights",
+    "spoken": "Nav dot sign-in-link is clickable. Nav dot deals-link is clickable. Search dot category-dropdown is typable. Structured. Deterministic. Named."
   },
   {
     "id": "campsite-intro",
-    "spoken": "Now a state park reservation system. Live."
+    "spoken": "Now a state park reservation system. Completely different site. Live."
   },
   {
     "id": "campsite-sieve",
-    "spoken": "A hundred and fifty-three elements. Every date cell in the availability calendar. Every dropdown. Every map control. All named."
+    "spoken": "A hundred and seventeen elements. Date cells in the availability calendar. Navigation controls. Map interactions. All detected."
   },
   {
     "id": "campsite-highlights",
-    "spoken": "Campsite dot park-name is readable. Campsite dot date-range-selector is clickable. Campsite dot availability-oh-four-nineteen is clickable. Even the map zoom controls are named."
+    "spoken": "Banner dot park-title is readable. Nav dot login-button is clickable. Banner dot directions-button is clickable. Every element named."
   },
   {
     "id": "closing",

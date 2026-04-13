@@ -135,7 +135,7 @@ async function getGlossaryNamesFromOverlay(page: Page): Promise<string[]> {
 
 test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   _t0 = Date.now();
-  const cast = new CastWriter();
+  const cast = new CastWriter(80, 25);
 
   cast.write('\x1b[1;32mLeftGlove MCP Demo\x1b[0m\r\n');
   cast.write('\x1b[90m─────────────────────────────────────\x1b[0m\r\n\r\n');
@@ -154,7 +154,7 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   await pause(page, 500);
   await page.click('[data-testid="btn-navigate"]');
 
-  cast.typeCommand(`mcp call observe --url "${EBAY_URL}"`);
+  cast.typeCommand('mcp call observe --url "ebay.com/wireless+earbuds"');
   cast.write('\x1b[90mNavigating and running sieve...\x1b[0m\r\n');
 
   // Wait for sieve to complete in TL UI
@@ -166,8 +166,8 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   cast.output(`\x1b[1;32m✓\x1b[0m \x1b[1m${ebayCount} elements detected\x1b[0m`);
   cast.output('');
 
-  const tAmazonSieve = Date.now() - _t0;
-  timingLog.push({ id: 'ebay-sieve', clipId: 'ebay-sieve', t: tAmazonSieve, duration: 8000 });
+  const tEbaySieve = Date.now() - _t0;
+  timingLog.push({ id: 'ebay-sieve', clipId: 'ebay-sieve', t: tEbaySieve, duration: 8000 });
 
   // Auto-classify — click the button and wait for names to start appearing
   await page.click('[data-testid="btn-auto-classify"]');
@@ -194,8 +194,8 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   }
   cast.output('');
 
-  const tAmazonHighlights = Date.now() - _t0;
-  timingLog.push({ id: 'ebay-highlights', clipId: 'ebay-highlights', t: tAmazonHighlights, duration: 6000 });
+  const tEbayHighlights = Date.now() - _t0;
+  timingLog.push({ id: 'ebay-highlights', clipId: 'ebay-highlights', t: tEbayHighlights, duration: 6000 });
 
   // Let viewer see the classified overlay
   await pause(page, 4000);
@@ -214,7 +214,7 @@ test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   await pause(page, 500);
   await page.click('[data-testid="btn-navigate"]');
 
-  cast.typeCommand(`mcp call observe --url "${CAMPSITE_URL}"`);
+  cast.typeCommand('mcp call observe --url "reservecalifornia.com/park/720"');
   cast.write('\x1b[90mNavigating to Reserve California...\x1b[0m\r\n');
 
   const tCampsiteIntro = Date.now() - _t0;
