@@ -19,6 +19,13 @@ import { test, type Page } from '@playwright/test';
 const TL_URL = 'http://localhost:8080';
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
+// sieve.js — the same JS the sieve server injects
+const SIEVE_JS_PATH = path.resolve(__dirname, '../../../../shiftlefter/resources/sieve.js');
+const SIEVE_JS = fsSync.readFileSync(SIEVE_JS_PATH, 'utf-8');
+
+const AMAZON_URL = 'https://www.amazon.com/dp/B09SWV3BYH';
+const CAMPSITE_URL = 'https://www.reservecalifornia.com/park/720/2100';
+
 // ── Timing log ──────────────────────────────────────────────────────────────
 
 let _t0 = 0;
@@ -245,14 +252,67 @@ async function loadFixture(fixtureName: string): Promise<any> {
   return JSON.parse(await fs.readFile(fixturePath, 'utf-8'));
 }
 
-async function injectFixture(page: Page, fixtureData: any): Promise<number> {
+/** Transform raw sieve fixture to intermediate format that fromIntermediate() expects. */
+function prepareFixture(raw: any): any {
+  const dims = raw.source.screenshotDims || { w: 960, h: 1080 };
+  const elements = (raw.elements || []).map((el: any, i: number) => {
+    const cat = String(el.category || '').replace(/^:/, '');
+    const hasGlossary = !!el['glossary-name'];
+    return {
+      'sieve-id': 'el-' + String(i + 1).padStart(3, '0'),
+      'category': cat,
+      'category-source': 'human',
+      'tag': el.tag || null,
+      'element-type': el.elementType || el['element-type'] || null,
+      'label': el.label || null,
+      'locators': el.locators || {},
+      'state': el.state || { visible: true, disabled: false },
+      'rect': el.rect,
+      'visible-text': el.visibleText || el['visible-text'] || null,
+      'region': el.region || null,
+      'form': el.form || null,
+      'aria-role': el.ariaRole || el['aria-role'] || null,
+      'glossary-name': el['glossary-name'] || null,
+      'glossary-intent': el['glossary-intent'] || null,
+      'glossary-source': hasGlossary ? 'human' : null,
+      'notes': el.notes || null,
+    };
+  });
+
+  // Strip data URI prefix from screenshot if present
+  let screenshot = raw.source.screenshot || null;
+  if (screenshot && screenshot.startsWith('data:')) {
+    screenshot = screenshot.replace(/^data:image\/[a-z]+;base64,/, '');
+  }
+
+  return {
+    'sieve-version': '1.0',
+    source: {
+      url: raw.source.url,
+      viewport: { w: dims.w, h: dims.h },
+      timestamp: raw.source.timestamp || new Date().toISOString(),
+      screenshot,
+    },
+    elements,
+    metadata: {
+      cookies: [],
+      storage: { localStorage: [], sessionStorage: [] },
+      tabs: 1,
+    },
+    'pass-1-complete': true,
+  };
+}
+
+async function injectFixture(page: Page, rawFixture: any): Promise<number> {
+  const prepared = prepareFixture(rawFixture);
   return await page.evaluate((data) => {
-    const errors = (window as any).fromIntermediate(data);
+    if (typeof fromIntermediate !== 'function') {
+      throw new Error('fromIntermediate not found — is app.js loaded?');
+    }
+    const errors = fromIntermediate(data);
     if (errors.length) throw new Error('Load failed: ' + errors.join('; '));
     (window as any)._lastPass2Rendered = -1;
-    const n = (window as any).state.inventory
-      ? (window as any).state.inventory.elements.length
-      : 0;
+    const n = (window as any).state?.inventory?.elements?.length ?? 0;
     document.getElementById('status-indicator')!.textContent =
       n + ' element' + (n !== 1 ? 's' : '') + ' (loaded)';
     return (window as any).renderScreenshot().then(() => {
@@ -261,7 +321,88 @@ async function injectFixture(page: Page, fixtureData: any): Promise<number> {
       (window as any).renderMetadata();
       return n;
     });
-  }, fixtureData);
+  }, prepared);
+}
+
+// ── Sieve overlay on real pages ─────────────────────────────────────────────
+
+/** Inject sieve.js into the current page and return the inventory. */
+async function runSieve(page: Page): Promise<any> {
+  // sieve.js is an IIFE: (function sieve() { ... return runSieve(); })()
+  // Wrapping with "return" matches what the sieve server does in server.clj
+  return await page.evaluate((src) => {
+    return new Function(src)();
+  }, 'return ' + SIEVE_JS);
+}
+
+/** Render colored bounding-box overlays for all sieve elements on the real page. */
+async function renderSieveOverlay(page: Page, inventory: any) {
+  await page.evaluate((elements) => {
+    // Remove any previous overlay
+    document.querySelectorAll('.sieve-overlay-rect').forEach(e => e.remove());
+
+    const COLORS: Record<string, string> = {
+      clickable: 'rgba(0, 200, 255, 0.35)',
+      typable: 'rgba(0, 255, 120, 0.35)',
+      readable: 'rgba(200, 180, 255, 0.25)',
+      chrome: 'rgba(100, 100, 100, 0.15)',
+    };
+
+    for (const el of elements) {
+      const r = el.rect;
+      if (!r || r.w < 3 || r.h < 3) continue;
+      // Skip off-screen elements
+      if (r.x + r.w < 0 || r.y + r.h < 0) continue;
+      const cat = String(el.category || '').replace(/^:/, '');
+      const color = COLORS[cat] || COLORS.chrome;
+      const div = document.createElement('div');
+      div.className = 'sieve-overlay-rect';
+      div.style.cssText = `
+        position: absolute; z-index: 99990; pointer-events: none;
+        left: ${r.x}px; top: ${r.y}px;
+        width: ${r.w}px; height: ${r.h}px;
+        background: ${color};
+        border: 1px solid ${color.replace(/[\d.]+\)$/, '0.8)')};
+        border-radius: 2px;
+      `;
+      document.body.appendChild(div);
+    }
+  }, inventory.elements);
+}
+
+/** Highlight one sieve element on the real page with a bright ring + caption. */
+async function highlightSieveElement(
+  page: Page, inventory: any, elementIndex: number, captionText: string,
+) {
+  const el = inventory.elements[elementIndex];
+  if (!el?.rect) return;
+  const r = el.rect;
+
+  await page.evaluate((rect) => {
+    document.querySelectorAll('.demo-highlight').forEach(e => e.remove());
+    const ring = document.createElement('div');
+    ring.className = 'demo-highlight';
+    ring.style.cssText = `
+      position: absolute; z-index: 99997;
+      left: ${rect.x - 4}px; top: ${rect.y - 4}px;
+      width: ${rect.w + 8}px; height: ${rect.h + 8}px;
+      border: 2px solid #00d9ff;
+      border-radius: 6px;
+      box-shadow: 0 0 12px rgba(0,217,255,0.5);
+      pointer-events: none;
+    `;
+    document.body.appendChild(ring);
+  }, { x: r.x, y: r.y, w: r.w, h: r.h });
+
+  await caption(page, captionText, 3000);
+  await clearHighlights(page);
+  await clearCaption(page);
+  await pause(page, 300);
+}
+
+/** Find sieve element index by glossary name from a fixture. */
+function findElementByName(fixture: any, name: string): number {
+  return fixture.elements.findIndex((el: any) => el['glossary-name'] === name);
 }
 
 // ── Screenshot dir ──────────────────────────────────────────────────────────
@@ -280,113 +421,110 @@ async function snap(page: Page, name: string) {
 test('LeftGlove + OpenClaw Hype Demo — Browser Tour', async ({ page }) => {
   _t0 = Date.now();
 
-  // Page-frames dir for split-screen terminal segments
-  const pageFrameDir = path.join(__dirname, 'page-frames');
-  await fs.mkdir(pageFrameDir, { recursive: true });
-
-  // Load fixtures upfront — fail fast if missing
+  // Load fixtures for element index hints (glossary names → indices)
   const amazonFixture = await loadFixture('amazon-product');
   const campsiteFixture = await loadFixture('campsite-booking');
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 1 — AMAZON PRODUCT PAGE
+  // SECTION 1 — LIVE AMAZON
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // -- Scene: Load TL UI (clean state) --
-  await page.goto(TL_URL);
-  await page.waitForSelector('#status-indicator');
+  // Navigate to real Amazon Kindle page
+  await page.goto(AMAZON_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForTimeout(3000);
   await ensureCursor(page);
-  await pause(page, 1000);
 
-  // -- Scene: Inject Amazon fixture --
-  const amazonCount = await injectFixture(page, amazonFixture);
-  await pause(page, 1000);
-  await snap(page, 'amazon-after-load');
-
-  // Caption: sieve result
-  await caption(page,
-    `${amazonCount} interactive elements on one Amazon product page. No LLM. No vision model. Zero tokens.`,
-    10500, 'amazon-sieve',
-    '#status-indicator',
-  );
-  await clearCaption(page);
-
-  // -- Scene: Classification overview --
-  await caption(page,
-    'Classify the whole page in seconds. Clickable. Readable. Typable. Done.',
-    6000, 'amazon-classify',
-  );
-  await clearCaption(page);
-  await pause(page, 500);
-
-  // -- Scene: Walk through key Amazon elements --
-  await highlightByGlossaryName(page, 'add-to-cart',
-    'Amazon.add-to-cart — clickable');
-  await highlightByGlossaryName(page, 'price',
-    'Amazon.price — readable');
-  await highlightByGlossaryName(page, 'quantity-selector',
-    'Amazon.quantity-selector — selectable');
-  await snap(page, 'amazon-classified');
-
-  // Extract page-frame screenshot from fixture source data
-  if (amazonFixture.source?.screenshot) {
-    await fs.writeFile(
-      path.join(pageFrameDir, 'amazon-page.png'),
-      Buffer.from(amazonFixture.source.screenshot, 'base64'),
-    );
-  }
-
+  // Run real sieve — this is the actual system working
+  const amazonInventory = await runSieve(page);
+  const amazonCount = amazonInventory.elements?.length ?? 0;
+  await renderSieveOverlay(page, amazonInventory);
   await pause(page, 1500);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 2 — CAMPSITE RESERVATION
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  // Caption: transition to campsite
   await caption(page,
-    'Now a state park reservation form. Date pickers. Dropdowns. Availability grids.',
-    5000, 'campsite-intro',
+    `${amazonCount} elements detected on a live Amazon page. No LLM. No vision model. Zero tokens.`,
+    8000, 'amazon-sieve',
   );
   await clearCaption(page);
+  await snap(page, 'amazon-sieve-overlay');
 
-  // -- Scene: Inject campsite fixture --
-  const campsiteCount = await injectFixture(page, campsiteFixture);
-  await pause(page, 1000);
-  await snap(page, 'campsite-after-load');
-
-  // Caption: sieve result
-  await caption(page,
-    `${campsiteCount} elements. Every form field mapped. Every dropdown inventoried.`,
-    8000, 'campsite-sieve',
-    '#status-indicator',
-  );
-  await clearCaption(page);
-
-  // -- Scene: Walk through key campsite elements --
-  await highlightByGlossaryName(page, 'park-selector',
-    'Campsite.park-selector — selectable');
-  await highlightByGlossaryName(page, 'arrival-date',
-    'Campsite.arrival-date — typable');
-  await highlightByGlossaryName(page, 'departure-date',
-    'Campsite.departure-date — typable');
-  await highlightByGlossaryName(page, 'campsite-type',
-    'Campsite.campsite-type — selectable');
-  await highlightByGlossaryName(page, 'search-button',
-    'Campsite.search-button — clickable');
-  await snap(page, 'campsite-classified');
-
-  // Extract page-frame screenshot from fixture source data
-  if (campsiteFixture.source?.screenshot) {
-    await fs.writeFile(
-      path.join(pageFrameDir, 'campsite-base.png'),
-      Buffer.from(campsiteFixture.source.screenshot, 'base64'),
-    );
+  // Highlight and click real elements
+  for (const [elName, action] of [
+    ['product-title', 'readable — the product heading'],
+    ['search-amazon', 'typable — the search bar'],
+    ['denim-color-option', 'clicking — color variant selector'],
+    ['rating-button', 'clicking — 4.6 star reviews'],
+  ] as const) {
+    const idx = findElementByName(amazonFixture, elName);
+    const el = idx >= 0 ? amazonInventory.elements[idx] : null;
+    if (el?.rect && el.rect.y >= 0 && el.rect.y < 1080) {
+      const r = el.rect;
+      await highlightSieveElement(page, amazonInventory, idx,
+        `Amazon.${elName} — ${action}`);
+      if (action.startsWith('clicking')) {
+        await page.mouse.click(r.x + r.w / 2, r.y + r.h / 2);
+        await pause(page, 2000);
+      }
+    }
   }
 
-  await pause(page, 1500);
+  await snap(page, 'amazon-after-clicks');
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CLOSING — Side-by-side stats
+  // SECTION 2 — LIVE CAMPSITE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  await caption(page,
+    'Now a state park reservation system. Live.',
+    3000, 'campsite-intro',
+  );
+  await clearCaption(page);
+
+  // Navigate to real campsite page — wait for it to fully render
+  await page.goto(CAMPSITE_URL, { waitUntil: 'load', timeout: 60000 });
+  // Wait until the "processing" spinner is gone and real content appears
+  await page.waitForFunction(() => {
+    return !document.body.textContent?.includes('processing your request')
+      && document.querySelectorAll('a, button, input, select').length > 20;
+  }, { timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(2000);
+  await ensureCursor(page);
+
+  // Run real sieve
+  const campsiteInventory = await runSieve(page);
+  const campsiteCount = campsiteInventory.elements?.length ?? 0;
+  await renderSieveOverlay(page, campsiteInventory);
+  await pause(page, 1500);
+
+  await caption(page,
+    `${campsiteCount} elements. Every date cell. Every control. Every dropdown.`,
+    6000, 'campsite-sieve',
+  );
+  await clearCaption(page);
+  await snap(page, 'campsite-sieve-overlay');
+
+  // Highlight campsite elements — show the sieve named everything
+  for (const [elName, desc] of [
+    ['park-name', 'readable — "South Carlsbad SB"'],
+    ['date-range-selector', 'clickable — date picker control'],
+    ['sort-dropdown', 'clickable — site sort control'],
+    ['next-week', 'clickable — calendar navigation'],
+    ['availability-04-19', 'clickable — available date slot'],
+    ['availability-04-23', 'clickable — date slot (different state)'],
+    ['campsite-name', 'readable — site identifier'],
+    ['map-zoom-in', 'clickable — even the map controls are named'],
+  ] as const) {
+    const idx = findElementByName(campsiteFixture, elName);
+    const el = idx >= 0 ? campsiteInventory.elements[idx] : null;
+    if (el?.rect && el.rect.y >= 0 && el.rect.y < 1200) {
+      await highlightSieveElement(page, campsiteInventory, idx,
+        `Campsite.${elName} — ${desc}`);
+    }
+  }
+
+  await snap(page, 'campsite-after-clicks');
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLOSING — Stats overlay
   // ═══════════════════════════════════════════════════════════════════════════
 
   await page.evaluate(({ amazonCount, campsiteCount }) => {
