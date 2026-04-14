@@ -39,8 +39,12 @@ else
     exit 1
   fi
   echo "  Found: $BROWSER_VIDEO"
+  BROWSER_RAW_DUR=$(ffprobe -v quiet -show_entries format=duration \
+    -of default=noprint_wrappers=1:nokey=1 "$BROWSER_VIDEO")
+  BROWSER_FADE=$(python3 -c "print(round($BROWSER_RAW_DUR - 0.4, 3))")
   ffmpeg -y -i "$BROWSER_VIDEO" \
-    -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x1a1a2e" \
+    -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x1a1a2e,\
+fade=t=out:st=${BROWSER_FADE}:d=0.4:color=0x1a1a2e" \
     -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
     "$SEGMENTS_DIR/normalized/intro.mp4" 2>/dev/null
 fi
@@ -136,30 +140,36 @@ echo "  closing.mp4 (10s)"
 echo ""
 echo "=== Step 4: Normalize split-screen segments ==="
 
-# eBay split: 2x speed (21.97s → ~11s) + 2s freeze + "2× speed" indicator
+# eBay split: 2x speed (21.97s → ~11s) + 2s freeze + "2× speed" indicator + fade in/out
 if [[ ! -f "$SEGMENTS_DIR/normalized/ebay-split.mp4" ]] || \
    [[ "$SEGMENTS_DIR/ebay-split.mp4" -nt "$SEGMENTS_DIR/normalized/ebay-split.mp4" ]]; then
+  EBAY_RAW_DUR=$(ffprobe -v quiet -show_entries format=duration \
+    -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/ebay-split.mp4")
+  EBAY_OUT_DUR=$(python3 -c "print(round($EBAY_RAW_DUR / 2 + 2, 3))")
+  EBAY_FADE=$(python3 -c "print(round($EBAY_OUT_DUR - 0.4, 3))")
   ffmpeg -y -i "$SEGMENTS_DIR/ebay-split.mp4" \
     -vf "setpts=0.5*PTS,tpad=stop=60:stop_mode=clone,\
 drawtext=text='2x speed':fontcolor=#ffffff@0.45:fontsize=22:\
-x=w-140:y=16:fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf:enable='lt(t,11)'" \
+x=w-140:y=16:fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf:enable='lt(t,11)',\
+fade=t=in:st=0:d=0.4:color=0x1a1a2e,fade=t=out:st=${EBAY_FADE}:d=0.4:color=0x1a1a2e" \
     -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
     "$SEGMENTS_DIR/normalized/ebay-split.mp4" 2>/dev/null
-  echo "  Normalized ebay-split.mp4 (2x speed + 2s price freeze)"
+  echo "  Normalized ebay-split.mp4 (2x + 2s freeze + fade in/out)"
 else
   echo "  ebay-split.mp4 already normalized"
 fi
 
-# RC split: 2.5x speed (36.5s → ~14.6s) + 3s freeze + "2.5× speed" indicator
+# RC split: 2.5x speed (36.5s → ~14.6s) + 3s freeze + "2.5× speed" indicator + fade in
 if [[ ! -f "$SEGMENTS_DIR/normalized/rc-split.mp4" ]] || \
    [[ "$SEGMENTS_DIR/rc-split.mp4" -nt "$SEGMENTS_DIR/normalized/rc-split.mp4" ]]; then
   ffmpeg -y -i "$SEGMENTS_DIR/rc-split.mp4" \
     -vf "setpts=0.4*PTS,tpad=stop=90:stop_mode=clone,\
 drawtext=text='2.5x speed':fontcolor=#ffffff@0.45:fontsize=22:\
-x=w-160:y=16:fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf:enable='lt(t,14.6)'" \
+x=w-160:y=16:fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf:enable='lt(t,14.6)',\
+fade=t=in:st=0:d=0.4:color=0x1a1a2e" \
     -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
     "$SEGMENTS_DIR/normalized/rc-split.mp4" 2>/dev/null
-  echo "  Normalized rc-split.mp4 (2.5x speed + 3s booking popup hold)"
+  echo "  Normalized rc-split.mp4 (2.5x + 3s freeze + fade in)"
 else
   echo "  rc-split.mp4 already normalized"
 fi
@@ -203,25 +213,7 @@ echo "  → final-silent.mp4"
 echo ""
 echo "=== Step 6: Fade transitions ==="
 
-# Calculate segment boundaries for fades
-OPENING_DUR=$(ffprobe -v quiet -show_entries format=duration \
-  -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/title-cards/opening.mp4")
-INTRO_DUR=$(ffprobe -v quiet -show_entries format=duration \
-  -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/normalized/intro.mp4")
-EBAY_INTRO_DUR=$(ffprobe -v quiet -show_entries format=duration \
-  -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/title-cards/ebay-intro.mp4")
-EBAY_SPLIT_DUR=$(ffprobe -v quiet -show_entries format=duration \
-  -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/normalized/ebay-split.mp4")
-BUSINESS_DUR=$(ffprobe -v quiet -show_entries format=duration \
-  -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/title-cards/business-impact.mp4")
-RC_INTRO_DUR=$(ffprobe -v quiet -show_entries format=duration \
-  -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/title-cards/rc-intro.mp4")
-RC_SPLIT_DUR=$(ffprobe -v quiet -show_entries format=duration \
-  -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/normalized/rc-split.mp4")
-
-# Transition points (approximate — between major segments)
-T1=$(python3 -c "print($OPENING_DUR + $INTRO_DUR)")
-T2=$(python3 -c "print($T1 + $EBAY_INTRO_DUR + $EBAY_SPLIT_DUR + $BUSINESS_DUR)")
+# Global fade-in at start and fade-out at end
 T3=$(python3 -c "print($TOTAL_DUR - 1)")
 
 echo "  Fade-in:  0-1.2s"
