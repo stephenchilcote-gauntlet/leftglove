@@ -30,6 +30,8 @@ LeftGlove (observe tool):
 
 No more guessing. No more `document.querySelector` roulette.
 
+https://github.com/stephenchilcote-gauntlet/leftglove/raw/main/demo.mp4
+
 ## How It Works
 
 **Sieve** — A deterministic function injected into the browser page. It
