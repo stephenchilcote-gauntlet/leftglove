@@ -43,23 +43,23 @@ Product titles. Listing prices. Seller ratings.
 The agent scrolls down and the sieve re-maps every new element instantly.
 
 12
-00:00:47,886 --> 00:00:49,232
+00:00:45,686 --> 00:00:47,033
 A completely different site.
 
 13
-00:00:49,795 --> 00:00:51,667
+00:00:47,595 --> 00:00:49,466
 A state park reservation system.
 
 14
-00:00:51,968 --> 00:00:53,597
+00:00:49,768 --> 00:00:51,398
 The sieve maps it just the same.
 
 15
-00:00:53,838 --> 00:00:55,246
+00:00:51,639 --> 00:00:53,046
 Any site. Any layout.
 
 16
-00:00:55,728 --> 00:00:56,715
+00:00:53,529 --> 00:00:54,515
 Zero retraining.
 
 17
