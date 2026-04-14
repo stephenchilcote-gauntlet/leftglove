@@ -49,11 +49,12 @@ client — Claude Desktop, Claude Code, OpenClaw, your own agent — calls
 
 ## Quick Start
 
-### Docker (recommended)
-
 ```bash
-docker run -p 8080:8080 ghcr.io/stephenchilcote-gauntlet/leftglove
+npx leftglove
 ```
+
+That's it. Playwright downloads a bundled Chromium on first run. No
+Docker, no JVM, no external dependencies.
 
 ### Claude Desktop / Claude Code
 
@@ -63,8 +64,8 @@ Add to your MCP config:
 {
   "mcpServers": {
     "leftglove": {
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "ghcr.io/stephenchilcote-gauntlet/leftglove"]
+      "command": "npx",
+      "args": ["leftglove"]
     }
   }
 }
@@ -74,23 +75,29 @@ Add to your MCP config:
 
 ```bash
 git clone https://github.com/stephenchilcote-gauntlet/leftglove.git
-cd leftglove
-
-# Install dependencies
-(cd leftglove/mcp-server && npm install && npm run build)
-(cd leftglove/toddler && npm install)
-(cd leftglove/demo-app && npm install)
-
-# Start all services (demo app :3000, toddler UI :8080, sieve :3333)
-bin/demo-run
+cd leftglove/leftglove/mcp-server
+npm install && npm run build
+node dist/index.js
 ```
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `SIEVE_URL` | (auto-start) | URL of an external sieve server. If unset, LeftGlove starts its own Playwright browser. |
+| `SIEVE_PORT` | `3333` | Port for the built-in sieve server. |
+| `SIEVE_HEADLESS` | `true` | Set to `false` to see the browser window. |
 
 ## MCP Tools
 
 | Tool | Description |
 |---|---|
 | `observe` | Run the sieve on the current page. Returns a structured inventory of interactive elements — clickable, typable, readable — with locators and labels. |
-| `list_vocabulary` | List the glossary: intent regions, their elements, applicable verbs (click/fill/see), and testid locators. |
+| `click` | Click an element by its index from the last `observe` result. |
+| `fill` | Fill a text input by its index from the last `observe` result. |
+| `navigate` | Navigate the browser to a URL. |
+| `screenshot` | Take a screenshot of the current page (base64 PNG). |
+| `list_vocabulary` | List the glossary: intent regions, elements, applicable verbs, and testid locators. |
 | `refresh_vocabulary` | Reload glossary files from disk after edits. |
 
 ## Why Not Just Feed the HTML to the LLM?
