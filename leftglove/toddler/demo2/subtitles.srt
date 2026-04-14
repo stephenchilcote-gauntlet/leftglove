@@ -23,12 +23,12 @@ Now watch what the agent sees.
 The sieve maps every interactive element on the page.
 
 7
-00:00:28,925 --> 00:00:32,591
+00:00:28,905 --> 00:00:32,067
 Product titles. Listing prices. Seller ratings.
 
 8
-00:00:32,871 --> 00:00:37,260
-The agent clicks through to a product, and the sieve re-maps the new page instantly.
+00:00:32,307 --> 00:00:36,170
+The agent scrolls down and the sieve re-maps every new element instantly.
 
 9
 00:00:47,884 --> 00:00:49,226

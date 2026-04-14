@@ -36,15 +36,15 @@
     "clip": "agent-sees"
   },
   {
-    "start": 28.925,
-    "end": 32.592,
+    "start": 28.905,
+    "end": 32.067,
     "text": "Product titles. Listing prices. Seller ratings.",
     "clip": "ebay-interact"
   },
   {
-    "start": 32.872,
-    "end": 37.260999999999996,
-    "text": "The agent clicks through to a product, and the sieve re-maps the new page instantly.",
+    "start": 32.307,
+    "end": 36.17,
+    "text": "The agent scrolls down and the sieve re-maps every new element instantly.",
     "clip": "ebay-interact"
   },
   {
