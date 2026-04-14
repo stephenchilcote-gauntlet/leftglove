@@ -136,11 +136,13 @@ echo "  closing.mp4 (10s)"
 echo ""
 echo "=== Step 4: Normalize split-screen segments ==="
 
-# eBay split: 2x speed (21.97s → ~11s) + 2s freeze on final frame (all 3 prices visible)
+# eBay split: 2x speed (21.97s → ~11s) + 2s freeze + "2× speed" indicator
 if [[ ! -f "$SEGMENTS_DIR/normalized/ebay-split.mp4" ]] || \
    [[ "$SEGMENTS_DIR/ebay-split.mp4" -nt "$SEGMENTS_DIR/normalized/ebay-split.mp4" ]]; then
   ffmpeg -y -i "$SEGMENTS_DIR/ebay-split.mp4" \
-    -vf "setpts=0.5*PTS,tpad=stop=60:stop_mode=clone" \
+    -vf "setpts=0.5*PTS,tpad=stop=60:stop_mode=clone,\
+drawtext=text='2x speed':fontcolor=#ffffff@0.45:fontsize=22:\
+x=w-140:y=16:fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf:enable='lt(t,11)'" \
     -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
     "$SEGMENTS_DIR/normalized/ebay-split.mp4" 2>/dev/null
   echo "  Normalized ebay-split.mp4 (2x speed + 2s price freeze)"
@@ -148,11 +150,13 @@ else
   echo "  ebay-split.mp4 already normalized"
 fi
 
-# RC split: 2.5x speed (36.5s → ~14.6s) + 3s freeze on last frame (booking popup hold)
+# RC split: 2.5x speed (36.5s → ~14.6s) + 3s freeze + "2.5× speed" indicator
 if [[ ! -f "$SEGMENTS_DIR/normalized/rc-split.mp4" ]] || \
    [[ "$SEGMENTS_DIR/rc-split.mp4" -nt "$SEGMENTS_DIR/normalized/rc-split.mp4" ]]; then
   ffmpeg -y -i "$SEGMENTS_DIR/rc-split.mp4" \
-    -vf "setpts=0.4*PTS,tpad=stop=90:stop_mode=clone" \
+    -vf "setpts=0.4*PTS,tpad=stop=90:stop_mode=clone,\
+drawtext=text='2.5x speed':fontcolor=#ffffff@0.45:fontsize=22:\
+x=w-160:y=16:fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf:enable='lt(t,14.6)'" \
     -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
     "$SEGMENTS_DIR/normalized/rc-split.mp4" 2>/dev/null
   echo "  Normalized rc-split.mp4 (2.5x speed + 3s booking popup hold)"
