@@ -136,17 +136,29 @@ echo "  closing.mp4 (10s)"
 echo ""
 echo "=== Step 4: Normalize split-screen segments ==="
 
-for seg in "ebay-split" "rc-split"; do
-  if [[ ! -f "$SEGMENTS_DIR/normalized/${seg}.mp4" ]] || \
-     [[ "$SEGMENTS_DIR/${seg}.mp4" -nt "$SEGMENTS_DIR/normalized/${seg}.mp4" ]]; then
-    ffmpeg -y -i "$SEGMENTS_DIR/${seg}.mp4" \
-      -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
-      "$SEGMENTS_DIR/normalized/${seg}.mp4" 2>/dev/null
-    echo "  Normalized ${seg}.mp4"
-  else
-    echo "  ${seg}.mp4 already normalized"
-  fi
-done
+# eBay split: 2x speed (21.97s → ~11s) — narration covers full action, no dead air
+if [[ ! -f "$SEGMENTS_DIR/normalized/ebay-split.mp4" ]] || \
+   [[ "$SEGMENTS_DIR/ebay-split.mp4" -nt "$SEGMENTS_DIR/normalized/ebay-split.mp4" ]]; then
+  ffmpeg -y -i "$SEGMENTS_DIR/ebay-split.mp4" \
+    -vf "setpts=0.5*PTS" \
+    -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
+    "$SEGMENTS_DIR/normalized/ebay-split.mp4" 2>/dev/null
+  echo "  Normalized ebay-split.mp4 (2x speed)"
+else
+  echo "  ebay-split.mp4 already normalized"
+fi
+
+# RC split: 2.5x speed (36.5s → ~14.6s) + 3s freeze on last frame (booking popup hold)
+if [[ ! -f "$SEGMENTS_DIR/normalized/rc-split.mp4" ]] || \
+   [[ "$SEGMENTS_DIR/rc-split.mp4" -nt "$SEGMENTS_DIR/normalized/rc-split.mp4" ]]; then
+  ffmpeg -y -i "$SEGMENTS_DIR/rc-split.mp4" \
+    -vf "setpts=0.4*PTS,tpad=stop=90:stop_mode=clone" \
+    -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
+    "$SEGMENTS_DIR/normalized/rc-split.mp4" 2>/dev/null
+  echo "  Normalized rc-split.mp4 (2.5x speed + 3s booking popup hold)"
+else
+  echo "  rc-split.mp4 already normalized"
+fi
 
 # ── Step 5: Concatenate all segments ────────────────────────────────────────
 

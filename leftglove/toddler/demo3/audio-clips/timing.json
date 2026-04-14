@@ -1,0 +1,38 @@
+[
+  {
+    "clipId": "intro",
+    "t": 500
+  },
+  {
+    "clipId": "html-problem",
+    "t": 5000
+  },
+  {
+    "clipId": "toddler-ui",
+    "t": 12500
+  },
+  {
+    "clipId": "classify-demo",
+    "t": 22500
+  },
+  {
+    "clipId": "overlay",
+    "t": 31000
+  },
+  {
+    "clipId": "ebay-workflow",
+    "t": 43000
+  },
+  {
+    "clipId": "business-impact",
+    "t": 53500
+  },
+  {
+    "clipId": "rc-workflow",
+    "t": 64000
+  },
+  {
+    "clipId": "closing",
+    "t": 80000
+  }
+]
