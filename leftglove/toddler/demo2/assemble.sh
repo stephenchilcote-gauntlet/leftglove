@@ -26,27 +26,41 @@ SEGMENTS_DIR="segments"
 
 echo "Locating browser recording..."
 
-BROWSER_VIDEO=$(find . -name "video.webm" -path "*/browser-tour*" 2>/dev/null | sort | tail -1 || true)
-if [[ -z "$BROWSER_VIDEO" ]] && [[ -d "../test-results" ]]; then
-  BROWSER_VIDEO=$(find ../test-results -name "video.webm" -path "*/browser-tour*" 2>/dev/null | sort | tail -1 || true)
-fi
-if [[ -z "$BROWSER_VIDEO" ]]; then
-  echo "ERROR: No browser video found. Run 'npx playwright test' first."
-  exit 1
+# Prefer existing normalized copy (avoids re-normalizing from wrong source)
+if [[ -f "$SEGMENTS_DIR/normalized/main.mp4" ]]; then
+  echo "  Using existing normalized copy."
+  MAIN_DUR=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/normalized/main.mp4")
+  echo "  Main video: ${MAIN_DUR}s"
+  SKIP_NORMALIZE=true
+else
+  BROWSER_VIDEO=$(find . -name "video.webm" -path "*/browser-tour*" 2>/dev/null | sort | tail -1 || true)
+  if [[ -z "$BROWSER_VIDEO" ]] && [[ -d "../test-results" ]]; then
+    BROWSER_VIDEO=$(find ../test-results -name "video.webm" -path "*/browser-tour*" 2>/dev/null | sort | tail -1 || true)
+  fi
+  if [[ -z "$BROWSER_VIDEO" ]] && [[ -d "../demo/test-results" ]]; then
+    BROWSER_VIDEO=$(find ../demo/test-results -name "video.webm" -path "*/browser-tour*" 2>/dev/null | sort | tail -1 || true)
+  fi
+  if [[ -z "$BROWSER_VIDEO" ]]; then
+    echo "ERROR: No browser video found. Run 'npx playwright test' first."
+    exit 1
+  fi
 fi
 
-echo "  Found: $BROWSER_VIDEO"
+if [[ "${SKIP_NORMALIZE:-}" != "true" ]]; then
+  echo "  Found: $BROWSER_VIDEO"
+  mkdir -p "$SEGMENTS_DIR/normalized" "$SEGMENTS_DIR/title-cards"
+
+  # Normalize to 1920x1080 h264
+  echo "  Normalizing video..."
+  ffmpeg -y -i "$BROWSER_VIDEO" \
+    -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x1a1a2e" \
+    -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
+    "$SEGMENTS_DIR/normalized/main.mp4" 2>/dev/null
+
+  MAIN_DUR=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/normalized/main.mp4")
+  echo "  Main video: ${MAIN_DUR}s"
+fi
 mkdir -p "$SEGMENTS_DIR/normalized" "$SEGMENTS_DIR/title-cards"
-
-# Normalize to 1920x1080 h264
-echo "  Normalizing video..."
-ffmpeg -y -i "$BROWSER_VIDEO" \
-  -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x1a1a2e" \
-  -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
-  "$SEGMENTS_DIR/normalized/main.mp4" 2>/dev/null
-
-MAIN_DUR=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/normalized/main.mp4")
-echo "  Main video: ${MAIN_DUR}s"
 
 # ── Step 2: Generate title cards ───────────────────────────────────────────
 
@@ -246,40 +260,71 @@ else
   cp "$SEGMENTS_DIR/final-silent.mp4" "$ROOT_DIR/demo2-final.mp4"
 fi
 
-# ── Step 5b: Add fade transition between eBay and Reserve California ──────
+# ── Step 5b: Add all fade transitions in one pass ─────────────────────────
 
-# The RC site has a "processing your request" spinner that we hide with a
-# fade-to-dark transition. Timing based on the generalize mark in timing.json.
+# Three transitions, all applied in a single ffmpeg pass to avoid filter conflicts:
+#   1. Opening: fade-in from dark over the cold-open title card
+#   2. eBay→RC: fade-out, drawbox (hides spinner), fade-in
+#   3. RC→closing: fade-out RC content, drawbox, fade-in closing card
+#
+# CRITICAL: no two fade filters may have overlapping enable windows, because
+# each filter processes the previous filter's output — an active fade-out feeding
+# into an active fade-in produces unexpected results.
 if [[ -f "$TIMING_JSON" ]]; then
   echo ""
-  echo "Adding segment transition fade..."
+  echo "Adding fade transitions (opening + eBay→RC + closing)..."
 
-  FADE_OUT_START=$(python3 -c "
+  FILTER_CHAIN=$(python3 -c "
 import json
+
 with open('$TIMING_JSON') as f:
     timing = json.load(f)
+
+TITLE_OFFSET = 5.0  # cold-open title card duration
+MAIN_DUR = float('$MAIN_DUR')
+CLOSING_START = TITLE_OFFSET + MAIN_DUR  # where closing card begins in final video
+
+# --- Transition 1: Opening fade-in ---
+# Fade from dark to title card text over first 1.2s
+f1 = \"fade=t=in:st=0:d=1.2:color=0x1a1a2e:enable='between(t,0,1.5)'\"
+
+# --- Transition 2: eBay → RC (hide spinner) ---
 gen_mark = next((t for t in timing if t['id'] == 'generalize'), None)
-if gen_mark:
-    # Fade out 8s before generalize mark (during last eBay hold)
-    print(f\"{(gen_mark['t']/1000 + 5 - 8):.1f}\")
-else:
-    print('35')
+ebay_fo_st = (gen_mark['t']/1000 + TITLE_OFFSET - 8) if gen_mark else 35.0
+ebay_fi_st = ebay_fo_st + 4.6
+
+# fade-out eBay content
+f2 = f\"fade=t=out:st={ebay_fo_st}:d=1:color=0x1a1a2e:enable='between(t,{ebay_fo_st-0.5},{ebay_fo_st+1.6})'\"
+# drawbox solid dark while spinner loads
+f3 = f\"drawbox=x=0:y=0:w=iw:h=ih:color=0x1a1a2e@1:t=fill:enable='between(t,{ebay_fo_st+0.6},{ebay_fi_st})'\"
+# fade-in RC content
+f4 = f\"fade=t=in:st={ebay_fi_st}:d=1.5:color=0x1a1a2e:enable='between(t,{ebay_fi_st-0.5},{ebay_fi_st+2})'\"
+
+# --- Transition 3: RC → closing card ---
+# Fade out RC content 1.5s before closing card starts
+close_fo_st = CLOSING_START - 1.5
+close_fi_st = CLOSING_START + 1.0
+
+# fade-out RC (enable ends before closing fade-in starts)
+f5 = f\"fade=t=out:st={close_fo_st}:d=1.5:color=0x1a1a2e:enable='between(t,{close_fo_st-0.5},{CLOSING_START+0.5})'\"
+# drawbox covers the concat boundary
+f6 = f\"drawbox=x=0:y=0:w=iw:h=ih:color=0x1a1a2e@1:t=fill:enable='between(t,{CLOSING_START-0.2},{close_fi_st})'\"
+# fade-in closing card text (enable starts AFTER f5 enable ends)
+f7 = f\"fade=t=in:st={close_fi_st}:d=1.2:color=0x1a1a2e:enable='between(t,{CLOSING_START+0.5},{close_fi_st+1.7})'\"
+
+chain = ','.join([f1, f2, f3, f4, f5, f6, f7])
+print(chain)
+
+# Debug output to stderr
+import sys
+print(f'  Opening: fade-in 0-1.2s', file=sys.stderr)
+print(f'  eBay→RC: fade-out {ebay_fo_st}s, dark {ebay_fo_st+0.6}-{ebay_fi_st}s, fade-in {ebay_fi_st}s', file=sys.stderr)
+print(f'  Closing: fade-out {close_fo_st}s, dark {CLOSING_START-0.2}-{close_fi_st}s, fade-in {close_fi_st}s', file=sys.stderr)
+print(f'  Closing card starts at {CLOSING_START}s in final video', file=sys.stderr)
 ")
-  FADE_IN_START=$(python3 -c "print(float('$FADE_OUT_START') + 4.6)")
 
-  # Three filters chained: fade-out, drawbox (solid dark during spinner), fade-in.
-  # The drawbox covers the period after fade-out completes and before fade-in starts,
-  # hiding the RC "processing your request" spinner.
-  FO_EN_MIN=$(python3 -c "print(float('$FADE_OUT_START')-0.5)")
-  FO_EN_MAX=$(python3 -c "print(float('$FADE_OUT_START')+1.6)")
-  DB_START=$(python3 -c "print(float('$FADE_OUT_START')+0.6)")
-  DB_END="$FADE_IN_START"
-  FI_EN_MIN=$(python3 -c "print(float('$FADE_IN_START')-0.5)")
-  FI_EN_MAX=$(python3 -c "print(float('$FADE_IN_START')+2)")
-
-  echo "  Fade out at ${FADE_OUT_START}s, dark ${DB_START}–${DB_END}s, fade in at ${FADE_IN_START}s"
   ffmpeg -y -i "$ROOT_DIR/demo2-final.mp4" \
-    -vf "fade=t=out:st=${FADE_OUT_START}:d=1:color=0x1a1a2e:enable='between(t,${FO_EN_MIN},${FO_EN_MAX})',drawbox=x=0:y=0:w=iw:h=ih:color=0x1a1a2e@1:t=fill:enable='between(t,${DB_START},${DB_END})',fade=t=in:st=${FADE_IN_START}:d=1.5:color=0x1a1a2e:enable='between(t,${FI_EN_MIN},${FI_EN_MAX})'" \
+    -vf "$FILTER_CHAIN" \
     -c:v libx264 -crf 18 -preset fast -movflags +faststart \
     -c:a copy \
     "$ROOT_DIR/demo2-final-tmp.mp4" 2>/dev/null
