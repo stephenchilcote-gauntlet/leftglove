@@ -127,6 +127,7 @@ import sys
 AUDIO_DIR = "audio-clips"
 BROWSER_TIMING = f"{AUDIO_DIR}/timing.json"
 MANIFEST_JSON = f"{AUDIO_DIR}/manifest.json"
+CLIP_OFFSETS = f"{AUDIO_DIR}/clip_offsets.json"
 SAMPLE_RATE = 44100
 PAD_MS = 300
 GAP_MS = 200
@@ -143,6 +144,13 @@ with open(BROWSER_TIMING) as f:
 
 with open(MANIFEST_JSON) as f:
     manifest = json.load(f)
+
+# Load manual placement overrides if available
+overrides = {}
+if os.path.exists(CLIP_OFFSETS):
+    with open(CLIP_OFFSETS) as f:
+        overrides = json.load(f)
+    print(f"Using clip_offsets.json overrides for: {', '.join(overrides.keys())}")
 
 manifest_by_id = {c["id"]: c for c in manifest}
 print(f"Timing events: {len(timing_events)}, Audio clips: {len(manifest_by_id)}")
@@ -161,11 +169,16 @@ for event in timing_events:
     if not os.path.exists(wav):
         print(f"  SKIP: {wav} not found")
         continue
-    desired_ms = event["t"] + TITLE_CARD_OFFSET_MS + PAD_MS
-    start_ms = max(desired_ms, prev_end_ms + GAP_MS)
-    lag = start_ms - desired_ms
-    lag_str = f"  [+{lag}ms lag]" if lag > 0 else ""
-    print(f"  t={start_ms/1000:.1f}s  {clip_id}  ({entry['duration_ms']}ms){lag_str}")
+    if clip_id in overrides:
+        start_ms = int(overrides[clip_id] * 1000)
+        override_str = "  [override]"
+    else:
+        desired_ms = event["t"] + TITLE_CARD_OFFSET_MS + PAD_MS
+        start_ms = max(desired_ms, prev_end_ms + GAP_MS)
+        override_str = ""
+    lag = start_ms - (event["t"] + TITLE_CARD_OFFSET_MS + PAD_MS)
+    lag_str = f"  [{lag:+d}ms]" if lag != 0 else ""
+    print(f"  t={start_ms/1000:.1f}s  {clip_id}  ({entry['duration_ms']}ms){lag_str}{override_str}")
     clips.append({"wav": wav, "start_ms": start_ms, "id": clip_id})
     prev_end_ms = start_ms + entry["duration_ms"]
 
