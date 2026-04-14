@@ -2,19 +2,19 @@
   {
     "id": "toddler-intro",
     "path": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo2/audio-clips/toddler-intro.wav",
-    "duration_ms": 9802,
+    "duration_ms": 10034,
     "text": "This is the toddler loop. A human classifies elements once. Clickable. Readable. Typable. The system learns the page vocabulary."
   },
   {
     "id": "agent-sees",
     "path": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo2/audio-clips/agent-sees.wav",
-    "duration_ms": 6133,
-    "text": "Now watch what the agent sees. The sieve maps every interactive element on the page. No LLM. No vision model. Zero tokens."
+    "duration_ms": 10287,
+    "text": "Now watch what the agent sees. The sieve maps every interactive element on the page. No language model. No vision model. Zero tokens."
   },
   {
     "id": "ebay-interact",
     "path": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo2/audio-clips/ebay-interact.wav",
-    "duration_ms": 8130,
+    "duration_ms": 9244,
     "text": "Product titles. Listing prices. Seller ratings. The agent scrolls down and the sieve re-maps every new element instantly."
   },
   {
@@ -26,7 +26,7 @@
   {
     "id": "closing",
     "path": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo2/audio-clips/closing.wav",
-    "duration_ms": 12727,
+    "duration_ms": 12588,
     "text": "The sieve sees the page. The glossary names every element. Your agent knows what to click, what to read, what to compare. LeftGlove plus OpenClaw. Deterministic page understanding for AI agents."
   }
 ]

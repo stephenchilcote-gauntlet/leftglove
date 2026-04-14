@@ -1,64 +1,76 @@
 1
-00:00:06,166 --> 00:00:07,368
+00:00:06,306 --> 00:00:07,589
 This is the toddler loop.
 
 2
-00:00:07,788 --> 00:00:09,772
+00:00:08,009 --> 00:00:09,954
 A human classifies elements once.
 
 3
-00:00:10,414 --> 00:00:12,698
+00:00:10,394 --> 00:00:12,499
 Clickable. Readable. Typable.
 
 4
-00:00:12,958 --> 00:00:15,062
+00:00:12,960 --> 00:00:15,005
 The system learns the page vocabulary.
 
 5
-00:00:20,418 --> 00:00:22,024
+00:00:20,336 --> 00:00:21,897
 Now watch what the agent sees.
 
 6
-00:00:22,868 --> 00:00:25,398
+00:00:22,478 --> 00:00:25,321
 The sieve maps every interactive element on the page.
 
 7
-00:00:28,905 --> 00:00:32,067
-Product titles. Listing prices. Seller ratings.
+00:00:25,841 --> 00:00:26,862
+No language model.
 
 8
-00:00:32,307 --> 00:00:36,170
-The agent scrolls down and the sieve re-maps every new element instantly.
+00:00:27,323 --> 00:00:28,263
+No vision model.
 
 9
-00:00:47,884 --> 00:00:49,226
-A completely different site.
+00:00:28,643 --> 00:00:29,524
+Zero tokens.
 
 10
-00:00:49,686 --> 00:00:51,408
-A state park reservation system.
+00:00:30,803 --> 00:00:34,665
+Product titles. Listing prices. Seller ratings.
 
 11
-00:00:51,928 --> 00:00:53,570
-The sieve maps it just the same.
+00:00:35,146 --> 00:00:39,088
+The agent scrolls down and the sieve re-maps every new element instantly.
 
 12
-00:00:53,850 --> 00:00:55,152
-Any site. Any layout.
+00:00:47,886 --> 00:00:49,232
+A completely different site.
 
 13
-00:00:55,692 --> 00:00:56,653
-Zero retraining.
+00:00:49,795 --> 00:00:51,667
+A state park reservation system.
 
 14
-00:00:57,988 --> 00:00:59,390
-The sieve sees the page.
+00:00:51,968 --> 00:00:53,597
+The sieve maps it just the same.
 
 15
-00:00:59,911 --> 00:01:01,592
-The glossary names every element.
+00:00:53,838 --> 00:00:55,246
+Any site. Any layout.
 
 16
-00:01:01,812 --> 00:01:04,795
+00:00:55,728 --> 00:00:56,715
+Zero retraining.
+
+17
+00:00:57,966 --> 00:00:59,347
+The sieve sees the page.
+
+18
+00:00:59,887 --> 00:01:01,689
+The glossary names every element.
+
+19
+00:01:01,950 --> 00:01:04,852
 Your agent knows what to click, what to read, what to compare.
 

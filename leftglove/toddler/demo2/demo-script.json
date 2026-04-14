@@ -5,7 +5,7 @@
   },
   {
     "id": "agent-sees",
-    "spoken": "Now watch what the agent sees. The sieve maps every interactive element on the page. No LLM. No vision model. Zero tokens."
+    "spoken": "Now watch what the agent sees. The sieve maps every interactive element on the page. No language model. No vision model. Zero tokens."
   },
   {
     "id": "ebay-interact",

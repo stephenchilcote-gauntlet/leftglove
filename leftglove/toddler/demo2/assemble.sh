@@ -265,11 +265,21 @@ if gen_mark:
 else:
     print('35')
 ")
-  FADE_IN_START=$(python3 -c "print(float('$FADE_OUT_START') + 2.5)")
+  FADE_IN_START=$(python3 -c "print(float('$FADE_OUT_START') + 4.6)")
 
-  echo "  Fade out at ${FADE_OUT_START}s, fade in at ${FADE_IN_START}s"
+  # Three filters chained: fade-out, drawbox (solid dark during spinner), fade-in.
+  # The drawbox covers the period after fade-out completes and before fade-in starts,
+  # hiding the RC "processing your request" spinner.
+  FO_EN_MIN=$(python3 -c "print(float('$FADE_OUT_START')-0.5)")
+  FO_EN_MAX=$(python3 -c "print(float('$FADE_OUT_START')+1.6)")
+  DB_START=$(python3 -c "print(float('$FADE_OUT_START')+0.6)")
+  DB_END="$FADE_IN_START"
+  FI_EN_MIN=$(python3 -c "print(float('$FADE_IN_START')-0.5)")
+  FI_EN_MAX=$(python3 -c "print(float('$FADE_IN_START')+2)")
+
+  echo "  Fade out at ${FADE_OUT_START}s, dark ${DB_START}–${DB_END}s, fade in at ${FADE_IN_START}s"
   ffmpeg -y -i "$ROOT_DIR/demo2-final.mp4" \
-    -vf "fade=t=out:st=${FADE_OUT_START}:d=1:color=0x1a1a2e:enable='between(t,$(python3 -c "print(float('$FADE_OUT_START')-0.5)"),$(python3 -c "print(float('$FADE_OUT_START')+2)")),fade=t=in:st=${FADE_IN_START}:d=1:color=0x1a1a2e:enable='between(t,$(python3 -c "print(float('$FADE_IN_START')-1.5)"),$(python3 -c "print(float('$FADE_IN_START')+2)")'" \
+    -vf "fade=t=out:st=${FADE_OUT_START}:d=1:color=0x1a1a2e:enable='between(t,${FO_EN_MIN},${FO_EN_MAX})',drawbox=x=0:y=0:w=iw:h=ih:color=0x1a1a2e@1:t=fill:enable='between(t,${DB_START},${DB_END})',fade=t=in:st=${FADE_IN_START}:d=1.5:color=0x1a1a2e:enable='between(t,${FI_EN_MIN},${FI_EN_MAX})'" \
     -c:v libx264 -crf 18 -preset fast -movflags +faststart \
     -c:a copy \
     "$ROOT_DIR/demo2-final-tmp.mp4" 2>/dev/null

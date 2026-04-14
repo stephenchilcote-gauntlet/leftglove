@@ -1,97 +1,115 @@
 [
   {
-    "start": 6.166,
-    "end": 7.368,
+    "start": 6.306,
+    "end": 7.589,
     "text": "This is the toddler loop.",
     "clip": "toddler-intro"
   },
   {
-    "start": 7.789,
-    "end": 9.772,
+    "start": 8.01,
+    "end": 9.954,
     "text": "A human classifies elements once.",
     "clip": "toddler-intro"
   },
   {
-    "start": 10.414000000000001,
-    "end": 12.698,
+    "start": 10.395,
+    "end": 12.499,
     "text": "Clickable. Readable. Typable.",
     "clip": "toddler-intro"
   },
   {
-    "start": 12.958,
-    "end": 15.062000000000001,
+    "start": 12.96,
+    "end": 15.005,
     "text": "The system learns the page vocabulary.",
     "clip": "toddler-intro"
   },
   {
-    "start": 20.418000000000003,
-    "end": 22.024,
+    "start": 20.337,
+    "end": 21.898,
     "text": "Now watch what the agent sees.",
     "clip": "agent-sees"
   },
   {
-    "start": 22.868000000000002,
-    "end": 25.398000000000003,
+    "start": 22.479,
+    "end": 25.321,
     "text": "The sieve maps every interactive element on the page.",
     "clip": "agent-sees"
   },
   {
-    "start": 28.905,
-    "end": 32.067,
+    "start": 25.842,
+    "end": 26.863,
+    "text": "No language model.",
+    "clip": "agent-sees"
+  },
+  {
+    "start": 27.323,
+    "end": 28.264,
+    "text": "No vision model.",
+    "clip": "agent-sees"
+  },
+  {
+    "start": 28.644,
+    "end": 29.525,
+    "text": "Zero tokens.",
+    "clip": "agent-sees"
+  },
+  {
+    "start": 30.804,
+    "end": 34.666,
     "text": "Product titles. Listing prices. Seller ratings.",
     "clip": "ebay-interact"
   },
   {
-    "start": 32.307,
-    "end": 36.17,
+    "start": 35.147,
+    "end": 39.089,
     "text": "The agent scrolls down and the sieve re-maps every new element instantly.",
     "clip": "ebay-interact"
   },
   {
-    "start": 47.885,
-    "end": 49.227,
+    "start": 47.886,
+    "end": 49.233,
     "text": "A completely different site.",
     "clip": "generalize"
   },
   {
-    "start": 49.687,
-    "end": 51.40899999999999,
+    "start": 49.796,
+    "end": 51.667,
     "text": "A state park reservation system.",
     "clip": "generalize"
   },
   {
-    "start": 51.928999999999995,
-    "end": 53.571,
+    "start": 51.968,
+    "end": 53.598,
     "text": "The sieve maps it just the same.",
     "clip": "generalize"
   },
   {
-    "start": 53.851,
-    "end": 55.15299999999999,
+    "start": 53.839,
+    "end": 55.247,
     "text": "Any site. Any layout.",
     "clip": "generalize"
   },
   {
-    "start": 55.693,
-    "end": 56.653999999999996,
+    "start": 55.729,
+    "end": 56.715,
     "text": "Zero retraining.",
     "clip": "generalize"
   },
   {
-    "start": 57.989,
-    "end": 59.391,
+    "start": 57.967,
+    "end": 59.348,
     "text": "The sieve sees the page.",
     "clip": "closing"
   },
   {
-    "start": 59.911,
-    "end": 61.592999999999996,
+    "start": 59.888,
+    "end": 61.69,
     "text": "The glossary names every element.",
     "clip": "closing"
   },
   {
-    "start": 61.812999999999995,
-    "end": 64.79599999999999,
+    "start": 61.95,
+    "end": 64.852,
     "text": "Your agent knows what to click, what to read, what to compare.",
     "clip": "closing"
   }
