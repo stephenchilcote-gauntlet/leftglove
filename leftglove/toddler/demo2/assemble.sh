@@ -246,6 +246,36 @@ else
   cp "$SEGMENTS_DIR/final-silent.mp4" "$ROOT_DIR/demo2-final.mp4"
 fi
 
+# ── Step 5b: Add fade transition between eBay and Reserve California ──────
+
+# The RC site has a "processing your request" spinner that we hide with a
+# fade-to-dark transition. Timing based on the generalize mark in timing.json.
+if [[ -f "$TIMING_JSON" ]]; then
+  echo ""
+  echo "Adding segment transition fade..."
+
+  FADE_OUT_START=$(python3 -c "
+import json
+with open('$TIMING_JSON') as f:
+    timing = json.load(f)
+gen_mark = next((t for t in timing if t['id'] == 'generalize'), None)
+if gen_mark:
+    # Fade out 8s before generalize mark (during last eBay hold)
+    print(f\"{(gen_mark['t']/1000 + 5 - 8):.1f}\")
+else:
+    print('35')
+")
+  FADE_IN_START=$(python3 -c "print(float('$FADE_OUT_START') + 2.5)")
+
+  echo "  Fade out at ${FADE_OUT_START}s, fade in at ${FADE_IN_START}s"
+  ffmpeg -y -i "$ROOT_DIR/demo2-final.mp4" \
+    -vf "fade=t=out:st=${FADE_OUT_START}:d=1:color=0x1a1a2e:enable='between(t,$(python3 -c "print(float('$FADE_OUT_START')-0.5)"),$(python3 -c "print(float('$FADE_OUT_START')+2)")),fade=t=in:st=${FADE_IN_START}:d=1:color=0x1a1a2e:enable='between(t,$(python3 -c "print(float('$FADE_IN_START')-1.5)"),$(python3 -c "print(float('$FADE_IN_START')+2)")'" \
+    -c:v libx264 -crf 18 -preset fast -movflags +faststart \
+    -c:a copy \
+    "$ROOT_DIR/demo2-final-tmp.mp4" 2>/dev/null
+  mv "$ROOT_DIR/demo2-final-tmp.mp4" "$ROOT_DIR/demo2-final.mp4"
+fi
+
 # ── Step 6: Generate and burn subtitles ────────────────────────────────────
 
 if [[ "$HAS_AUDIO" == "true" ]] && [[ -f "$TIMING_JSON" ]]; then
