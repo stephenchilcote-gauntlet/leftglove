@@ -20,7 +20,8 @@ Now watch what the agent sees.
 
 6
 00:00:22,478 --> 00:00:25,321
-The sieve maps every interactive element on the page.
+The sieve maps every interactive element
+on the page.
 
 7
 00:00:25,841 --> 00:00:26,862
@@ -40,7 +41,8 @@ Product titles. Listing prices. Seller ratings.
 
 11
 00:00:35,146 --> 00:00:39,088
-The agent scrolls down and the sieve re-maps every new element instantly.
+The agent scrolls down and the sieve
+re-maps every new element instantly.
 
 12
 00:00:45,686 --> 00:00:47,033
@@ -72,5 +74,6 @@ The glossary names every element.
 
 19
 00:01:01,950 --> 00:01:04,852
-Your agent knows what to click, what to read, what to compare.
+Your agent knows what to click,
+what to read, what to compare.
 
