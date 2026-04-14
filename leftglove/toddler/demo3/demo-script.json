@@ -1,0 +1,38 @@
+[
+  {
+    "id": "intro",
+    "spoken": "This is LeftGlove. It lets your AI agent navigate any website."
+  },
+  {
+    "id": "html-problem",
+    "spoken": "Here's an eBay search page. Thousands of HTML elements. For an AI agent, this is unintelligible noise."
+  },
+  {
+    "id": "toddler-ui",
+    "spoken": "The toddler loop solves this. A human classifies page elements once: clickable, readable, typable. LeftGlove learns the vocabulary."
+  },
+  {
+    "id": "classify-demo",
+    "spoken": "Chrome, skip. Clickable. Typable. Readable. Each element gets a purpose. In seconds, the page makes sense."
+  },
+  {
+    "id": "overlay",
+    "spoken": "Now the sieve maps every interactive element automatically. No language model needed."
+  },
+  {
+    "id": "ebay-workflow",
+    "spoken": "Watch the agent work. It navigates to each product listing and extracts the price. Three competing earbuds priced in thirty seconds."
+  },
+  {
+    "id": "business-impact",
+    "spoken": "On-demand competitive intelligence. No scraping infrastructure. No maintenance."
+  },
+  {
+    "id": "rc-workflow",
+    "spoken": "Same tools, completely different site. A state park reservation system. Search for a park. Pick dates. Find an available campsite. All the way to the booking button."
+  },
+  {
+    "id": "closing",
+    "spoken": "LeftGlove makes AI agents more reliable, faster, and cheaper to operate. Any website. Any workflow. Zero retraining."
+  }
+]
