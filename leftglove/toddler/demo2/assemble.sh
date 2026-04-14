@@ -325,7 +325,13 @@ f6 = f\"drawbox=x=0:y=0:w=iw:h=ih:color=0x1a1a2e@1:t=fill:enable='between(t,{CLO
 # fade-in closing card text (enable starts AFTER f5 enable ends)
 f7 = f\"fade=t=in:st={close_fi_st}:d=1.2:color=0x1a1a2e:enable='between(t,{CLOSING_START+0.5},{close_fi_st+1.7})'\"
 
-chain = ','.join([f1, f2, f3, f4, f5, f6, f7])
+# --- Transition 4: End fade-out ---
+# Gentle fade to black at the very end so video doesn't hard-cut
+VIDEO_END = CLOSING_START + 6.0  # closing card is 6s
+end_fo_st = VIDEO_END - 1.0
+f8 = f\"fade=t=out:st={end_fo_st}:d=1:color=black:enable='between(t,{end_fo_st-0.3},{VIDEO_END+0.5})'\"
+
+chain = ','.join([f1, f2, f3, f4, f5, f6, f7, f8])
 print(chain)
 
 # Debug output to stderr
@@ -333,6 +339,7 @@ import sys
 print(f'  Opening: fade-in 0-1.2s', file=sys.stderr)
 print(f'  eBay→RC: fade-out {ebay_fo_st}s, dark {ebay_fo_st+0.6}-{ebay_fi_st}s, fade-in {ebay_fi_st}s', file=sys.stderr)
 print(f'  Closing: fade-out {close_fo_st}s, dark {CLOSING_START-0.2}-{close_fi_st}s, fade-in {close_fi_st}s', file=sys.stderr)
+print(f'  End fade-out: {end_fo_st}s', file=sys.stderr)
 print(f'  Closing card starts at {CLOSING_START}s in final video', file=sys.stderr)
 ")
 
