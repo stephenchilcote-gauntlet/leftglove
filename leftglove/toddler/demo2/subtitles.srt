@@ -1,0 +1,64 @@
+1
+00:00:06,166 --> 00:00:07,368
+This is the toddler loop.
+
+2
+00:00:07,788 --> 00:00:09,772
+A human classifies elements once.
+
+3
+00:00:10,414 --> 00:00:12,698
+Clickable. Readable. Typable.
+
+4
+00:00:12,958 --> 00:00:15,062
+The system learns the page vocabulary.
+
+5
+00:00:20,418 --> 00:00:22,024
+Now watch what the agent sees.
+
+6
+00:00:22,868 --> 00:00:25,398
+The sieve maps every interactive element on the page.
+
+7
+00:00:28,925 --> 00:00:32,591
+Product titles. Listing prices. Seller ratings.
+
+8
+00:00:32,871 --> 00:00:37,260
+The agent clicks through to a product, and the sieve re-maps the new page instantly.
+
+9
+00:00:47,884 --> 00:00:49,226
+A completely different site.
+
+10
+00:00:49,686 --> 00:00:51,408
+A state park reservation system.
+
+11
+00:00:51,928 --> 00:00:53,570
+The sieve maps it just the same.
+
+12
+00:00:53,850 --> 00:00:55,152
+Any site. Any layout.
+
+13
+00:00:55,692 --> 00:00:56,653
+Zero retraining.
+
+14
+00:00:57,988 --> 00:00:59,390
+The sieve sees the page.
+
+15
+00:00:59,911 --> 00:01:01,592
+The glossary names every element.
+
+16
+00:01:01,812 --> 00:01:04,795
+Your agent knows what to click, what to read, what to compare.
+

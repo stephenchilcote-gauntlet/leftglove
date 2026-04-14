@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# assemble.sh — combine TL UI recording + MCP terminal recording side by side
+# assemble.sh — assemble full-screen demo recording into final video
 #
 # LeftGlove + OpenClaw Hype Demo v2
 #
 # Prerequisites:
-#   1. make demo2-browser  → test-results/browser-tour-*/video.webm (960x1080)
-#                             casts/mcp-commands.cast
-#                             audio-clips/timing.json
-#   2. gen-demo-audio.py   → audio-clips/manifest.json + *.wav (optional)
+#   1. npx playwright test  → test-results/browser-tour-*/video.webm (1920x1080)
+#                              audio-clips/timing.json
+#   2. gen-demo-audio.py    → audio-clips/manifest.json + *.wav (optional)
 #
-# Layout: [TL UI 960x1080 | Terminal 960x1080] = 1920x1080
+# Output: 1920x1080 full-screen video (no split screen, no terminal)
 #
 # Usage:
 #   cd leftglove/toddler/demo2 && bash assemble.sh [--preview]
@@ -22,111 +21,49 @@ AUDIO_DIR="audio-clips"
 TIMING_JSON="${AUDIO_DIR}/timing.json"
 MANIFEST_JSON="${AUDIO_DIR}/manifest.json"
 SEGMENTS_DIR="segments"
-CASTS_DIR="casts"
 
-# ── Step 0: Convert MCP terminal .cast to .mp4 ──────────────────────────────
+# ── Step 1: Locate and normalize browser recording ─────────────────────────
 
-echo "Converting terminal recording..."
-mkdir -p "$SEGMENTS_DIR"
-
-CAST_FILE="$CASTS_DIR/mcp-commands.cast"
-TERM_MP4="$SEGMENTS_DIR/terminal.mp4"
-
-if [[ -f "$CAST_FILE" ]]; then
-  python3 cast-to-mp4.py "$CAST_FILE" "$TERM_MP4" --fps 15 --width 960 --height 1080
-else
-  echo "WARNING: No cast file found at $CAST_FILE"
-  echo "  Run 'make demo2-browser' first."
-  # Generate a blank terminal placeholder
-  ffmpeg -y \
-    -f lavfi -i "color=c=0x1a1a2e:s=960x1080:d=60" \
-    -vf "drawtext=text='Terminal':fontcolor=#cce8ff:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2:fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf" \
-    -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
-    "$TERM_MP4" 2>/dev/null
-fi
-
-# ── Step 1: Locate and normalize TL UI recording ────────────────────────────
-
-echo ""
-echo "Locating TL UI recording..."
+echo "Locating browser recording..."
 
 BROWSER_VIDEO=$(find . -name "video.webm" -path "*/browser-tour*" 2>/dev/null | sort | tail -1 || true)
 if [[ -z "$BROWSER_VIDEO" ]] && [[ -d "../test-results" ]]; then
   BROWSER_VIDEO=$(find ../test-results -name "video.webm" -path "*/browser-tour*" 2>/dev/null | sort | tail -1 || true)
 fi
 if [[ -z "$BROWSER_VIDEO" ]]; then
-  echo "ERROR: No browser video found. Run 'make demo2-browser' first."
+  echo "ERROR: No browser video found. Run 'npx playwright test' first."
   exit 1
 fi
 
 echo "  Found: $BROWSER_VIDEO"
-mkdir -p "$SEGMENTS_DIR/normalized"
+mkdir -p "$SEGMENTS_DIR/normalized" "$SEGMENTS_DIR/title-cards"
 
-# Normalize to 960x1080 h264
-echo "  Normalizing TL UI video..."
+# Normalize to 1920x1080 h264
+echo "  Normalizing video..."
 ffmpeg -y -i "$BROWSER_VIDEO" \
-  -vf "scale=960:1080:force_original_aspect_ratio=decrease,pad=960:1080:(ow-iw)/2:(oh-ih)/2:color=0x1a1a2e" \
+  -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x1a1a2e" \
   -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
-  "$SEGMENTS_DIR/normalized/tl-ui.mp4" 2>/dev/null
+  "$SEGMENTS_DIR/normalized/main.mp4" 2>/dev/null
 
-TL_DUR=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/normalized/tl-ui.mp4")
-TERM_DUR=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$TERM_MP4")
-echo "  TL UI: ${TL_DUR}s, Terminal: ${TERM_DUR}s"
+MAIN_DUR=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/normalized/main.mp4")
+echo "  Main video: ${MAIN_DUR}s"
 
-# ── Step 2: Composite side by side ──────────────────────────────────────────
-
-echo ""
-echo "Compositing side by side (TL UI | Terminal)..."
-
-# Use the shorter of the two as duration, pad the shorter one
-ffmpeg -y \
-  -i "$SEGMENTS_DIR/normalized/tl-ui.mp4" \
-  -i "$TERM_MP4" \
-  -filter_complex "\
-    [0:v]setpts=PTS-STARTPTS[left]; \
-    [1:v]setpts=PTS-STARTPTS,fps=30[right]; \
-    [left][right]hstack=inputs=2[v]" \
-  -map "[v]" \
-  -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
-  -shortest \
-  "$SEGMENTS_DIR/combined.mp4" 2>/dev/null
-
-COMBINED_DURATION=$(ffprobe -v quiet -show_entries format=duration \
-  -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/combined.mp4")
-echo "Combined video duration: ${COMBINED_DURATION}s"
-
-# ── Step 3: Generate title cards ─────────────────────────────────────────────
+# ── Step 2: Generate title cards ───────────────────────────────────────────
 
 echo ""
 echo "Generating title cards..."
-mkdir -p "$SEGMENTS_DIR/title-cards"
 
-generate_title_card() {
-  local text="$1"
-  local output="$2"
-  local duration="${3:-5}"
-  local fontsize="${4:-42}"
-
-  local escaped
-  escaped=$(echo "$text" | sed "s/'/\\\\'/g" | sed 's/:/\\:/g')
-
-  ffmpeg -y \
-    -f lavfi -i "color=c=0x1a1a2e:s=1920x1080:d=${duration}" \
-    -vf "drawtext=text='${escaped}':fontcolor=#cce8ff:fontsize=${fontsize}:\
+# Cold open
+ffmpeg -y \
+  -f lavfi -i "color=c=0x1a1a2e:s=1920x1080:d=5" \
+  -vf "drawtext=text='What does your AI agent actually see?':fontcolor=#cce8ff:fontsize=48:\
 x=(w-text_w)/2:y=(h-text_h)/2:\
 fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf" \
-    -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
-    "$output" 2>/dev/null
+  -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
+  "$SEGMENTS_DIR/title-cards/cold-open.mp4" 2>/dev/null
+echo "  cold-open.mp4 (5s)"
 
-  echo "  Title card: $output (${duration}s)"
-}
-
-generate_title_card \
-  "What does your AI agent actually see?" \
-  "$SEGMENTS_DIR/title-cards/cold-open.mp4" \
-  5 48
-
-# Closing card with tagline (two lines)
+# Closing card
 ffmpeg -y \
   -f lavfi -i "color=c=0x1a1a2e:s=1920x1080:d=6" \
   -vf "drawtext=text='LeftGlove + OpenClaw':fontcolor=#cce8ff:fontsize=56:\
@@ -137,36 +74,30 @@ x=(w-text_w)/2:y=(h/2)+30:\
 fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf" \
   -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
   "$SEGMENTS_DIR/title-cards/closing-card.mp4" 2>/dev/null
-echo "  Title card: closing-card.mp4 (6s)"
+echo "  closing-card.mp4 (6s)"
 
-# ── Step 4: Build final concat list ──────────────────────────────────────────
+# ── Step 3: Concatenate ────────────────────────────────────────────────────
 
 echo ""
-echo "Building concat list..."
+echo "Concatenating..."
 
 CONCAT_LIST="$SEGMENTS_DIR/concat.txt"
 > "$CONCAT_LIST"
 
-TC_DIR="$SEGMENTS_DIR/title-cards"
-
 for seg in \
-  "$TC_DIR/cold-open.mp4" \
-  "$SEGMENTS_DIR/combined.mp4" \
-  "$TC_DIR/closing-card.mp4"; do
-  if [[ -f "$seg" ]]; then
-    echo "file '$(pwd)/$seg'" >> "$CONCAT_LIST"
-    dur=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$seg")
-    echo "  $(basename $seg): ${dur}s"
-  fi
+  "$SEGMENTS_DIR/title-cards/cold-open.mp4" \
+  "$SEGMENTS_DIR/normalized/main.mp4" \
+  "$SEGMENTS_DIR/title-cards/closing-card.mp4"; do
+  echo "file '$(pwd)/$seg'" >> "$CONCAT_LIST"
+  dur=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$seg")
+  echo "  $(basename $seg): ${dur}s"
 done
 
-echo ""
-echo "Concatenating..."
 ffmpeg -y -f concat -safe 0 -i "$CONCAT_LIST" \
   -c copy \
   "$SEGMENTS_DIR/final-silent.mp4" 2>/dev/null
 
-# ── Step 5: Build voiceover audio (if manifest exists) ───────────────────────
+# ── Step 4: Build voiceover audio (if manifest exists) ─────────────────────
 
 HAS_AUDIO=false
 if [[ -f "$MANIFEST_JSON" ]]; then
@@ -262,7 +193,6 @@ print(f"Voiceover written to {AUDIO_DIR}/voiceover.wav")
 PYEOF
 
   if [[ -f "${AUDIO_DIR}/voiceover.wav" ]]; then
-    # Two-pass LUFS normalization
     echo ""
     echo "Normalising voiceover to -14 LUFS..."
 
@@ -297,7 +227,7 @@ else
   echo "Run gen-demo-audio.py first for audio."
 fi
 
-# ── Step 6: Final assembly ────────────────────────────────────────────────
+# ── Step 5: Final assembly ─────────────────────────────────────────────────
 
 echo ""
 echo "Assembling final video..."
@@ -316,13 +246,37 @@ else
   cp "$SEGMENTS_DIR/final-silent.mp4" "$ROOT_DIR/demo2-final.mp4"
 fi
 
-# ── Step 7: Generate and burn in subtitles ──────────────────────────────
+# ── Step 6: Generate and burn subtitles ────────────────────────────────────
 
 if [[ "$HAS_AUDIO" == "true" ]] && [[ -f "$TIMING_JSON" ]]; then
   echo ""
   echo "Generating subtitles..."
 
-  python3 - "$TIMING_JSON" "subtitles.srt" <<'SUBEOF'
+  # Use whisperx-aligned subtitles if available, otherwise fall back to even-split
+  if [[ -f "${AUDIO_DIR}/whisperx_per_clip.json" ]]; then
+    echo "  Using whisperx word-level alignment..."
+    python3 - "${AUDIO_DIR}/whisperx_per_clip.json" "subtitles.srt" <<'SUBEOF'
+import json, sys
+
+with open(sys.argv[1]) as f:
+    segments = json.load(f)
+
+def ts(s):
+    h = int(s // 3600)
+    m = int((s % 3600) // 60)
+    sec = int(s % 60)
+    ms = int((s % 1) * 1000)
+    return f"{h:02d}:{m:02d}:{sec:02d},{ms:03d}"
+
+with open(sys.argv[2], 'w') as f:
+    for i, seg in enumerate(segments):
+        f.write(f"{i+1}\n{ts(seg['start'])} --> {ts(seg['end'])}\n{seg['text']}\n\n")
+
+print(f"  Generated {len(segments)} subtitle entries (whisperx-aligned)")
+SUBEOF
+  else
+    echo "  Using even-split subtitle timing (run whisperx for better alignment)..."
+    python3 - "$TIMING_JSON" "subtitles.srt" <<'SUBEOF'
 import json, sys
 
 TIMING_FILE = sys.argv[1]
@@ -337,7 +291,6 @@ with open(TIMING_FILE) as f:
 with open("audio-clips/manifest.json") as f:
     manifest = {c["id"]: c for c in json.load(f)}
 
-# Calculate actual clip start times (same logic as voiceover assembly)
 clip_starts = {}
 prev_end_ms = 0
 for event in timing:
@@ -350,42 +303,12 @@ for event in timing:
     clip_starts[cid] = {"start_s": start_ms / 1000.0, "dur_s": entry["duration_ms"] / 1000.0}
     prev_end_ms = start_ms + entry["duration_ms"]
 
-# Script text for each clip (matches demo-script.json narration)
 script = {
-    "ebay-sieve": [
-        "You're a small seller researching competitor prices.",
-        "Your agent opens eBay, searches wireless earbuds.",
-        "The sieve maps every element on the page.",
-        "No LLM. No vision model. Zero tokens.",
-    ],
-    "ebay-highlights": [
-        "Product titles. Listing prices.",
-        "Seller ratings. Shipping details.",
-        "Every element structured and named.",
-        "Ready for your agent to extract and compare.",
-    ],
-    "campsite-intro": [
-        "Now a completely different site.",
-        "A state park reservation system.",
-    ],
-    "campsite-sieve": [
-        "Different layout, different purpose.",
-        "The sieve maps it just the same.",
-        "Over a hundred elements, detected instantly.",
-    ],
-    "campsite-highlights": [
-        "Park name. Available dates. Booking controls.",
-        "Your agent understands this page too.",
-        "No retraining. No new prompts.",
-    ],
-    "closing": [
-        "The sieve sees the page.",
-        "The glossary names every element.",
-        "Your agent knows what to click,",
-        "what to read, what to compare.",
-        "LeftGlove + OpenClaw.",
-        "Deterministic page understanding for AI agents.",
-    ],
+    "toddler-intro": ["This is the toddler loop.", "A human classifies elements once.", "Clickable. Readable. Typable.", "The system learns the page vocabulary."],
+    "agent-sees": ["Now watch what the agent sees.", "The sieve maps every interactive element on the page."],
+    "ebay-interact": ["Product titles. Listing prices. Seller ratings.", "The agent clicks through to a product, and the sieve re-maps the new page instantly."],
+    "generalize": ["A completely different site.", "A state park reservation system.", "The sieve maps it just the same.", "Any site. Any layout.", "Zero retraining."],
+    "closing": ["The sieve sees the page.", "The glossary names every element.", "Your agent knows what to click, what to read, what to compare."],
 }
 
 def ts(s):
@@ -412,8 +335,9 @@ with open(SRT_OUT, "w") as f:
     for i, start, end, text in subs:
         f.write(f"{i}\n{ts(start)} --> {ts(end)}\n{text}\n\n")
 
-print(f"  Generated {len(subs)} subtitle entries")
+print(f"  Generated {len(subs)} subtitle entries (even-split)")
 SUBEOF
+  fi
 
   if [[ -f "subtitles.srt" ]]; then
     echo "  Burning subtitles into video..."

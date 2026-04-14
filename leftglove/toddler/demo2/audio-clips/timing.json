@@ -1,38 +1,32 @@
 [
   {
-    "id": "ebay-sieve",
-    "clipId": "ebay-sieve",
-    "t": 2767,
+    "id": "toddler-intro",
+    "clipId": "toddler-intro",
+    "t": 775,
     "duration": 8000
   },
   {
-    "id": "ebay-highlights",
-    "clipId": "ebay-highlights",
-    "t": 16785,
-    "duration": 6000
+    "id": "agent-sees",
+    "clipId": "agent-sees",
+    "t": 14926,
+    "duration": 8000
   },
   {
-    "id": "campsite-intro",
-    "clipId": "campsite-intro",
-    "t": 30862,
-    "duration": 3000
+    "id": "ebay-interact",
+    "clipId": "ebay-interact",
+    "t": 23534,
+    "duration": 8000
   },
   {
-    "id": "campsite-sieve",
-    "clipId": "campsite-sieve",
-    "t": 36387,
-    "duration": 6000
-  },
-  {
-    "id": "campsite-highlights",
-    "clipId": "campsite-highlights",
-    "t": 44418,
-    "duration": 6000
+    "id": "generalize",
+    "clipId": "generalize",
+    "t": 42394,
+    "duration": 8000
   },
   {
     "id": "closing",
     "clipId": "closing",
-    "t": 54452,
-    "duration": 10000
+    "t": 52518,
+    "duration": 8000
   }
 ]

@@ -1,23 +1,19 @@
 [
   {
-    "id": "ebay-sieve",
-    "spoken": "You're a small seller researching competitor prices. Your agent opens eBay, searches wireless earbuds. The sieve maps every element on the page. No LLM. No vision model. Zero tokens."
+    "id": "toddler-intro",
+    "spoken": "This is the toddler loop. A human classifies elements once. Clickable. Readable. Typable. The system learns the page vocabulary."
   },
   {
-    "id": "ebay-highlights",
-    "spoken": "Product titles. Listing prices. Seller ratings. Shipping details. Every element structured and named. Ready for your agent to extract and compare."
+    "id": "agent-sees",
+    "spoken": "Now watch what the agent sees. The sieve maps every interactive element on the page. No LLM. No vision model. Zero tokens."
   },
   {
-    "id": "campsite-intro",
-    "spoken": "Now a completely different site. A state park reservation system."
+    "id": "ebay-interact",
+    "spoken": "Product titles. Listing prices. Seller ratings. The agent clicks through to a product, and the sieve re-maps the new page instantly."
   },
   {
-    "id": "campsite-sieve",
-    "spoken": "Different layout, different purpose. The sieve maps it just the same. Over a hundred elements, detected instantly."
-  },
-  {
-    "id": "campsite-highlights",
-    "spoken": "Park name. Available dates. Booking controls. Your agent understands this page too. No retraining. No new prompts."
+    "id": "generalize",
+    "spoken": "A completely different site. A state park reservation system. The sieve maps it just the same. Any site. Any layout. Zero retraining."
   },
   {
     "id": "closing",

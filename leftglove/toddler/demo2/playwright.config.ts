@@ -19,14 +19,20 @@ export default defineConfig({
   timeout: 900000,
   use: {
     baseURL: 'http://localhost:8080',
-    viewport: { width: 960, height: 1080 },
+    viewport: { width: 1920, height: 1080 },
     headless: true,
     video: {
       mode: 'on',
-      size: { width: 960, height: 1080 },
+      size: { width: 1920, height: 1080 },
     },
+
+    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     launchOptions: {
-      args: ['--disable-infobars', '--no-sandbox'],
+      args: [
+        '--disable-infobars',
+        '--no-sandbox',
+        '--disable-blink-features=AutomationControlled',
+      ],
     },
   },
 });

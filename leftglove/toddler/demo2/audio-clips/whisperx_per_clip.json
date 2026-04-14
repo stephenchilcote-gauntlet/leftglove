@@ -1,0 +1,98 @@
+[
+  {
+    "start": 6.166,
+    "end": 7.368,
+    "text": "This is the toddler loop.",
+    "clip": "toddler-intro"
+  },
+  {
+    "start": 7.789,
+    "end": 9.772,
+    "text": "A human classifies elements once.",
+    "clip": "toddler-intro"
+  },
+  {
+    "start": 10.414000000000001,
+    "end": 12.698,
+    "text": "Clickable. Readable. Typable.",
+    "clip": "toddler-intro"
+  },
+  {
+    "start": 12.958,
+    "end": 15.062000000000001,
+    "text": "The system learns the page vocabulary.",
+    "clip": "toddler-intro"
+  },
+  {
+    "start": 20.418000000000003,
+    "end": 22.024,
+    "text": "Now watch what the agent sees.",
+    "clip": "agent-sees"
+  },
+  {
+    "start": 22.868000000000002,
+    "end": 25.398000000000003,
+    "text": "The sieve maps every interactive element on the page.",
+    "clip": "agent-sees"
+  },
+  {
+    "start": 28.925,
+    "end": 32.592,
+    "text": "Product titles. Listing prices. Seller ratings.",
+    "clip": "ebay-interact"
+  },
+  {
+    "start": 32.872,
+    "end": 37.260999999999996,
+    "text": "The agent clicks through to a product, and the sieve re-maps the new page instantly.",
+    "clip": "ebay-interact"
+  },
+  {
+    "start": 47.885,
+    "end": 49.227,
+    "text": "A completely different site.",
+    "clip": "generalize"
+  },
+  {
+    "start": 49.687,
+    "end": 51.40899999999999,
+    "text": "A state park reservation system.",
+    "clip": "generalize"
+  },
+  {
+    "start": 51.928999999999995,
+    "end": 53.571,
+    "text": "The sieve maps it just the same.",
+    "clip": "generalize"
+  },
+  {
+    "start": 53.851,
+    "end": 55.15299999999999,
+    "text": "Any site. Any layout.",
+    "clip": "generalize"
+  },
+  {
+    "start": 55.693,
+    "end": 56.653999999999996,
+    "text": "Zero retraining.",
+    "clip": "generalize"
+  },
+  {
+    "start": 57.989,
+    "end": 59.391,
+    "text": "The sieve sees the page.",
+    "clip": "closing"
+  },
+  {
+    "start": 59.911,
+    "end": 61.592999999999996,
+    "text": "The glossary names every element.",
+    "clip": "closing"
+  },
+  {
+    "start": 61.812999999999995,
+    "end": 64.79599999999999,
+    "text": "Your agent knows what to click, what to read, what to compare.",
+    "clip": "closing"
+  }
+]
