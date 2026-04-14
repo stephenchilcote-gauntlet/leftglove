@@ -1,51 +1,80 @@
 # LeftGlove
 
-MCP server and human interface for [ShiftLefter](https://github.com/ShiftLefter) —
-agent-driven exploration, cataloging, and testing of web applications.
+**Make any website usable by AI agents.**
 
-AI agents struggle with web pages. A typical page has thousands of DOM
-elements, most of which are structural noise. LeftGlove solves this with
-three components:
+Point an LLM at a web page and it sees 10,000 DOM nodes — nested divs,
+ARIA wrappers, SVG icons, tracking pixels. It burns tokens parsing noise,
+hallucinates selectors, and clicks the wrong thing. LeftGlove fixes this.
 
-1. **Sieve** — a deterministic function that runs in the browser, inventories
-   every page element, and filters out ~90% of the noise. What remains is a
-   structured list of interactive and readable elements with locators,
-   labels, and positions.
+LeftGlove is an [MCP server](https://modelcontextprotocol.io) that gives
+your agent a **structured, validated view of any web page** — only the
+elements that matter, with stable locators and human-readable labels.
+90% of the DOM noise disappears. What's left is a clean inventory your
+agent can actually act on.
 
-2. **Toddler Loop** — a web UI where a human classifies the elements the
-   sieve finds: what matters, what's chrome, what to skip. Two-pass
-   workflow (quick scan, then detailed review) with optional auto-classify
-   via Claude Haiku. The output is a glossary that maps human intent to
-   concrete page elements.
+```
+Agent: "What can I do on this page?"
 
-3. **MCP Server** — exposes the sieve and glossary as tools that any MCP
-   client (Claude, OpenClaw, etc.) can call. Agents see pages through
-   validated references instead of raw HTML.
+LeftGlove (observe tool):
+  clickable:
+    - "Search" button          [data-testid=search-btn]
+    - "Add to Cart"            [data-testid=add-cart]
+    - "Next Page" link         [data-testid=pagination-next]
+  typable:
+    - "Search products" input  [data-testid=search-input]
+    - "Zip code" input         [data-testid=zip-field]
+  readable:
+    - "$29.99"                 [data-testid=price]
+    - "In Stock"               [data-testid=availability]
+```
 
-## MCP Tools
+No more guessing. No more `document.querySelector` roulette.
 
-| Tool | Description |
-|---|---|
-| `observe` | Run the sieve on the current page. Returns a structured inventory of interactive elements. |
-| `list_vocabulary` | List the glossary: intent regions, elements, applicable verbs, and testid locators. |
-| `refresh_vocabulary` | Reload glossary files from disk after edits. |
+## How It Works
 
-## Repository Layout
+**Sieve** — A deterministic function injected into the browser page. It
+walks the DOM, filters structural noise, and returns a typed inventory of
+every interactive and readable element with its locator, label, bounding
+box, and element type. Zero LLM calls, zero tokens, pure static analysis.
 
-| Path | What |
-|---|---|
-| `leftglove/mcp-server/` | TypeScript MCP server (stdio transport) |
-| `leftglove/toddler/` | Toddler loop UI — Node.js web app for human classification |
-| `leftglove/demo-app/` | Target web app for sieve testing and demos |
-| `bin/` | `demo-run` — starts all services; `demo-test` — runs e2e tests |
-| `ARCHITECTURE.md` | System design, data model, integration points |
-| `VISION.md` | Project vision and design philosophy |
-| `notes/` | Design docs, sprint planning, feature roadmap |
+**Toddler Loop** — A web UI where a human reviews what the sieve found
+and classifies elements: what matters, what's chrome, what to skip. The
+output is a glossary that maps intent to concrete page elements. Optional
+auto-classify via Claude Haiku for bulk labeling.
+
+**MCP Server** — Exposes the sieve and glossary as tools over the
+[Model Context Protocol](https://modelcontextprotocol.io). Any MCP
+client — Claude Desktop, Claude Code, OpenClaw, your own agent — calls
+`observe` and gets back structured page state instead of raw HTML.
 
 ## Quick Start
 
+### Docker (recommended)
+
 ```bash
-# Prerequisites: Node.js, ShiftLefter repo adjacent (for sieve server)
+docker run -p 8080:8080 ghcr.io/stephenchilcote-gauntlet/leftglove
+```
+
+### Claude Desktop / Claude Code
+
+Add to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "leftglove": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "ghcr.io/stephenchilcote-gauntlet/leftglove"]
+    }
+  }
+}
+```
+
+### From source
+
+```bash
+git clone https://github.com/stephenchilcote-gauntlet/leftglove.git
+cd leftglove
 
 # Install dependencies
 (cd leftglove/mcp-server && npm install && npm run build)
@@ -54,37 +83,46 @@ three components:
 
 # Start all services (demo app :3000, toddler UI :8080, sieve :3333)
 bin/demo-run
-
-# Or start without the sieve server (if running it separately)
-bin/demo-run --no-sieve
 ```
 
-### Using the MCP server with an agent
+## MCP Tools
 
-The MCP server communicates over stdio. Point your MCP client at it:
+| Tool | Description |
+|---|---|
+| `observe` | Run the sieve on the current page. Returns a structured inventory of interactive elements — clickable, typable, readable — with locators and labels. |
+| `list_vocabulary` | List the glossary: intent regions, their elements, applicable verbs (click/fill/see), and testid locators. |
+| `refresh_vocabulary` | Reload glossary files from disk after edits. |
 
-```json
-{
-  "mcpServers": {
-    "leftglove": {
-      "command": "node",
-      "args": ["leftglove/mcp-server/dist/index.js"]
-    }
-  }
-}
-```
+## Why Not Just Feed the HTML to the LLM?
+
+| | Raw HTML | LeftGlove |
+|---|---|---|
+| **Tokens** | 50k-200k per page | 500-2k |
+| **Accuracy** | LLM guesses selectors | Validated locators |
+| **Cost** | $0.10-0.50 per page view | ~$0.005 |
+| **Reliability** | Hallucinated clicks | Deterministic inventory |
+
+## Repository Layout
+
+| Path | What |
+|---|---|
+| `leftglove/mcp-server/` | TypeScript MCP server (stdio transport) |
+| `leftglove/toddler/` | Toddler loop UI — Node.js web app for human classification |
+| `leftglove/demo-app/` | Demo web app for testing and development |
+| `bin/` | `demo-run` — starts all services; `demo-test` — runs e2e tests |
 
 ## Tech Stack
 
 - **MCP Server:** TypeScript, `@modelcontextprotocol/sdk`, Zod
+- **Sieve:** Vanilla JavaScript, runs in-browser via Playwright
 - **Toddler UI:** Node.js, vanilla JS/HTML/CSS
-- **Demo App:** Express, EJS, cookie-session
-- **Testing:** Playwright (browser automation), fast-check (property testing)
-- **Integration:** Reads ShiftLefter EDN glossary files; calls SL CLI for
-  test execution
+- **Testing:** Playwright, fast-check (property-based testing)
 
 ## Status
 
-Pre-MVP. The sieve, toddler loop, and MCP server are functional. The glossary
-pipeline works end-to-end: sieve a page, classify elements in the toddler UI,
-export to ShiftLefter glossary, and use via MCP tools.
+Pre-release. The sieve, toddler loop, and MCP server work end-to-end.
+We're actively building toward a packaged release.
+
+## License
+
+[MIT](LICENSE)
