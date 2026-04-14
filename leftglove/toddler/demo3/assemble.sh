@@ -119,13 +119,13 @@ echo "  business-impact.mp4 (5s)"
 ffmpeg -y \
   -f lavfi -i "color=c=0x1a1a2e:s=1920x1080:d=10" \
   -vf "drawtext=text='LeftGlove':fontcolor=#cce8ff:fontsize=64:\
-x=(w-text_w)/2:y=(h/2)-70:\
+x=(w-text_w)/2:y=(h/2)-90:\
 fontfile=/usr/share/fonts/TTF/DejaVuSans-Bold.ttf,\
-drawtext=text='Make AI agents more reliable, faster,':fontcolor=#7799bb:fontsize=28:\
+drawtext=text='Make AI agents more reliable, faster, and cheaper to operate.':fontcolor=#7799bb:fontsize=26:\
 x=(w-text_w)/2:y=(h/2)+10:\
 fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf,\
-drawtext=text='and cheaper to operate.':fontcolor=#7799bb:fontsize=28:\
-x=(w-text_w)/2:y=(h/2)+50:\
+drawtext=text='Any website. Any workflow. Zero retraining.':fontcolor=#556688:fontsize=22:\
+x=(w-text_w)/2:y=(h/2)+52:\
 fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf" \
   -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
   "$SEGMENTS_DIR/title-cards/closing.mp4" 2>/dev/null
