@@ -30,7 +30,7 @@ LeftGlove (observe tool):
 
 No more guessing. No more `document.querySelector` roulette.
 
-![LeftGlove demo — sieve in action on eBay](demo.gif)
+![LeftGlove demo](demo.gif)
 
 ## How It Works
 
