@@ -49,6 +49,9 @@ def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha,
     elements/alpha  — full sieve overlay, fading in after observe
     highlight_el    — single element to highlight on click (optional)
     hl_alpha        — bell-curve value (0→1→0) over the click duration
+
+    Two-pass compositing: base overlay and highlight are drawn on SEPARATE
+    canvases so Pillow's overwrite semantics can't erase base overlay pixels.
     """
     if (alpha <= 0 or not elements) and (hl_alpha <= 0 or not highlight_el):
         return page_img
@@ -60,9 +63,6 @@ def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha,
     off_x  = (disp_w - new_w) // 2
     off_y  = (disp_h - new_h) // 2
 
-    overlay = Image.new('RGBA', (disp_w, disp_h), (0, 0, 0, 0))
-    drw     = ImageDraw.Draw(overlay)
-
     def scaled_rect(r):
         ex, ey = r.get('x', 0), r.get('y', 0)
         ew, eh = r.get('w', 0), r.get('h', 0)
@@ -71,8 +71,12 @@ def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha,
         return (off_x + int(ex * scale), off_y + int(ey * scale),
                 max(1, int(ew * scale)), max(1, int(eh * scale)))
 
-    # Draw base sieve overlay (all elements, fading in)
+    result = page_img.convert('RGBA')
+
+    # Pass 1: base sieve overlay on its own canvas (all non-chrome elements)
     if alpha > 0 and elements:
+        base_canvas = Image.new('RGBA', (disp_w, disp_h), (0, 0, 0, 0))
+        drw = ImageDraw.Draw(base_canvas)
         for el in elements:
             cat = el.get('category', 'custom')
             if cat in ('chrome', 'skip'):
@@ -88,56 +92,37 @@ def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha,
                           fill=(*rgb, fill_a),
                           outline=(*rgb, stroke_a),
                           width=2)
+        result = Image.alpha_composite(result, base_canvas)
 
-    # Draw click highlight — stretched oval + 3-layer glow + sparks.
-    # hl_alpha is a bell-curve value (0→peak→0), NOT a fade-out ramp.
+    # Pass 2: click highlight on a SEPARATE canvas — never overwrites Pass 1.
+    # hl_alpha is a bell-curve value (0→1→0), already computed by caller.
     if hl_alpha > 0 and highlight_el:
         sr = scaled_rect(highlight_el.get('rect', {}))
         if sr:
             sx, sy, sw, sh = sr
-            cx = sx + sw // 2
-            cy = sy + sh // 2
+            a   = hl_alpha
+            cat = highlight_el.get('category', 'custom')
+            rgb = SIEVE_COLORS.get(cat, SIEVE_COLORS['custom'])
 
-            a = hl_alpha   # bell-curve value already computed by caller
+            hl_canvas = Image.new('RGBA', (disp_w, disp_h), (0, 0, 0, 0))
+            hl_drw = ImageDraw.Draw(hl_canvas)
 
-            # Oval radii stretched to match element's actual aspect ratio
-            PAD = 16
-            rx = sw // 2 + PAD
-            ry = max(sh // 2 + PAD, 22)
+            # Outer glow ring — slightly expanded box, soft fill
+            PAD = 10
+            hl_drw.rectangle([sx - PAD, sy - PAD, sx + sw + PAD, sy + sh + PAD],
+                              fill=(*rgb, int(a * 0.18 * 255)),
+                              outline=(*rgb, int(a * 0.55 * 255)),
+                              width=2)
 
-            # 3-layer glow (widest→narrowest, each brighter than the last)
-            for exp, fill_frac, stroke_frac, lw in [
-                (20, 0.04, 0.30, 2),
-                (10, 0.07, 0.60, 3),
-                ( 0, 0.10, 1.00, 4),
-            ]:
-                drw.ellipse([cx - rx - exp, cy - ry - exp,
-                             cx + rx + exp, cy + ry + exp],
-                            fill   =(255, 255, 255, int(a * fill_frac   * 255)),
-                            outline=(255, 240, 100, int(a * stroke_frac * 255)),
-                            width=lw)
+            # Element box redrawn bright — high fill + white outline
+            hl_drw.rectangle([sx, sy, sx + sw, sy + sh],
+                              fill=(*rgb, int(a * 0.60 * 255)),
+                              outline=(255, 255, 255, int(a * 255)),
+                              width=3)
 
-            # Sparks from oval perimeter — 16 lines, alternating long/short
-            GAP = 8
-            LONG, SHORT = 32, 18
-            for i in range(16):
-                angle = 2 * math.pi * i / 16
-                length = LONG if i % 2 == 0 else SHORT
-                length = max(1, int(a * length))
-                ex = rx * math.cos(angle)
-                ey = ry * math.sin(angle)
-                nx = ex / math.sqrt(ex ** 2 + ey ** 2 + 1e-9)   # unit normal
-                ny = ey / math.sqrt(ex ** 2 + ey ** 2 + 1e-9)
-                ix = cx + int(ex + GAP * nx)
-                iy = cy + int(ey + GAP * ny)
-                ox = cx + int(ex + (GAP + length) * nx)
-                oy = cy + int(ey + (GAP + length) * ny)
-                drw.line([ix, iy, ox, oy],
-                         fill=(255, 255, 180, int(a * 240)),
-                         width=max(1, int(a * 2.5)))
+            result = Image.alpha_composite(result, hl_canvas)
 
-    base = page_img.convert('RGBA')
-    return Image.alpha_composite(base, overlay).convert('RGB')
+    return result.convert('RGB')
 
 
 def get_overlay_state(frame_time, overlay_events, overlay_sieves):
