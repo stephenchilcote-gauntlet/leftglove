@@ -15,22 +15,24 @@ import os
 import sys
 
 # Maps workflow-log observe labels → workflow-sieves.json keys
+# (identity mappings where the log label == sieve key)
 SIEVE_LABEL_MAP = {
-    'ebay-search':    'ebay-search',
-    'ebay-product-1': 'ebay-product-1',
-    'ebay-product-2': 'ebay-product-2',
-    'ebay-product-3': 'ebay-product-3',
-    'ebay-done':      'ebay-search-done',
-    'rc-home':        'rc-home',
-    'rc-dropdown':    'rc-search-dropdown',
-    'rc-date-page':   'rc-date-picker',
-    'rc-calendar':    'rc-calendar',
-    'rc-site-type':   'rc-site-type',
-    'rc-results':     'rc-results',
-    'rc-park':        'rc-park-page',
-    'rc-campground':  'rc-facility',
-    'rc-site-detail': 'rc-site-selected',
-    'rc-login-wall':  'rc-login-wall',
+    'ebay-search':      'ebay-search',
+    'ebay-product-1':   'ebay-product-1',
+    'ebay-product-2':   'ebay-product-2',
+    'ebay-product-3':   'ebay-product-3',
+    'ebay-done':        'ebay-done',
+    'rc-home':          'rc-home',
+    'rc-dropdown':      'rc-dropdown',
+    'rc-date-page':     'rc-date-page',
+    'rc-calendar':      'rc-calendar',
+    'rc-departure-cal': 'rc-departure-cal',
+    'rc-site-type':     'rc-site-type',
+    'rc-results':       'rc-results',
+    'rc-park':          'rc-park',
+    'rc-campground':    'rc-campground',
+    'rc-site-detail':   'rc-site-detail',
+    'rc-login-wall':    'rc-login-wall',
 }
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -40,23 +42,30 @@ SCREENSHOTS_DIR = os.path.join(BASE, "screenshots")
 os.makedirs(CAST_DIR, exist_ok=True)
 os.makedirs(SEGMENTS_DIR, exist_ok=True)
 
-# Time each step is visible before the next one appears (seconds)
-STEP_DWELL = 2.0
 # Extra dwell at end of workflow
 END_DWELL = 3.0
 
 # ANSI color codes for the MCP trace
-C_RESET = "\033[0m"
-C_BOLD = "\033[1m"
-C_DIM = "\033[2m"
-C_GREEN = "\033[32m"
-C_YELLOW = "\033[33m"
-C_CYAN = "\033[36m"
-C_MAGENTA = "\033[35m"
-C_WHITE = "\033[37m"
+C_RESET      = "\033[0m"
+C_BOLD       = "\033[1m"
+C_DIM        = "\033[2m"
+C_GREEN      = "\033[32m"
+C_YELLOW     = "\033[33m"
+C_CYAN       = "\033[36m"
+C_MAGENTA    = "\033[35m"
+C_WHITE      = "\033[37m"
 C_BOLD_GREEN = "\033[1;32m"
-C_BOLD_CYAN = "\033[1;36m"
+C_BOLD_CYAN  = "\033[1;36m"
 C_BOLD_YELLOW = "\033[1;33m"
+
+# Terminal color per sieve category (matches overlay box colors visually)
+CATEGORY_COLORS = {
+    'clickable':  C_GREEN,
+    'typable':    C_CYAN,
+    'readable':   C_YELLOW,
+    'selectable': C_MAGENTA,
+    'custom':     C_WHITE,
+}
 
 
 def load_log():
@@ -64,90 +73,137 @@ def load_log():
         return json.load(f)
 
 
-def format_trace_line(entry):
-    """Format a workflow log entry as colored terminal text."""
-    tool = entry["tool"]
-    label = entry["label"]
-    step = entry["step"]
-
-    if tool == "observe":
-        url = entry.get("navigate", {}).get("url", "")
-        sieve = entry.get("sieve", {})
-        n_elements = sieve.get("element_count", "?")
-        if url:
-            short_url = url[:55] + "..." if len(url) > 55 else url
-            line = f"{C_BOLD_CYAN}observe{C_RESET}({C_DIM}{short_url}{C_RESET})"
-        else:
-            line = f"{C_BOLD_CYAN}observe{C_RESET}()"
-        result = f"  {C_GREEN}\u2192 {n_elements} elements{C_RESET}"
-        return line, result
-
-    elif tool == "click":
-        idx = entry.get("index", "?")
-        line = f"{C_BOLD_YELLOW}click{C_RESET}(index={idx})"
-        return line, None
-
-    elif tool == "fill":
-        idx = entry.get("index", "?")
-        text = entry.get("text", "")
-        line = f"{C_BOLD_YELLOW}fill{C_RESET}(index={idx}, {C_WHITE}\"{text}\"{C_RESET})"
-        return line, None
-
-    elif tool == "extract":
-        product = entry.get("product", "")[:40]
-        price = entry.get("price", "")
-        line = f"  {C_MAGENTA}\u2192 {product}: {C_BOLD}{price}{C_RESET}"
-        return line, None
-
-    return f"{tool}({label})", None
+def get_sieve_elements(sieve_key, sieves_data):
+    """Return (index, element) pairs for non-chrome elements in a sieve state."""
+    if not sieves_data or sieve_key not in sieves_data:
+        return []
+    all_els = sieves_data[sieve_key]['elements']
+    return [(i, e) for i, e in enumerate(all_els) if e.get('category') != 'chrome']
 
 
-def build_cast(entries, cast_path, title_line=None):
+def find_selection(sieve_elements, next_url):
+    """Return the element index whose href contains next_url, or None."""
+    if not next_url:
+        return None
+    for idx, el in sieve_elements:
+        href = (el.get('locators') or {}).get('href', '')
+        if href and next_url in href:
+            return idx
+    return None
+
+
+def build_cast(entries, cast_path, title_line=None, sieves_data=None):
     """Build a .cast file from workflow log entries.
 
-    Each entry appears at its recorded timestamp, with the trace text
-    typed out character-by-character for visual effect.
+    For observe calls: shows the full element list (non-chrome) at end_t,
+    then emits a selection highlight if the next navigate URL matches an element.
+    For click/fill: shows the element label inline.
     """
-    # Compute time base: offset so first entry starts at t=0
     t0 = entries[0]["t"]
 
-    # Cast header
     header = {
         "version": 2,
         "width": 80,
-        "height": 35,
+        "height": 40,
         "timestamp": 0,
         "env": {"TERM": "xterm-256color"}
     }
 
     events = []
 
-    # Title line at t=0
     if title_line:
         events.append([0.0, "o", f"{C_BOLD}{title_line}{C_RESET}\r\n"])
         events.append([0.0, "o", f"{C_DIM}{'─' * 60}{C_RESET}\r\n\r\n"])
 
-    for entry in entries:
-        t = entry["t"] - t0
-        line, result = format_trace_line(entry)
+    current_sieve_elements = []  # list of (idx, el) for non-chrome elements
 
-        # Type the command prompt + line
+    for i, entry in enumerate(entries):
+        t     = entry["t"]     - t0
+        end_t = entry.get("end_t", entry["t"]) - t0
+        tool  = entry["tool"]
+        label = entry["label"]
         prompt = f"{C_DIM}${C_RESET} "
-        events.append([t, "o", prompt + line + "\r\n"])
 
-        # Show result line shortly after
-        if result:
-            events.append([t + 0.3, "o", result + "\r\n"])
+        if tool == "observe":
+            sieve_key = SIEVE_LABEL_MAP.get(label, label)
+            current_sieve_elements = get_sieve_elements(sieve_key, sieves_data)
 
-        events.append([t + 0.5, "o", "\r\n"])
+            url = entry.get("navigate", {}).get("url", "")
+            if url:
+                short = url[:50] + "..." if len(url) > 50 else url
+                call = f"{C_BOLD_CYAN}observe{C_RESET}({C_DIM}{short}{C_RESET})"
+            else:
+                call = f"{C_BOLD_CYAN}observe{C_RESET}()"
+            events.append([t, "o", prompt + call + "\r\n"])
 
-    # Write cast file
+            # Element list appears when sieve completes (end_t)
+            if current_sieve_elements:
+                n = len(current_sieve_elements)
+                events.append([end_t, "o", f"  {C_GREEN}→ {n} elements:{C_RESET}\r\n"])
+                for idx, el in current_sieve_elements:
+                    cat = el.get("category", "")
+                    lbl = (el.get("label") or "")[:38]
+                    cat_c = CATEGORY_COLORS.get(cat, C_DIM)
+                    events.append([end_t, "o",
+                        f"    {C_DIM}[{idx:3d}]{C_RESET} "
+                        f"{cat_c}{lbl:<38s}{C_RESET} "
+                        f"{C_DIM}{cat}{C_RESET}\r\n"])
+            else:
+                n_el = entry.get("sieve", {}).get("element_count", "?")
+                events.append([end_t, "o", f"  {C_GREEN}→ {n_el} elements{C_RESET}\r\n"])
+
+            # Selection highlight: if the next entry navigates to a URL that
+            # matches one of our sieve elements, call it out 0.5s after the list.
+            if i + 1 < len(entries) and current_sieve_elements:
+                next_url = entries[i + 1].get("navigate", {}).get("url", "")
+                sel_idx = find_selection(current_sieve_elements, next_url)
+                if sel_idx is not None:
+                    sel_lbl = next(
+                        (el.get("label", f"element {sel_idx}")
+                         for eidx, el in current_sieve_elements if eidx == sel_idx),
+                        f"element {sel_idx}"
+                    )
+                    events.append([end_t + 0.5, "o",
+                        f"\r\n  {C_BOLD_GREEN}▶ {sel_lbl}{C_RESET}\r\n\r\n"])
+
+        elif tool == "click":
+            idx = entry.get("index")
+            lbl = next(
+                (el.get("label", "") for eidx, el in current_sieve_elements if eidx == idx),
+                ""
+            )
+            call = f"{C_BOLD_YELLOW}click{C_RESET}(index={idx})"
+            if lbl:
+                call += f"  {C_DIM}# {lbl}{C_RESET}"
+            events.append([t, "o", prompt + call + "\r\n"])
+            events.append([end_t + 0.1, "o", "\r\n"])
+
+        elif tool == "fill":
+            idx  = entry.get("index")
+            text = entry.get("text", "")
+            lbl  = next(
+                (el.get("label", "") for eidx, el in current_sieve_elements if eidx == idx),
+                ""
+            )
+            call = f"{C_BOLD_YELLOW}fill{C_RESET}(index={idx}, {C_WHITE}\"{text}\"{C_RESET})"
+            if lbl:
+                call += f"  {C_DIM}# {lbl}{C_RESET}"
+            events.append([t, "o", prompt + call + "\r\n"])
+            events.append([end_t + 0.1, "o", "\r\n"])
+
+        elif tool == "extract":
+            product = entry.get("product", "")[:40]
+            price   = entry.get("price", "")
+            events.append([t, "o",
+                f"  {C_MAGENTA}→ {product}: {C_BOLD}{price}{C_RESET}\r\n\r\n"])
+
+    duration = (entries[-1].get("end_t", entries[-1]["t"]) - t0) + END_DWELL
+
     with open(cast_path, "w") as f:
         f.write(json.dumps(header) + "\n")
         for ev in events:
             f.write(json.dumps(ev) + "\n")
 
-    duration = (entries[-1].get("end_t", entries[-1]["t"]) - t0) + END_DWELL
     print(f"  Cast: {cast_path} ({len(events)} events, {duration:.1f}s)")
     return duration
 
@@ -170,14 +226,14 @@ def build_overlay_json(entries, sieves_data, t0, out_path):
     Two event types:
       - 'sieve': fires at end_t of each observe; fades in all element boxes
       - 'click': fires at t of each click/fill; highlights the specific element
+                 also fires 0.5s after observe end_t when a URL-match selection
+                 is detected (the "▶ ElementName" moment in the terminal)
     """
-    events  = []
-    sieves  = {}
-
-    # Track the current sieve label so click events can reference it
+    events = []
+    sieves = {}
     current_sieve_key = None
 
-    for entry in entries:
+    for i, entry in enumerate(entries):
         tool  = entry.get('tool')
         label = entry['label']
 
@@ -194,11 +250,23 @@ def build_overlay_json(entries, sieves_data, t0, out_path):
                         'viewport': sd['viewport'],
                     }
 
+                # Selection flash: same timing as the terminal "▶ ElementName" line
+                if i + 1 < len(entries):
+                    next_url = entries[i + 1].get('navigate', {}).get('url', '')
+                    sieve_els = get_sieve_elements(sieve_key, sieves_data)
+                    sel_idx = find_selection(sieve_els, next_url)
+                    if sel_idx is not None:
+                        events.append({
+                            'type': 'click',
+                            't': round(entry['end_t'] - t0 + 0.5, 4),
+                            'sieve_label': sieve_key,
+                            'index': sel_idx,
+                        })
+
         elif tool in ('click', 'fill') and current_sieve_key:
             idx = entry.get('index')
             if idx is not None:
-                t = round(entry['t'] - t0, 4)
-                # Verify index is within bounds for current sieve
+                t     = round(entry['t'] - t0, 4)
                 n_els = len(sieves.get(current_sieve_key, {}).get('elements', []))
                 if idx < n_els:
                     events.append({
@@ -270,15 +338,17 @@ def main():
 
     # Split log into workflows
     ebay_entries = [e for e in log if e["label"].startswith("ebay") or e["label"] == "extract-price"]
-    rc_entries = [e for e in log if e["label"].startswith("rc")]
+    rc_entries   = [e for e in log if e["label"].startswith("rc")]
 
     if args.workflow in ("ebay", "both"):
         print("\n=== eBay Split-Screen ===")
-        cast_path = os.path.join(CAST_DIR, "ebay-workflow.cast")
+        cast_path   = os.path.join(CAST_DIR, "ebay-workflow.cast")
         output_path = os.path.join(SEGMENTS_DIR, "ebay-split.mp4")
-        duration = build_cast(ebay_entries, cast_path, title_line="eBay: Competitor Pricing Research")
-        page_args = build_page_image_args(ebay_entries)
-        t0 = ebay_entries[0]["t"]
+        duration    = build_cast(ebay_entries, cast_path,
+                                 title_line="eBay: Competitor Pricing Research",
+                                 sieves_data=sieves_data)
+        page_args    = build_page_image_args(ebay_entries)
+        t0           = ebay_entries[0]["t"]
         overlay_path = os.path.join(BASE, "overlay-ebay.json")
         if sieves_data:
             build_overlay_json(ebay_entries, sieves_data, t0, overlay_path)
@@ -287,11 +357,13 @@ def main():
 
     if args.workflow in ("rc", "both"):
         print("\n=== ReserveCalifornia Split-Screen ===")
-        cast_path = os.path.join(CAST_DIR, "rc-workflow.cast")
+        cast_path   = os.path.join(CAST_DIR, "rc-workflow.cast")
         output_path = os.path.join(SEGMENTS_DIR, "rc-split.mp4")
-        duration = build_cast(rc_entries, cast_path, title_line="ReserveCalifornia: Book a Campsite")
-        page_args = build_page_image_args(rc_entries)
-        t0 = rc_entries[0]["t"]
+        duration    = build_cast(rc_entries, cast_path,
+                                 title_line="ReserveCalifornia: Book a Campsite",
+                                 sieves_data=sieves_data)
+        page_args    = build_page_image_args(rc_entries)
+        t0           = rc_entries[0]["t"]
         overlay_path = os.path.join(BASE, "overlay-rc.json")
         if sieves_data:
             build_overlay_json(rc_entries, sieves_data, t0, overlay_path)
