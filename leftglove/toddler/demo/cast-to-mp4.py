@@ -10,6 +10,7 @@ Usage: python3 cast-to-mp4.py input.cast output.mp4 [--fps 30] [--width 1920] [-
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -88,15 +89,46 @@ def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha,
                           outline=(*rgb, stroke_a),
                           width=2)
 
-    # Draw click highlight on top — bright white flash fading out
+    # Draw click highlight — yellow rect glow + enclosing circle + sparks
     if hl_alpha > 0 and highlight_el:
         sr = scaled_rect(highlight_el.get('rect', {}))
         if sr:
             sx, sy, sw, sh = sr
+            cx = sx + sw // 2
+            cy = sy + sh // 2
+
+            ease_a = hl_alpha           # linear alpha
+            ease_s = hl_alpha ** 0.5    # ease-out for spark length (linger longer)
+
+            # Element rect glow
             drw.rectangle([sx, sy, sx + sw, sy + sh],
-                          fill=(255, 255, 255, int(hl_alpha * 0.45 * 255)),
-                          outline=(255, 255, 255, int(hl_alpha * 255)),
-                          width=3)
+                          fill=(255, 220, 50, int(ease_a * 0.40 * 255)),
+                          outline=(255, 220, 50, int(ease_a * 255)),
+                          width=max(2, int(ease_a * 3) + 1))
+
+            # Circle enclosing the element (capped for wide elements)
+            half_diag = math.sqrt((sw / 2) ** 2 + (sh / 2) ** 2)
+            circ_r = min(max(int(half_diag) + 14, 32), 85)
+            drw.ellipse([cx - circ_r, cy - circ_r, cx + circ_r, cy + circ_r],
+                        fill=(255, 220, 50, int(ease_a * 0.10 * 255)),
+                        outline=(255, 220, 50, int(ease_a * 220)),
+                        width=2)
+
+            # Sparks radiating outward from circle edge
+            gap       = 5
+            spark_len = max(1, int(ease_s * 30))
+            spark_w   = max(1, int(ease_s * 2.5))
+            for i in range(12):
+                angle = 2 * math.pi * i / 12
+                r0 = circ_r + gap
+                r1 = circ_r + gap + spark_len
+                ix = cx + int(r0 * math.cos(angle))
+                iy = cy + int(r0 * math.sin(angle))
+                ox = cx + int(r1 * math.cos(angle))
+                oy = cy + int(r1 * math.sin(angle))
+                drw.line([ix, iy, ox, oy],
+                         fill=(255, 255, 160, int(ease_a * 240)),
+                         width=spark_w)
 
     base = page_img.convert('RGBA')
     return Image.alpha_composite(base, overlay).convert('RGB')
@@ -114,7 +146,7 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
       'sieve-out' — begin fading out; all subsequent sieve events are ignored
       'click'     — brief highlight flash on one element
     """
-    CLICK_HIGHLIGHT_DUR = 0.8   # seconds the click highlight is visible
+    CLICK_HIGHLIGHT_DUR = 1.2   # seconds the click highlight is visible
 
     active_sieve  = None
     first_sieve_t = None   # time of the very first sieve event (for fade-in)
