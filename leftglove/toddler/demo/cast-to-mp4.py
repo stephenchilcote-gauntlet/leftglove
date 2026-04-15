@@ -118,18 +118,17 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
 
     active_sieve  = None
     sieve_out_t   = None   # time the fade-out began, or None
-    sieve_cleared = False  # once True, new sieve events are ignored
+    sieve_out_dur = SIEVE_FADE_DURATION
     active_click  = None
 
     for ev in overlay_events:
         if ev['t'] > frame_time:
             break
-        if ev['type'] == 'sieve' and not sieve_cleared:
-            active_sieve = ev
+        if ev['type'] == 'sieve':
+            active_sieve = ev   # always update content on page change
         elif ev['type'] == 'sieve-out':
             sieve_out_t   = ev['t']
             sieve_out_dur = ev.get('duration', SIEVE_FADE_DURATION)
-            sieve_cleared = True
         elif ev['type'] == 'click':
             if frame_time - ev['t'] < CLICK_HIGHLIGHT_DUR:
                 active_click = ev
