@@ -223,11 +223,11 @@ def build_page_image_args(entries):
 def build_overlay_json(entries, sieves_data, t0, out_path):
     """Generate overlay-events JSON for cast-to-mp4.py --overlay-data.
 
-    Two event types:
-      - 'sieve': fires at end_t of each observe; fades in all element boxes
-      - 'click': fires at t of each click/fill; highlights the specific element
-                 also fires 0.5s after observe end_t when a URL-match selection
-                 is detected (the "▶ ElementName" moment in the terminal)
+    Event types:
+      - 'sieve':     fires at end_t of each observe; activates element boxes
+      - 'sieve-out': begins fading the overlay out; subsequent sieve events ignored
+      - 'click':     highlights one element; fires at click/fill t, or 0.5s after
+                     a URL-match selection (the "▶ ElementName" terminal moment)
     """
     events = []
     sieves = {}
@@ -262,6 +262,20 @@ def build_overlay_json(entries, sieves_data, t0, out_path):
                             'sieve_label': sieve_key,
                             'index': sel_idx,
                         })
+                        # Fade out: fire sieve-out right after the flash so
+                        # subsequent sieve events (product pages) are ignored.
+                        # Duration is chosen so the overlay reaches 0 at
+                        # next_page_end + 2s (roughly 00:57 in the final video).
+                        if i + 1 < len(entries):
+                            next_end     = entries[i + 1].get('end_t', entries[i + 1]['t'])
+                            out_start    = round(entry['end_t'] - t0 + 0.6, 4)
+                            out_end      = round(next_end - t0 + 2.0, 4)
+                            out_duration = round(out_end - out_start, 4)
+                            events.append({
+                                'type':     'sieve-out',
+                                't':        out_start,
+                                'duration': out_duration,
+                            })
 
         elif tool in ('click', 'fill') and current_sieve_key:
             idx = entry.get('index')

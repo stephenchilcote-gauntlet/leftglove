@@ -106,19 +106,30 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
     """Return overlay draw instructions for this frame.
 
     Returns (base_elements, vp_w, vp_h, base_alpha, highlight_el, hl_alpha)
-      base_*      — the active sieve overlay (fading in after observe)
+      base_*      — the active sieve overlay
       highlight_* — a single element being clicked (bright flash, None if none)
+
+    Event types:
+      'sieve'     — activate overlay for a page (ignored once sieve-out fires)
+      'sieve-out' — begin fading out; all subsequent sieve events are ignored
+      'click'     — brief highlight flash on one element
     """
     CLICK_HIGHLIGHT_DUR = 0.8   # seconds the click highlight is visible
 
-    active_sieve = None
-    active_click = None
+    active_sieve  = None
+    sieve_out_t   = None   # time the fade-out began, or None
+    sieve_cleared = False  # once True, new sieve events are ignored
+    active_click  = None
 
     for ev in overlay_events:
         if ev['t'] > frame_time:
             break
-        if ev['type'] == 'sieve':
+        if ev['type'] == 'sieve' and not sieve_cleared:
             active_sieve = ev
+        elif ev['type'] == 'sieve-out':
+            sieve_out_t   = ev['t']
+            sieve_out_dur = ev.get('duration', SIEVE_FADE_DURATION)
+            sieve_cleared = True
         elif ev['type'] == 'click':
             if frame_time - ev['t'] < CLICK_HIGHLIGHT_DUR:
                 active_click = ev
@@ -127,9 +138,14 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
     if active_sieve:
         sieve = overlay_sieves.get(active_sieve['label'])
         if sieve:
-            base_alpha = 1.0
-            vp = sieve['viewport']
-            base_elements, vp_w, vp_h = sieve['elements'], vp['w'], vp['h']
+            if sieve_out_t is not None:
+                elapsed    = frame_time - sieve_out_t
+                base_alpha = max(0.0, 1.0 - elapsed / sieve_out_dur)
+            else:
+                base_alpha = 1.0
+            if base_alpha > 0:
+                vp = sieve['viewport']
+                base_elements, vp_w, vp_h = sieve['elements'], vp['w'], vp['h']
 
     highlight_el, hl_alpha = None, 0.0
     if active_click:
@@ -139,7 +155,7 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
             idx = active_click['index']
             if idx < len(els):
                 highlight_el = els[idx]
-                elapsed = frame_time - active_click['t']
+                elapsed  = frame_time - active_click['t']
                 hl_alpha = 1.0 - (elapsed / CLICK_HIGHLIGHT_DUR)
                 vp = sieve['viewport']
                 vp_w, vp_h = vp['w'], vp['h']
