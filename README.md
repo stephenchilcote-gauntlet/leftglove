@@ -30,7 +30,7 @@ LeftGlove (observe tool):
 
 No more guessing. No more `document.querySelector` roulette.
 
-<video src="https://github.com/stephenchilcote-gauntlet/leftglove/raw/main/demo.mp4" autoplay loop muted playsinline></video>
+![LeftGlove demo — sieve in action on eBay](demo.gif)
 
 ## How It Works
 
