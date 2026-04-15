@@ -47,8 +47,8 @@ def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha,
     """Composite sieve element boxes onto page_img. Returns new RGB image.
 
     elements/alpha  — full sieve overlay, fading in after observe
-    highlight_el    — single element to flash white on click (optional)
-    hl_alpha        — 1→0 fade-out for the click highlight
+    highlight_el    — single element to highlight on click (optional)
+    hl_alpha        — bell-curve value (0→1→0) over the click duration
     """
     if (alpha <= 0 or not elements) and (hl_alpha <= 0 or not highlight_el):
         return page_img
@@ -89,7 +89,8 @@ def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha,
                           outline=(*rgb, stroke_a),
                           width=2)
 
-    # Draw click highlight — yellow rect glow + enclosing circle + sparks
+    # Draw click highlight — stretched oval + 3-layer glow + sparks.
+    # hl_alpha is a bell-curve value (0→peak→0), NOT a fade-out ramp.
     if hl_alpha > 0 and highlight_el:
         sr = scaled_rect(highlight_el.get('rect', {}))
         if sr:
@@ -97,38 +98,43 @@ def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha,
             cx = sx + sw // 2
             cy = sy + sh // 2
 
-            ease_a = hl_alpha           # linear alpha
-            ease_s = hl_alpha ** 0.5    # ease-out for spark length (linger longer)
+            a = hl_alpha   # bell-curve value already computed by caller
 
-            # Element rect glow
-            drw.rectangle([sx, sy, sx + sw, sy + sh],
-                          fill=(255, 220, 50, int(ease_a * 0.40 * 255)),
-                          outline=(255, 220, 50, int(ease_a * 255)),
-                          width=max(2, int(ease_a * 3) + 1))
+            # Oval radii stretched to match element's actual aspect ratio
+            PAD = 16
+            rx = sw // 2 + PAD
+            ry = max(sh // 2 + PAD, 22)
 
-            # Circle enclosing the element (capped for wide elements)
-            half_diag = math.sqrt((sw / 2) ** 2 + (sh / 2) ** 2)
-            circ_r = min(max(int(half_diag) + 14, 32), 85)
-            drw.ellipse([cx - circ_r, cy - circ_r, cx + circ_r, cy + circ_r],
-                        fill=(255, 220, 50, int(ease_a * 0.10 * 255)),
-                        outline=(255, 220, 50, int(ease_a * 220)),
-                        width=2)
+            # 3-layer glow (widest→narrowest, each brighter than the last)
+            for exp, fill_frac, stroke_frac, lw in [
+                (20, 0.04, 0.30, 2),
+                (10, 0.07, 0.60, 3),
+                ( 0, 0.10, 1.00, 4),
+            ]:
+                drw.ellipse([cx - rx - exp, cy - ry - exp,
+                             cx + rx + exp, cy + ry + exp],
+                            fill   =(255, 255, 255, int(a * fill_frac   * 255)),
+                            outline=(255, 240, 100, int(a * stroke_frac * 255)),
+                            width=lw)
 
-            # Sparks radiating outward from circle edge
-            gap       = 5
-            spark_len = max(1, int(ease_s * 30))
-            spark_w   = max(1, int(ease_s * 2.5))
-            for i in range(12):
-                angle = 2 * math.pi * i / 12
-                r0 = circ_r + gap
-                r1 = circ_r + gap + spark_len
-                ix = cx + int(r0 * math.cos(angle))
-                iy = cy + int(r0 * math.sin(angle))
-                ox = cx + int(r1 * math.cos(angle))
-                oy = cy + int(r1 * math.sin(angle))
+            # Sparks from oval perimeter — 16 lines, alternating long/short
+            GAP = 8
+            LONG, SHORT = 32, 18
+            for i in range(16):
+                angle = 2 * math.pi * i / 16
+                length = LONG if i % 2 == 0 else SHORT
+                length = max(1, int(a * length))
+                ex = rx * math.cos(angle)
+                ey = ry * math.sin(angle)
+                nx = ex / math.sqrt(ex ** 2 + ey ** 2 + 1e-9)   # unit normal
+                ny = ey / math.sqrt(ex ** 2 + ey ** 2 + 1e-9)
+                ix = cx + int(ex + GAP * nx)
+                iy = cy + int(ey + GAP * ny)
+                ox = cx + int(ex + (GAP + length) * nx)
+                oy = cy + int(ey + (GAP + length) * ny)
                 drw.line([ix, iy, ox, oy],
-                         fill=(255, 255, 160, int(ease_a * 240)),
-                         width=spark_w)
+                         fill=(255, 255, 180, int(a * 240)),
+                         width=max(1, int(a * 2.5)))
 
     base = page_img.convert('RGBA')
     return Image.alpha_composite(base, overlay).convert('RGB')
@@ -146,7 +152,7 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
       'sieve-out' — begin fading out; all subsequent sieve events are ignored
       'click'     — brief highlight flash on one element
     """
-    CLICK_HIGHLIGHT_DUR = 1.2   # seconds the click highlight is visible
+    CLICK_HIGHLIGHT_DUR = 2.5   # seconds for full bell-curve arc
 
     active_sieve  = None
     first_sieve_t = None   # time of the very first sieve event (for fade-in)
@@ -192,7 +198,7 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
             if idx < len(els):
                 highlight_el = els[idx]
                 elapsed  = frame_time - active_click['t']
-                hl_alpha = 1.0 - (elapsed / CLICK_HIGHLIGHT_DUR)
+                hl_alpha = math.sin(math.pi * elapsed / CLICK_HIGHLIGHT_DUR)
                 vp = sieve['viewport']
                 vp_w, vp_h = vp['w'], vp['h']
 
