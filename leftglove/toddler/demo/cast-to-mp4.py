@@ -187,7 +187,8 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
                 vp = sieve['viewport']
                 vp_w, vp_h = vp['w'], vp['h']
 
-    return base_elements, vp_w, vp_h, base_alpha, highlight_el, hl_alpha
+    highlight_index = active_click['index'] if (active_click and highlight_el is not None) else None
+    return base_elements, vp_w, vp_h, base_alpha, highlight_el, hl_alpha, highlight_index
 
 
 # Terminal color palette (dark theme matching TL UI)
@@ -236,12 +237,37 @@ def load_page_image(path, target_w, target_h):
     return result
 
 
-def render_frame(screen, width, height, font, char_w, char_h, pad_x, pad_y):
+def render_frame(screen, width, height, font, char_w, char_h, pad_x, pad_y,
+                 highlight_index=None, hl_alpha=0.0, highlight_rgb=None):
     """Render a pyte screen to a PIL Image."""
     img = Image.new("RGB", (width, height), BG_COLOR)
     draw = ImageDraw.Draw(img)
 
+    # Find which terminal row displays [index:3d] from the observe output
+    highlight_row = None
+    if highlight_index is not None and hl_alpha > 0 and highlight_rgb:
+        search = f'[{highlight_index:3d}]'
+        for row_idx in range(screen.lines):
+            row_text = ''.join(
+                screen.buffer[row_idx][col].data or ' '
+                for col in range(screen.columns)
+            )
+            if search in row_text:
+                highlight_row = row_idx
+                break
+
     for row in range(screen.lines):
+        # Draw blended highlight background before characters so text renders on top
+        if row == highlight_row:
+            a = hl_alpha * 0.45
+            r = int(BG_COLOR[0] + a * (highlight_rgb[0] - BG_COLOR[0]))
+            g = int(BG_COLOR[1] + a * (highlight_rgb[1] - BG_COLOR[1]))
+            b = int(BG_COLOR[2] + a * (highlight_rgb[2] - BG_COLOR[2]))
+            y0 = pad_y + row * char_h
+            draw.rectangle(
+                [pad_x, y0, pad_x + char_w * screen.columns, y0 + char_h - 1],
+                fill=(r, g, b),
+            )
         for col in range(screen.columns):
             char = screen.buffer[row][col]
             if char.data == " " and char.bg == "default":
@@ -411,8 +437,19 @@ def main():
                 stream.feed(events[event_idx][1])
                 event_idx += 1
 
+            # Get overlay state before rendering — needed for both terminal and page
+            hl_idx, hl_el, hl_a, hl_rgb = None, None, 0.0, None
+            els, vp_w, vp_h, alpha = None, 0, 0, 0.0
+            if overlay_events:
+                els, vp_w, vp_h, alpha, hl_el, hl_a, hl_idx = get_overlay_state(
+                    frame_time, overlay_events, overlay_sieves)
+                if hl_el:
+                    cat = hl_el.get('category', 'custom')
+                    hl_rgb = SIEVE_COLORS.get(cat, SIEVE_COLORS['custom'])
+
             # Render terminal frame (with optional page image on left)
-            img = render_frame(screen, args.width, args.height, font, char_w, char_h, pad_x, pad_y)
+            img = render_frame(screen, args.width, args.height, font, char_w, char_h, pad_x, pad_y,
+                               highlight_index=hl_idx, hl_alpha=hl_a, highlight_rgb=hl_rgb)
             if page_img_timeline:
                 # Pick the latest page image whose timestamp <= frame_time
                 current_page = page_img_timeline[0][1]
@@ -421,13 +458,10 @@ def main():
                         current_page = pimg
                     else:
                         break
-                # Apply sieve overlay if data is present
-                if overlay_events:
-                    els, vp_w, vp_h, alpha, hl_el, hl_a = get_overlay_state(
-                        frame_time, overlay_events, overlay_sieves)
-                    if els or hl_el:
-                        current_page = draw_sieve_overlay(
-                            current_page, els, vp_w, vp_h, alpha, hl_el, hl_a)
+                # Apply sieve overlay to page side
+                if els or hl_el:
+                    current_page = draw_sieve_overlay(
+                        current_page, els, vp_w, vp_h, alpha, hl_el, hl_a)
                 img.paste(current_page, (0, 0))
             elif page_img is not None:
                 img.paste(page_img, (0, 0))
