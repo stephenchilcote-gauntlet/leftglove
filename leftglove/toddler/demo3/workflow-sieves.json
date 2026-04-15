@@ -735,7 +735,8 @@
         },
         "region": "gh > section > gh-f",
         "form": "gh-f",
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Category selector"
       },
       {
         "category": "clickable",
@@ -1963,7 +1964,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Min price"
       },
       {
         "category": "typable",
@@ -1991,7 +1993,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Max price"
       },
       {
         "category": "clickable",
@@ -2017,7 +2020,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Apply price"
       },
       {
         "category": "chrome",
@@ -2114,7 +2118,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "New (549k+)"
       },
       {
         "category": "chrome",
@@ -2162,7 +2167,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Used (54k+)"
       },
       {
         "category": "chrome",
@@ -3686,7 +3692,8 @@
         },
         "region": "mainContent",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Save this search"
       },
       {
         "category": "chrome",
@@ -4281,7 +4288,8 @@
         },
         "region": "mainContent",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Wicked Audio Bandido"
       },
       {
         "category": "chrome",
@@ -4356,7 +4364,8 @@
         },
         "region": "mainContent",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "JLab Go POP+"
       },
       {
         "category": "chrome",
@@ -4528,7 +4537,8 @@
         },
         "region": "mainContent",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "AI Translation Earbuds"
       },
       {
         "category": "chrome",
@@ -4652,7 +4662,8 @@
         },
         "region": "mainContent",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Beats Fit Pro"
       },
       {
         "category": "chrome",
@@ -19818,7 +19829,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Wicked Audio Bandido earbuds"
       },
       {
         "category": "chrome",
@@ -19895,7 +19907,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "853 reviews"
       },
       {
         "category": "clickable",
@@ -20047,7 +20060,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "$29.95"
       },
       {
         "category": "readable",
@@ -20097,7 +20111,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "New"
       },
       {
         "category": "chrome",
@@ -20669,7 +20684,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Located in: Perry, GA"
       },
       {
         "category": "readable",
@@ -35433,7 +35449,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "JLab Go POP+ earbuds"
       },
       {
         "category": "chrome",
@@ -35510,7 +35527,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "6017 reviews"
       },
       {
         "category": "clickable",
@@ -35662,7 +35680,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "$29.99"
       },
       {
         "category": "readable",
@@ -35712,7 +35731,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "New"
       },
       {
         "category": "chrome",
@@ -36535,7 +36555,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Located in: Carlsbad, CA"
       },
       {
         "category": "readable",
@@ -46703,7 +46724,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "AI Translation earbuds"
       },
       {
         "category": "chrome",
@@ -46780,7 +46802,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "40 reviews"
       },
       {
         "category": "clickable",
@@ -46932,7 +46955,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "$36.00"
       },
       {
         "category": "readable",
@@ -47284,7 +47308,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "New"
       },
       {
         "category": "chrome",
@@ -48057,7 +48082,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Located in: Rancho Cucamonga, CA"
       },
       {
         "category": "chrome",
@@ -57879,7 +57905,8 @@
         },
         "region": "mainContent",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Wicked Audio Bandido"
       },
       {
         "category": "chrome",
@@ -57954,7 +57981,8 @@
         },
         "region": "mainContent",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "JLab Go POP+"
       },
       {
         "category": "chrome",
@@ -58126,7 +58154,8 @@
         },
         "region": "mainContent",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "AI Translation Earbuds"
       },
       {
         "category": "chrome",
@@ -58250,7 +58279,8 @@
         },
         "region": "mainContent",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Beats Fit Pro"
       },
       {
         "category": "chrome",
@@ -70555,7 +70585,8 @@
         },
         "region": "main > Banner Image",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Reserve CA state parks"
       },
       {
         "category": "readable",
@@ -72346,7 +72377,8 @@
         },
         "region": "main > Banner Image",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "Search type dropdown"
       },
       {
         "category": "chrome",
@@ -73804,7 +73836,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Arrival booking window"
       },
       {
         "category": "clickable",
@@ -74188,7 +74221,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Arrival booking window"
       },
       {
         "category": "chrome",
@@ -74837,7 +74871,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 12 (not available)"
       },
       {
         "category": "clickable",
@@ -74863,7 +74898,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 13 (not available)"
       },
       {
         "category": "clickable",
@@ -74889,7 +74925,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 14 (not available)"
       },
       {
         "category": "clickable",
@@ -74915,7 +74952,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 15 \u2190 select"
       },
       {
         "category": "clickable",
@@ -74941,7 +74979,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 16"
       },
       {
         "category": "clickable",
@@ -74967,7 +75006,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 17"
       },
       {
         "category": "clickable",
@@ -74993,7 +75033,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 18"
       },
       {
         "category": "chrome",
@@ -89346,7 +89387,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Arrival booking window"
       },
       {
         "category": "chrome",
@@ -90047,7 +90089,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 14 (not available)"
       },
       {
         "category": "clickable",
@@ -90073,7 +90116,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 15 \u2713 selected"
       },
       {
         "category": "clickable",
@@ -90099,7 +90143,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 16"
       },
       {
         "category": "clickable",
@@ -90125,7 +90170,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 17 \u2190 select"
       },
       {
         "category": "clickable",
@@ -90151,7 +90197,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 18"
       },
       {
         "category": "clickable",
@@ -90177,7 +90224,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 19"
       },
       {
         "category": "clickable",
@@ -90203,7 +90251,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": "gridcell"
+        "ariaRole": "gridcell",
+        "name": "Apr 20"
       },
       {
         "category": "chrome",
@@ -104504,7 +104553,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Site type instructions"
       },
       {
         "category": "clickable",
@@ -104630,7 +104680,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "ADA info"
       },
       {
         "category": "chrome",
@@ -105219,7 +105270,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Search: All, Apr 15\u201317"
       },
       {
         "category": "chrome",
@@ -105440,7 +105492,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Available: Apr 15\u201317"
       },
       {
         "category": "chrome",
@@ -105536,7 +105589,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Nearby parks (\u226470 mi)"
       },
       {
         "category": "chrome",
@@ -105709,7 +105763,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "link"
+        "ariaRole": "link",
+        "name": "San Onofre SB (94 avail)"
       },
       {
         "category": "chrome",
@@ -112373,7 +112428,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "5 facilities available"
       },
       {
         "category": "readable",
@@ -112398,7 +112454,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Available: Apr 15\u201317, San Onofre"
       },
       {
         "category": "clickable",
@@ -112423,7 +112480,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "link"
+        "ariaRole": "link",
+        "name": "San Mateo 101\u2013140 ($45, 31 avail)"
       },
       {
         "category": "clickable",
@@ -112473,7 +112531,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "link"
+        "ariaRole": "link",
+        "name": "San Mateo 141\u2013157 ($45, 12 avail)"
       },
       {
         "category": "clickable",
@@ -112523,7 +112582,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "link"
+        "ariaRole": "link",
+        "name": "San Mateo 1\u201367 ($65, 32 avail)"
       },
       {
         "category": "clickable",
@@ -112573,7 +112633,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "link"
+        "ariaRole": "link",
+        "name": "San Mateo 68\u2013100 ($40, 18 avail)"
       },
       {
         "category": "clickable",
@@ -112623,7 +112684,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "link"
+        "ariaRole": "link",
+        "name": "Group Site ($250, 1 avail)"
       },
       {
         "category": "clickable",
@@ -112696,7 +112758,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "No availability currently"
       },
       {
         "category": "clickable",
@@ -112721,7 +112784,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Bluffs Group Camp ($250)"
       },
       {
         "category": "readable",
@@ -112767,7 +112831,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "$250.00/night"
       },
       {
         "category": "clickable",
@@ -116035,7 +116100,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Search: San Onofre, Apr 15\u201317"
       },
       {
         "category": "chrome",
@@ -116750,7 +116816,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S102 Apr 15 \u2190 available"
       },
       {
         "category": "chrome",
@@ -116801,7 +116868,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S102 Apr 16 available"
       },
       {
         "category": "clickable",
@@ -116828,7 +116896,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "S102 Apr 17 not available"
       },
       {
         "category": "clickable",
@@ -116855,7 +116924,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "S102 Apr 18 not available"
       },
       {
         "category": "chrome",
@@ -116906,7 +116976,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S102 Apr 19 available"
       },
       {
         "category": "chrome",
@@ -116957,7 +117028,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S102 Apr 20 available"
       },
       {
         "category": "chrome",
@@ -117008,7 +117080,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S102 Apr 21 available"
       },
       {
         "category": "readable",
@@ -117084,7 +117157,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S103 Apr 15 available"
       },
       {
         "category": "chrome",
@@ -117135,7 +117209,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S103 Apr 16 available"
       },
       {
         "category": "clickable",
@@ -117162,7 +117237,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "S103 Apr 17 not available"
       },
       {
         "category": "clickable",
@@ -117189,7 +117265,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "S103 Apr 18 not available"
       },
       {
         "category": "chrome",
@@ -117240,7 +117317,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S103 Apr 19 available"
       },
       {
         "category": "chrome",
@@ -117291,7 +117369,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S103 Apr 20 available"
       },
       {
         "category": "chrome",
@@ -117342,7 +117421,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S103 Apr 21 available"
       },
       {
         "category": "readable",
@@ -117418,7 +117498,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S107 Apr 15 available"
       },
       {
         "category": "chrome",
@@ -117469,7 +117550,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": "button"
+        "ariaRole": "button",
+        "name": "S107 Apr 16 available"
       },
       {
         "category": "clickable",
@@ -117496,7 +117578,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "S107 Apr 17 not available"
       },
       {
         "category": "clickable",
@@ -117523,7 +117606,8 @@
         },
         "region": "main",
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "S107 Apr 18 not available"
       },
       {
         "category": "chrome",
@@ -129913,7 +129997,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Search: San Onofre, Apr 15\u201317"
       },
       {
         "category": "chrome",
@@ -143325,7 +143410,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Unit Details"
       },
       {
         "category": "chrome",
@@ -144114,7 +144200,8 @@
         },
         "region": null,
         "form": null,
-        "ariaRole": null
+        "ariaRole": null,
+        "name": "Search: San Onofre, Apr 15\u201317"
       },
       {
         "category": "chrome",

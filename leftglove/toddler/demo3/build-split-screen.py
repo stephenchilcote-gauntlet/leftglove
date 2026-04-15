@@ -81,6 +81,11 @@ def get_sieve_elements(sieve_key, sieves_data):
     return [(i, e) for i, e in enumerate(all_els) if e.get('category') != 'chrome']
 
 
+def el_name(el):
+    """Return the best short display name for a sieve element."""
+    return el.get("name") or el.get("label") or ""
+
+
 def find_selection(sieve_elements, next_url):
     """Return the element index whose href contains next_url, or None."""
     if not next_url:
@@ -142,7 +147,7 @@ def build_cast(entries, cast_path, title_line=None, sieves_data=None):
                 events.append([end_t, "o", f"  {C_GREEN}→ {n} elements:{C_RESET}\r\n"])
                 for idx, el in current_sieve_elements:
                     cat = el.get("category", "")
-                    lbl = (el.get("label") or "")[:38]
+                    lbl = el_name(el)[:38]
                     cat_c = CATEGORY_COLORS.get(cat, C_DIM)
                     events.append([end_t, "o",
                         f"    {C_DIM}[{idx:3d}]{C_RESET} "
@@ -159,7 +164,7 @@ def build_cast(entries, cast_path, title_line=None, sieves_data=None):
                 sel_idx = find_selection(current_sieve_elements, next_url)
                 if sel_idx is not None:
                     sel_lbl = next(
-                        (el.get("label", f"element {sel_idx}")
+                        (el_name(el) or f"element {sel_idx}"
                          for eidx, el in current_sieve_elements if eidx == sel_idx),
                         f"element {sel_idx}"
                     )
@@ -169,7 +174,7 @@ def build_cast(entries, cast_path, title_line=None, sieves_data=None):
         elif tool == "click":
             idx = entry.get("index")
             lbl = next(
-                (el.get("label", "") for eidx, el in current_sieve_elements if eidx == idx),
+                (el_name(el) for eidx, el in current_sieve_elements if eidx == idx),
                 ""
             )
             call = f"{C_BOLD_YELLOW}click{C_RESET}(index={idx})"
@@ -182,7 +187,7 @@ def build_cast(entries, cast_path, title_line=None, sieves_data=None):
             idx  = entry.get("index")
             text = entry.get("text", "")
             lbl  = next(
-                (el.get("label", "") for eidx, el in current_sieve_elements if eidx == idx),
+                (el_name(el) for eidx, el in current_sieve_elements if eidx == idx),
                 ""
             )
             call = f"{C_BOLD_YELLOW}fill{C_RESET}(index={idx}, {C_WHITE}\"{text}\"{C_RESET})"
