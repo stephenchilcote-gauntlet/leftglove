@@ -14,6 +14,25 @@ import json
 import os
 import sys
 
+# Maps workflow-log observe labels → workflow-sieves.json keys
+SIEVE_LABEL_MAP = {
+    'ebay-search':    'ebay-search',
+    'ebay-product-1': 'ebay-product-1',
+    'ebay-product-2': 'ebay-product-2',
+    'ebay-product-3': 'ebay-product-3',
+    'ebay-done':      'ebay-search-done',
+    'rc-home':        'rc-home',
+    'rc-dropdown':    'rc-search-dropdown',
+    'rc-date-page':   'rc-date-picker',
+    'rc-calendar':    'rc-calendar',
+    'rc-site-type':   'rc-site-type',
+    'rc-results':     'rc-results',
+    'rc-park':        'rc-park-page',
+    'rc-campground':  'rc-facility',
+    'rc-site-detail': 'rc-site-selected',
+    'rc-login-wall':  'rc-login-wall',
+}
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 CAST_DIR = os.path.join(BASE, "casts")
 SEGMENTS_DIR = os.path.join(BASE, "segments")
@@ -145,13 +164,38 @@ def build_page_image_args(entries):
     return args
 
 
-def run_cast_to_mp4(cast_path, output_path, page_image_args, duration):
+def build_overlay_json(entries, sieves_data, t0, out_path):
+    """Generate overlay-events JSON for cast-to-mp4.py --overlay-data."""
+    events  = []
+    sieves  = {}
+    for entry in entries:
+        if entry.get('tool') != 'observe':
+            continue
+        label     = entry['label']
+        sieve_key = SIEVE_LABEL_MAP.get(label)
+        if not sieve_key or sieve_key not in sieves_data:
+            continue
+        t = round(entry['end_t'] - t0, 4)
+        events.append({'t': t, 'label': sieve_key})
+        if sieve_key not in sieves:
+            sd = sieves_data[sieve_key]
+            sieves[sieve_key] = {
+                'elements': sd['elements'],
+                'viewport': sd['viewport'],
+            }
+    events.sort(key=lambda e: e['t'])
+    with open(out_path, 'w') as f:
+        json.dump({'events': events, 'sieves': sieves}, f)
+    print(f"  Overlay data: {len(events)} events → {out_path}")
+    return out_path
+
+
+def run_cast_to_mp4(cast_path, output_path, page_image_args, duration, overlay_data_path=None):
     """Run cast-to-mp4.py to produce the split-screen video."""
     import subprocess
 
     cast_to_mp4 = os.path.join(BASE, "..", "demo", "cast-to-mp4.py")
     if not os.path.exists(cast_to_mp4):
-        # Try symlink in demo2
         cast_to_mp4 = os.path.join(BASE, "..", "demo2", "cast-to-mp4.py")
 
     cmd = [
@@ -166,7 +210,11 @@ def run_cast_to_mp4(cast_path, output_path, page_image_args, duration):
         cmd.append("--page-images")
         cmd.extend(page_image_args)
 
-    print(f"  Running: {' '.join(cmd[:6])} ... ({len(page_image_args)} page images)")
+    if overlay_data_path and os.path.exists(overlay_data_path):
+        cmd.extend(["--overlay-data", overlay_data_path])
+
+    print(f"  Running: {' '.join(cmd[:6])} ... ({len(page_image_args)} page images"
+          f"{', overlay' if overlay_data_path else ''})")
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"  ERROR: {result.stderr[-500:]}")
@@ -183,6 +231,16 @@ def main():
 
     log = load_log()
 
+    # Load sieve element data
+    sieves_path = os.path.join(BASE, "workflow-sieves.json")
+    sieves_data = {}
+    if os.path.exists(sieves_path):
+        with open(sieves_path) as f:
+            sieves_data = json.load(f)
+        print(f"Loaded sieve data for {len(sieves_data)} page states")
+    else:
+        print("WARNING: workflow-sieves.json not found — no overlay")
+
     # Split log into workflows
     ebay_entries = [e for e in log if e["label"].startswith("ebay") or e["label"] == "extract-price"]
     rc_entries = [e for e in log if e["label"].startswith("rc")]
@@ -193,7 +251,12 @@ def main():
         output_path = os.path.join(SEGMENTS_DIR, "ebay-split.mp4")
         duration = build_cast(ebay_entries, cast_path, title_line="eBay: Competitor Pricing Research")
         page_args = build_page_image_args(ebay_entries)
-        run_cast_to_mp4(cast_path, output_path, page_args, duration)
+        t0 = ebay_entries[0]["t"]
+        overlay_path = os.path.join(BASE, "overlay-ebay.json")
+        if sieves_data:
+            build_overlay_json(ebay_entries, sieves_data, t0, overlay_path)
+        run_cast_to_mp4(cast_path, output_path, page_args, duration,
+                        overlay_data_path=overlay_path if sieves_data else None)
 
     if args.workflow in ("rc", "both"):
         print("\n=== ReserveCalifornia Split-Screen ===")
@@ -201,7 +264,12 @@ def main():
         output_path = os.path.join(SEGMENTS_DIR, "rc-split.mp4")
         duration = build_cast(rc_entries, cast_path, title_line="ReserveCalifornia: Book a Campsite")
         page_args = build_page_image_args(rc_entries)
-        run_cast_to_mp4(cast_path, output_path, page_args, duration)
+        t0 = rc_entries[0]["t"]
+        overlay_path = os.path.join(BASE, "overlay-rc.json")
+        if sieves_data:
+            build_overlay_json(rc_entries, sieves_data, t0, overlay_path)
+        run_cast_to_mp4(cast_path, output_path, page_args, duration,
+                        overlay_data_path=overlay_path if sieves_data else None)
 
     print("\nDone!")
 

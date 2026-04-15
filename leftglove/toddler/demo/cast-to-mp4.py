@@ -10,6 +10,7 @@ Usage: python3 cast-to-mp4.py input.cast output.mp4 [--fps 30] [--width 1920] [-
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -24,6 +25,79 @@ try:
     from PIL import Image, ImageDraw, ImageFont
 except ImportError:
     sys.exit("pip install Pillow")
+
+
+# Sieve element overlay — category colors matching overlay-inject.ts
+SIEVE_COLORS = {
+    'clickable':  (34,  197,  94),   # #22c55e green
+    'typable':    (59,  130, 246),   # #3b82f6 blue
+    'readable':   (234, 179,   8),   # #eab308 yellow
+    'chrome':     (107, 114, 128),   # #6b7280 gray
+    'custom':     (168,  85, 247),   # #a855f7 purple
+    'selectable': (249, 115,  22),   # #f97316 orange
+    'split':      (249, 115,  22),   # #f97316 orange
+}
+SIEVE_FILL_OPACITY  = 0.22   # semi-transparent fill (matches overlay-inject.ts)
+SIEVE_FADE_DURATION = 0.6    # seconds for overlay to reach full opacity
+
+
+def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha):
+    """Composite sieve element boxes onto page_img at given alpha (0–1).
+    Returns a new RGB image; page_img is not modified."""
+    if alpha <= 0 or not elements:
+        return page_img
+
+    disp_w, disp_h = page_img.size
+    scale   = min(disp_w / viewport_w, disp_h / viewport_h)
+    new_w   = int(viewport_w * scale)
+    new_h   = int(viewport_h * scale)
+    off_x   = (disp_w - new_w) // 2
+    off_y   = (disp_h - new_h) // 2
+
+    overlay = Image.new('RGBA', (disp_w, disp_h), (0, 0, 0, 0))
+    drw     = ImageDraw.Draw(overlay)
+
+    for el in elements:
+        cat = el.get('category', 'custom')
+        if cat in ('chrome', 'skip'):
+            continue
+        r  = el.get('rect', {})
+        ex, ey = r.get('x', 0), r.get('y', 0)
+        ew, eh = r.get('w', 0), r.get('h', 0)
+        if ew <= 0 or eh <= 0:
+            continue
+        sx = off_x + int(ex * scale)
+        sy = off_y + int(ey * scale)
+        sw = max(1, int(ew * scale))
+        sh = max(1, int(eh * scale))
+        rgb     = SIEVE_COLORS.get(cat, SIEVE_COLORS['custom'])
+        fill_a  = int(alpha * SIEVE_FILL_OPACITY * 255)
+        stroke_a = int(alpha * 255)
+        drw.rectangle([sx, sy, sx + sw, sy + sh],
+                      fill=(*rgb, fill_a),
+                      outline=(*rgb, stroke_a),
+                      width=2)
+
+    base = page_img.convert('RGBA')
+    return Image.alpha_composite(base, overlay).convert('RGB')
+
+
+def get_overlay_alpha(frame_time, overlay_events, overlay_sieves):
+    """Return (elements, viewport_w, viewport_h, alpha) for this frame."""
+    active = None
+    for ev in overlay_events:
+        if ev['t'] <= frame_time:
+            active = ev
+        else:
+            break
+    if active is None:
+        return None, 0, 0, 0.0
+    sieve = overlay_sieves.get(active['label'])
+    if sieve is None:
+        return None, 0, 0, 0.0
+    alpha = min(1.0, (frame_time - active['t']) / SIEVE_FADE_DURATION)
+    vp = sieve['viewport']
+    return sieve['elements'], vp['w'], vp['h'], alpha
 
 
 # Terminal color palette (dark theme matching TL UI)
@@ -109,6 +183,7 @@ def main():
     parser.add_argument("--page-image", help="Page screenshot for split-screen (left half)")
     parser.add_argument("--page-images", nargs="*",
                         help="Multiple page images with timestamps: 'time:path' (e.g. '0:before.png 3.5:after.png')")
+    parser.add_argument("--overlay-data", help="JSON file with sieve overlay events")
     args = parser.parse_args()
 
     # Parse cast file
@@ -216,6 +291,17 @@ def main():
         pad_x = (args.width - term_w) // 2
     pad_y = (args.height - term_h) // 2
 
+    # Load sieve overlay data (optional)
+    overlay_events = []
+    overlay_sieves = {}
+    if args.overlay_data and os.path.exists(args.overlay_data):
+        import json as _json
+        with open(args.overlay_data) as f:
+            od = _json.load(f)
+        overlay_events = sorted(od.get('events', []), key=lambda e: e['t'])
+        overlay_sieves = od.get('sieves', {})
+        print(f"  Overlay: {len(overlay_events)} events, {len(overlay_sieves)} sieve datasets")
+
     # Set up pyte terminal emulator
     screen = pyte.Screen(cols, rows)
     stream = pyte.Stream(screen)
@@ -245,6 +331,13 @@ def main():
                         current_page = pimg
                     else:
                         break
+                # Apply sieve overlay if data is present
+                if overlay_events:
+                    els, vp_w, vp_h, alpha = get_overlay_alpha(
+                        frame_time, overlay_events, overlay_sieves)
+                    if els and alpha > 0:
+                        current_page = draw_sieve_overlay(
+                            current_page, els, vp_w, vp_h, alpha)
                 img.paste(current_page, (0, 0))
             elif page_img is not None:
                 img.paste(page_img, (0, 0))
