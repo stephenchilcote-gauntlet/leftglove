@@ -127,7 +127,7 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
     if active_sieve:
         sieve = overlay_sieves.get(active_sieve['label'])
         if sieve:
-            base_alpha = min(1.0, (frame_time - active_sieve['t']) / SIEVE_FADE_DURATION)
+            base_alpha = 1.0
             vp = sieve['viewport']
             base_elements, vp_w, vp_h = sieve['elements'], vp['w'], vp['h']
 
