@@ -298,7 +298,7 @@ def build_overlay_json(entries, sieves_data, t0, out_path):
     return out_path
 
 
-def run_cast_to_mp4(cast_path, output_path, page_image_args, duration, overlay_data_path=None):
+def run_cast_to_mp4(cast_path, output_path, page_image_args, duration, overlay_data_path=None, no_page_overlay=False):
     """Run cast-to-mp4.py to produce the split-screen video."""
     import subprocess
 
@@ -321,8 +321,12 @@ def run_cast_to_mp4(cast_path, output_path, page_image_args, duration, overlay_d
     if overlay_data_path and os.path.exists(overlay_data_path):
         cmd.extend(["--overlay-data", overlay_data_path])
 
+    if no_page_overlay:
+        cmd.append("--no-page-overlay")
+
     print(f"  Running: {' '.join(cmd[:6])} ... ({len(page_image_args)} page images"
-          f"{', overlay' if overlay_data_path else ''})")
+          f"{', overlay' if overlay_data_path else ''}"
+          f"{', terminal-only' if no_page_overlay else ''})")
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"  ERROR: {result.stderr[-500:]}")
@@ -381,7 +385,8 @@ def main():
         if sieves_data:
             build_overlay_json(rc_entries, sieves_data, t0, overlay_path)
         run_cast_to_mp4(cast_path, output_path, page_args, duration,
-                        overlay_data_path=overlay_path if sieves_data else None)
+                        overlay_data_path=overlay_path if sieves_data else None,
+                        no_page_overlay=True)
 
     print("\nDone!")
 

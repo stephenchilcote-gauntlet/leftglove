@@ -300,6 +300,8 @@ def main():
     parser.add_argument("--page-images", nargs="*",
                         help="Multiple page images with timestamps: 'time:path' (e.g. '0:before.png 3.5:after.png')")
     parser.add_argument("--overlay-data", help="JSON file with sieve overlay events")
+    parser.add_argument("--no-page-overlay", action="store_true",
+                        help="Skip page-side element boxes (terminal row highlights still active)")
     args = parser.parse_args()
 
     # Parse cast file
@@ -458,8 +460,8 @@ def main():
                         current_page = pimg
                     else:
                         break
-                # Apply sieve overlay to page side
-                if els or hl_el:
+                # Apply sieve overlay to page side (skipped when --no-page-overlay)
+                if not args.no_page_overlay and (els or hl_el):
                     current_page = draw_sieve_overlay(
                         current_page, els, vp_w, vp_h, alpha, hl_el, hl_a)
                 img.paste(current_page, (0, 0))
