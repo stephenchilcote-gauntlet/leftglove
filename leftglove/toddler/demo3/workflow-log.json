@@ -8,12 +8,12 @@
       "url": "https://www.ebay.com/sch/i.html?_nkw=wireless+earbuds"
     },
     "sieve": {
-      "element_count": 637,
+      "element_count": 672,
       "categories": {
         "chrome": 7,
-        "clickable": 348,
-        "readable": 73,
-        "custom": 205,
+        "clickable": 370,
+        "readable": 82,
+        "custom": 209,
         "typable": 3,
         "selectable": 1
       },
@@ -21,122 +21,122 @@
       "title": "Wireless Earbuds for sale | eBay"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/001_ebay-search.png",
-    "end_t": 5.07
+    "end_t": 4.32
   },
   {
     "step": 2,
     "tool": "observe",
     "label": "ebay-product-1",
-    "t": 5.07,
+    "t": 4.32,
     "navigate": {
-      "url": "https://www.ebay.com/itm/335251351456"
+      "url": "https://www.ebay.com/itm/358414472620"
     },
     "sieve": {
-      "element_count": 575,
+      "element_count": 451,
       "categories": {
-        "chrome": 14,
-        "clickable": 247,
-        "readable": 260,
-        "custom": 51,
-        "typable": 2,
+        "chrome": 25,
+        "clickable": 190,
+        "readable": 166,
+        "custom": 68,
+        "typable": 1,
         "selectable": 1
       },
-      "url": "https://www.ebay.com/itm/335251351456",
-      "title": "JLab Go POP+ True Wireless Bluetooth Earbuds, In-Ear Headphones, Refurbished | eBay"
+      "url": "https://www.ebay.com/itm/358414472620",
+      "title": "WICKED AUDIO BLUETOOTH BANDIDO WIRELESS EARBUDS NIB | eBay"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/002_ebay-product-1.png",
-    "end_t": 10.65
+    "end_t": 10.3
   },
   {
     "step": 2.5,
     "tool": "extract",
     "label": "extract-price",
-    "product": "JLab Go POP+ True Wireless Bluetooth Earbuds, In-E",
-    "price": "US $18.89",
-    "t": 10.65,
-    "end_t": 10.65
+    "product": "WICKED AUDIO BLUETOOTH BANDIDO WIRELESS EARBUDS NI",
+    "price": "US $29.95",
+    "t": 10.31,
+    "end_t": 10.31
   },
   {
     "step": 3,
     "tool": "observe",
     "label": "ebay-product-2",
-    "t": 10.65,
+    "t": 10.31,
     "navigate": {
-      "url": "https://www.ebay.com/itm/235425329067"
+      "url": "https://www.ebay.com/itm/334666199288"
     },
     "sieve": {
-      "element_count": 440,
+      "element_count": 626,
       "categories": {
-        "chrome": 15,
-        "clickable": 181,
-        "readable": 192,
-        "custom": 49,
+        "chrome": 25,
+        "clickable": 276,
+        "readable": 260,
+        "custom": 62,
         "typable": 2,
         "selectable": 1
       },
-      "url": "https://www.ebay.com/itm/235425329067",
-      "title": "JLab GO Sport+ True Wireless Earbuds, Gym & Work Out Running Headphones | eBay"
+      "url": "https://www.ebay.com/itm/334666199288",
+      "title": "JLab Go POP+ True Wireless Bluetooth Earbuds, iOS, Android, Headphones | eBay"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/003_ebay-product-2.png",
-    "end_t": 15.72
+    "end_t": 15.24
   },
   {
     "step": 3.5,
     "tool": "extract",
     "label": "extract-price",
-    "product": "JLab GO Sport+ True Wireless Earbuds, Gym & Work O",
+    "product": "JLab Go POP+ True Wireless Bluetooth Earbuds, iOS,",
     "price": "US $29.99",
-    "t": 15.72,
-    "end_t": 15.72
+    "t": 15.24,
+    "end_t": 15.24
   },
   {
     "step": 4,
     "tool": "observe",
     "label": "ebay-product-3",
-    "t": 15.72,
+    "t": 15.24,
     "navigate": {
-      "url": "https://www.ebay.com/itm/235914385086"
+      "url": "https://www.ebay.com/itm/317739753035"
     },
     "sieve": {
-      "element_count": 471,
+      "element_count": 420,
       "categories": {
         "chrome": 14,
-        "clickable": 198,
-        "readable": 208,
-        "custom": 48,
+        "clickable": 170,
+        "readable": 183,
+        "custom": 50,
         "typable": 2,
         "selectable": 1
       },
-      "url": "https://www.ebay.com/itm/235914385086",
-      "title": "JLab Go Pop ANC True Wireless Earbuds , 24+ Hr Playtime, Bluetooth, Android/iOS | eBay"
+      "url": "https://www.ebay.com/itm/317739753035",
+      "title": "AI Translation Earbuds Real Time, Wireless Bluetooth Headphones for Travel | eBay"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/004_ebay-product-3.png",
-    "end_t": 20.49
+    "end_t": 21.19
   },
   {
     "step": 4.5,
     "tool": "extract",
     "label": "extract-price",
-    "product": "JLab Go Pop ANC True Wireless Earbuds , 24+ Hr Pla",
-    "price": "US $29.99",
-    "t": 20.49,
-    "end_t": 20.49
+    "product": "AI Translation Earbuds Real Time, Wireless Bluetoo",
+    "price": "US $36.00",
+    "t": 21.19,
+    "end_t": 21.19
   },
   {
     "step": 5,
     "tool": "observe",
     "label": "ebay-done",
-    "t": 20.49,
+    "t": 21.19,
     "navigate": {
       "url": "https://www.ebay.com/sch/i.html?_nkw=wireless+earbuds"
     },
     "sieve": {
-      "element_count": 637,
+      "element_count": 667,
       "categories": {
         "chrome": 7,
-        "clickable": 347,
-        "readable": 73,
-        "custom": 206,
+        "clickable": 371,
+        "readable": 78,
+        "custom": 207,
         "typable": 3,
         "selectable": 1
       },
@@ -144,13 +144,13 @@
       "title": "Wireless Earbuds for sale | eBay"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/005_ebay-done.png",
-    "end_t": 24.23
+    "end_t": 26.97
   },
   {
     "step": 6,
     "tool": "observe",
     "label": "rc-home",
-    "t": 24.23,
+    "t": 26.97,
     "navigate": {
       "url": "https://www.reservecalifornia.com/"
     },
@@ -168,28 +168,28 @@
       "title": "California State Parks - California State Parks Reservation System"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/006_rc-home.png",
-    "end_t": 29.32
+    "end_t": 29.87
   },
   {
     "step": 7,
     "tool": "fill",
     "label": "rc-search-fill",
-    "t": 29.32,
+    "t": 29.87,
     "index": 23,
     "text": "Big Basin",
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/007_rc-search-fill.png",
-    "end_t": 31.82
+    "end_t": 30.62
   },
   {
     "step": 8,
     "tool": "observe",
     "label": "rc-dropdown",
-    "t": 31.82,
+    "t": 30.62,
     "sieve": {
-      "element_count": 77,
+      "element_count": 76,
       "categories": {
         "chrome": 9,
-        "clickable": 38,
+        "clickable": 37,
         "readable": 25,
         "custom": 3,
         "typable": 1,
@@ -199,22 +199,22 @@
       "title": "California State Parks - California State Parks Reservation System"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/008_rc-dropdown.png",
-    "end_t": 32.17
+    "end_t": 31.54
   },
   {
     "step": 9,
     "tool": "click",
     "label": "rc-search-all",
-    "t": 32.17,
+    "t": 31.54,
     "index": 24,
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/009_rc-search-all.png",
-    "end_t": 34.62
+    "end_t": 32.27
   },
   {
     "step": 10,
     "tool": "observe",
     "label": "rc-date-page",
-    "t": 34.62,
+    "t": 32.27,
     "sieve": {
       "element_count": 15,
       "categories": {
@@ -228,22 +228,22 @@
       "title": "California State Parks - California State Parks Reservation System"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/010_rc-date-page.png",
-    "end_t": 34.83
+    "end_t": 32.98
   },
   {
     "step": 11,
     "tool": "click",
     "label": "rc-open-calendar",
-    "t": 34.83,
+    "t": 32.98,
     "index": 4,
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/011_rc-open-calendar.png",
-    "end_t": 36.55
+    "end_t": 34.03
   },
   {
     "step": 12,
     "tool": "observe",
     "label": "rc-calendar",
-    "t": 36.55,
+    "t": 34.03,
     "sieve": {
       "element_count": 596,
       "categories": {
@@ -257,22 +257,22 @@
       "title": "California State Parks - California State Parks Reservation System"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/012_rc-calendar.png",
-    "end_t": 36.93
+    "end_t": 35.53
   },
   {
     "step": 13,
     "tool": "click",
     "label": "rc-pick-arrival",
-    "t": 36.93,
-    "index": 31,
+    "t": 35.53,
+    "index": 32,
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/013_rc-pick-arrival.png",
-    "end_t": 38.79
+    "end_t": 36.67
   },
   {
     "step": 14,
     "tool": "observe",
     "label": "rc-departure-cal",
-    "t": 38.79,
+    "t": 36.67,
     "sieve": {
       "element_count": 596,
       "categories": {
@@ -286,22 +286,22 @@
       "title": "California State Parks - California State Parks Reservation System"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/014_rc-departure-cal.png",
-    "end_t": 39.16
+    "end_t": 37.93
   },
   {
     "step": 15,
     "tool": "click",
     "label": "rc-pick-departure",
-    "t": 39.16,
-    "index": 32,
+    "t": 37.93,
+    "index": 34,
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/015_rc-pick-departure.png",
-    "end_t": 41.08
+    "end_t": 38.87
   },
   {
     "step": 16,
     "tool": "observe",
     "label": "rc-site-type",
-    "t": 41.08,
+    "t": 38.87,
     "sieve": {
       "element_count": 17,
       "categories": {
@@ -315,28 +315,28 @@
       "title": "California State Parks - California State Parks Reservation System"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/016_rc-site-type.png",
-    "end_t": 41.27
+    "end_t": 39.62
   },
   {
     "step": 17,
     "tool": "click",
     "label": "rc-show-results",
-    "t": 41.27,
+    "t": 39.62,
     "index": 13,
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/017_rc-show-results.png",
-    "end_t": 45.3
+    "end_t": 40.49
   },
   {
     "step": 18,
     "tool": "observe",
     "label": "rc-results",
-    "t": 45.43,
+    "t": 41.24,
     "sieve": {
-      "element_count": 281,
+      "element_count": 279,
       "categories": {
         "chrome": 6,
-        "clickable": 143,
-        "custom": 122,
+        "clickable": 142,
+        "custom": 121,
         "readable": 9,
         "selectable": 1
       },
@@ -344,22 +344,22 @@
       "title": "California State Parks: Search Results"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/018_rc-results.png",
-    "end_t": 45.87
+    "end_t": 42.85
   },
   {
     "step": 19,
     "tool": "click",
     "label": "rc-select-park",
-    "t": 45.87,
-    "index": 32,
+    "t": 42.85,
+    "index": 34,
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/019_rc-select-park.png",
-    "end_t": 49.99
+    "end_t": 43.62
   },
   {
     "step": 20,
     "tool": "observe",
     "label": "rc-park",
-    "t": 50.05,
+    "t": 44.02,
     "sieve": {
       "element_count": 159,
       "categories": {
@@ -373,27 +373,27 @@
       "title": "California State Parks - California State Parks Reservation System"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/020_rc-park.png",
-    "end_t": 50.53
+    "end_t": 45.33
   },
   {
     "step": 21,
     "tool": "click",
     "label": "rc-select-campground",
-    "t": 50.53,
+    "t": 45.33,
     "index": 32,
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/021_rc-select-campground.png",
-    "end_t": 53.62
+    "end_t": 46.18
   },
   {
     "step": 22,
     "tool": "observe",
     "label": "rc-campground",
-    "t": 53.62,
+    "t": 46.18,
     "sieve": {
-      "element_count": 586,
+      "element_count": 552,
       "categories": {
         "chrome": 9,
-        "clickable": 487,
+        "clickable": 453,
         "custom": 12,
         "readable": 76,
         "selectable": 2
@@ -402,27 +402,27 @@
       "title": "California State Parks - California State Parks Reservation System"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/022_rc-campground.png",
-    "end_t": 54.05
+    "end_t": 48.29
   },
   {
     "step": 23,
     "tool": "click",
     "label": "rc-click-site",
-    "t": 54.05,
+    "t": 48.29,
     "index": 49,
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/023_rc-click-site.png",
-    "end_t": 56.2
+    "end_t": 49.25
   },
   {
     "step": 24,
     "tool": "observe",
     "label": "rc-site-detail",
-    "t": 56.2,
+    "t": 49.25,
     "sieve": {
-      "element_count": 564,
+      "element_count": 566,
       "categories": {
         "chrome": 9,
-        "clickable": 454,
+        "clickable": 456,
         "custom": 18,
         "readable": 80,
         "selectable": 3
@@ -431,27 +431,27 @@
       "title": "California State Parks - California State Parks Reservation System"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/024_rc-site-detail.png",
-    "end_t": 56.65
+    "end_t": 50.65
   },
   {
     "step": 25,
     "tool": "click",
     "label": "rc-book-now",
-    "t": 56.65,
-    "index": 552,
+    "t": 50.65,
+    "index": 554,
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/025_rc-book-now.png",
-    "end_t": 59.23
+    "end_t": 51.58
   },
   {
     "step": 26,
     "tool": "observe",
     "label": "rc-login-wall",
-    "t": 59.23,
+    "t": 51.58,
     "sieve": {
-      "element_count": 564,
+      "element_count": 566,
       "categories": {
         "chrome": 9,
-        "clickable": 454,
+        "clickable": 456,
         "custom": 18,
         "readable": 80,
         "selectable": 3
@@ -460,6 +460,6 @@
       "title": "California State Parks - California State Parks Reservation System"
     },
     "screenshot": "/home/login/PycharmProjects/gauntlet/leftglove/leftglove/toddler/demo3/screenshots/026_rc-login-wall.png",
-    "end_t": 59.52
+    "end_t": 52.96
   }
 ]

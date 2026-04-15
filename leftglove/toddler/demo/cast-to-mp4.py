@@ -41,63 +41,110 @@ SIEVE_FILL_OPACITY  = 0.22   # semi-transparent fill (matches overlay-inject.ts)
 SIEVE_FADE_DURATION = 0.6    # seconds for overlay to reach full opacity
 
 
-def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha):
-    """Composite sieve element boxes onto page_img at given alpha (0–1).
-    Returns a new RGB image; page_img is not modified."""
-    if alpha <= 0 or not elements:
+def draw_sieve_overlay(page_img, elements, viewport_w, viewport_h, alpha,
+                       highlight_el=None, hl_alpha=0.0):
+    """Composite sieve element boxes onto page_img. Returns new RGB image.
+
+    elements/alpha  — full sieve overlay, fading in after observe
+    highlight_el    — single element to flash white on click (optional)
+    hl_alpha        — 1→0 fade-out for the click highlight
+    """
+    if (alpha <= 0 or not elements) and (hl_alpha <= 0 or not highlight_el):
         return page_img
 
     disp_w, disp_h = page_img.size
-    scale   = min(disp_w / viewport_w, disp_h / viewport_h)
-    new_w   = int(viewport_w * scale)
-    new_h   = int(viewport_h * scale)
-    off_x   = (disp_w - new_w) // 2
-    off_y   = (disp_h - new_h) // 2
+    scale  = min(disp_w / viewport_w, disp_h / viewport_h)
+    new_w  = int(viewport_w * scale)
+    new_h  = int(viewport_h * scale)
+    off_x  = (disp_w - new_w) // 2
+    off_y  = (disp_h - new_h) // 2
 
     overlay = Image.new('RGBA', (disp_w, disp_h), (0, 0, 0, 0))
     drw     = ImageDraw.Draw(overlay)
 
-    for el in elements:
-        cat = el.get('category', 'custom')
-        if cat in ('chrome', 'skip'):
-            continue
-        r  = el.get('rect', {})
+    def scaled_rect(r):
         ex, ey = r.get('x', 0), r.get('y', 0)
         ew, eh = r.get('w', 0), r.get('h', 0)
         if ew <= 0 or eh <= 0:
-            continue
-        sx = off_x + int(ex * scale)
-        sy = off_y + int(ey * scale)
-        sw = max(1, int(ew * scale))
-        sh = max(1, int(eh * scale))
-        rgb     = SIEVE_COLORS.get(cat, SIEVE_COLORS['custom'])
-        fill_a  = int(alpha * SIEVE_FILL_OPACITY * 255)
-        stroke_a = int(alpha * 255)
-        drw.rectangle([sx, sy, sx + sw, sy + sh],
-                      fill=(*rgb, fill_a),
-                      outline=(*rgb, stroke_a),
-                      width=2)
+            return None
+        return (off_x + int(ex * scale), off_y + int(ey * scale),
+                max(1, int(ew * scale)), max(1, int(eh * scale)))
+
+    # Draw base sieve overlay (all elements, fading in)
+    if alpha > 0 and elements:
+        for el in elements:
+            cat = el.get('category', 'custom')
+            if cat in ('chrome', 'skip'):
+                continue
+            sr = scaled_rect(el.get('rect', {}))
+            if not sr:
+                continue
+            sx, sy, sw, sh = sr
+            rgb      = SIEVE_COLORS.get(cat, SIEVE_COLORS['custom'])
+            fill_a   = int(alpha * SIEVE_FILL_OPACITY * 255)
+            stroke_a = int(alpha * 255)
+            drw.rectangle([sx, sy, sx + sw, sy + sh],
+                          fill=(*rgb, fill_a),
+                          outline=(*rgb, stroke_a),
+                          width=2)
+
+    # Draw click highlight on top — bright white flash fading out
+    if hl_alpha > 0 and highlight_el:
+        sr = scaled_rect(highlight_el.get('rect', {}))
+        if sr:
+            sx, sy, sw, sh = sr
+            drw.rectangle([sx, sy, sx + sw, sy + sh],
+                          fill=(255, 255, 255, int(hl_alpha * 0.45 * 255)),
+                          outline=(255, 255, 255, int(hl_alpha * 255)),
+                          width=3)
 
     base = page_img.convert('RGBA')
     return Image.alpha_composite(base, overlay).convert('RGB')
 
 
-def get_overlay_alpha(frame_time, overlay_events, overlay_sieves):
-    """Return (elements, viewport_w, viewport_h, alpha) for this frame."""
-    active = None
+def get_overlay_state(frame_time, overlay_events, overlay_sieves):
+    """Return overlay draw instructions for this frame.
+
+    Returns (base_elements, vp_w, vp_h, base_alpha, highlight_el, hl_alpha)
+      base_*      — the active sieve overlay (fading in after observe)
+      highlight_* — a single element being clicked (bright flash, None if none)
+    """
+    CLICK_HIGHLIGHT_DUR = 0.8   # seconds the click highlight is visible
+
+    active_sieve = None
+    active_click = None
+
     for ev in overlay_events:
-        if ev['t'] <= frame_time:
-            active = ev
-        else:
+        if ev['t'] > frame_time:
             break
-    if active is None:
-        return None, 0, 0, 0.0
-    sieve = overlay_sieves.get(active['label'])
-    if sieve is None:
-        return None, 0, 0, 0.0
-    alpha = min(1.0, (frame_time - active['t']) / SIEVE_FADE_DURATION)
-    vp = sieve['viewport']
-    return sieve['elements'], vp['w'], vp['h'], alpha
+        if ev['type'] == 'sieve':
+            active_sieve = ev
+        elif ev['type'] == 'click':
+            if frame_time - ev['t'] < CLICK_HIGHLIGHT_DUR:
+                active_click = ev
+
+    base_elements, vp_w, vp_h, base_alpha = None, 0, 0, 0.0
+    if active_sieve:
+        sieve = overlay_sieves.get(active_sieve['label'])
+        if sieve:
+            base_alpha = min(1.0, (frame_time - active_sieve['t']) / SIEVE_FADE_DURATION)
+            vp = sieve['viewport']
+            base_elements, vp_w, vp_h = sieve['elements'], vp['w'], vp['h']
+
+    highlight_el, hl_alpha = None, 0.0
+    if active_click:
+        sieve = overlay_sieves.get(active_click['sieve_label'])
+        if sieve:
+            els = sieve['elements']
+            idx = active_click['index']
+            if idx < len(els):
+                highlight_el = els[idx]
+                elapsed = frame_time - active_click['t']
+                hl_alpha = 1.0 - (elapsed / CLICK_HIGHLIGHT_DUR)
+                vp = sieve['viewport']
+                vp_w, vp_h = vp['w'], vp['h']
+
+    return base_elements, vp_w, vp_h, base_alpha, highlight_el, hl_alpha
 
 
 # Terminal color palette (dark theme matching TL UI)
@@ -333,11 +380,11 @@ def main():
                         break
                 # Apply sieve overlay if data is present
                 if overlay_events:
-                    els, vp_w, vp_h, alpha = get_overlay_alpha(
+                    els, vp_w, vp_h, alpha, hl_el, hl_a = get_overlay_state(
                         frame_time, overlay_events, overlay_sieves)
-                    if els and alpha > 0:
+                    if els or hl_el:
                         current_page = draw_sieve_overlay(
-                            current_page, els, vp_w, vp_h, alpha)
+                            current_page, els, vp_w, vp_h, alpha, hl_el, hl_a)
                 img.paste(current_page, (0, 0))
             elif page_img is not None:
                 img.paste(page_img, (0, 0))

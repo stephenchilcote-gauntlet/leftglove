@@ -48,6 +48,9 @@ def api(method, endpoint, body=None):
         err = e.read().decode()[:300]
         print(f"  ⚠ HTTP {e.code} on {endpoint}: {err[:100]}")
         return {"error": err}
+    except (TimeoutError, OSError) as e:
+        print(f"  ⚠ Timeout on {endpoint}: {e}")
+        return {"error": str(e)}
 
 
 def screenshot(name):
@@ -74,20 +77,64 @@ def log_step(tool, label, extra=None):
     return entry
 
 
-def observe(url=None, label="observe", wait=1.0):
+def sieve_ready(min_elements=10, max_wait=30.0, poll=0.25):
+    """Call /sieve, retrying until the page has rendered enough elements.
+
+    /navigate returns after domcontentloaded, but JS-heavy pages (eBay,
+    ReserveCalifornia) render content after that event.  Rather than sleeping
+    a fixed amount, we poll until the sieve returns a plausible element count.
+    """
+    deadline = time.time() + max_wait
+    result = None
+    while time.time() < deadline:
+        result = api("POST", "/sieve")
+        if isinstance(result, dict) and "error" not in result:
+            if len(result.get("elements", [])) >= min_elements:
+                return result
+        time.sleep(poll)
+    return result   # return whatever we got even if still sparse
+
+
+def sieve_stable(max_wait=15.0, poll=0.3, stable_for=0.6, min_elements=1):
+    """Poll /sieve until the element count stops changing.
+
+    This handles async page rendering without fixed sleeps: we keep calling
+    /sieve until the element count has been the same for stable_for seconds.
+    Falls back to returning whatever we have when max_wait expires.
+    """
+    deadline = time.time() + max_wait
+    last_count = -1
+    stable_since = None
+    result = None
+    while time.time() < deadline:
+        r = api("POST", "/sieve")
+        if isinstance(r, dict) and "error" not in r:
+            result = r
+            count = len(r.get("elements", []))
+            if count < min_elements:
+                last_count = count
+                stable_since = None
+            elif count != last_count:
+                last_count = count
+                stable_since = time.time()
+            elif stable_since and (time.time() - stable_since) >= stable_for:
+                return result
+        time.sleep(poll)
+    return result  # return whatever we got when time expired
+
+
+def observe(url=None, label="observe", min_elements=5):
     """MCP observe tool."""
     entry = log_step("observe", label)
     if url:
         nav = api("POST", "/navigate", {"url": url})
         entry["navigate"] = {"url": url}
-        title = nav.get("title", "")[:60] if isinstance(nav, dict) else ""
         short = url[:50] + "..." if len(url) > 50 else url
         print(f"[{step_counter}] observe({short})")
-        time.sleep(wait)
     else:
         print(f"[{step_counter}] observe()")
 
-    sieve_result = api("POST", "/sieve")
+    sieve_result = sieve_stable(min_elements=min_elements)
     if isinstance(sieve_result, dict) and "error" not in sieve_result:
         elements = sieve_result.get("elements", [])
         cats = {}
@@ -107,7 +154,7 @@ def observe(url=None, label="observe", wait=1.0):
     return sieve_result
 
 
-def click(index, label="click", wait=0.5):
+def click(index, label="click"):
     """MCP click tool — by element index only."""
     entry = log_step("click", label, extra={"index": index})
     result = api("POST", "/click", {"index": index})
@@ -115,20 +162,18 @@ def click(index, label="click", wait=0.5):
     print(f"[{step_counter}] click(index={index}) {'✓' if ok else '✗'}")
     if not ok:
         print(f"  error: {str(result.get('error',''))[:100]}")
-    time.sleep(wait)
     entry["screenshot"] = screenshot(label)
     entry["end_t"] = round(time.time() - T0, 2)
     log_entries.append(entry)
     return result
 
 
-def fill(index, text, label="fill", wait=0.5):
+def fill(index, text, label="fill"):
     """MCP fill tool — by element index only."""
     entry = log_step("fill", label, extra={"index": index, "text": text})
     result = api("POST", "/fill", {"index": index, "text": text})
     ok = isinstance(result, dict) and "error" not in result
     print(f"[{step_counter}] fill(index={index}, '{text}') {'✓' if ok else '✗'}")
-    time.sleep(wait)
     entry["screenshot"] = screenshot(label)
     entry["end_t"] = round(time.time() - T0, 2)
     log_entries.append(entry)
@@ -170,7 +215,7 @@ def wait_for_load(timeout=15, not_text="processing"):
             labels = [(e.get("label") or "").lower() for e in sieve.get("elements", [])]
             if not any(not_text in l for l in labels):
                 return sieve
-        time.sleep(1.5)
+        time.sleep(0.3)
     return sieve
 
 
@@ -186,7 +231,7 @@ def workflow_ebay():
     # 1. Search for wireless earbuds
     sieve = observe(
         url="https://www.ebay.com/sch/i.html?_nkw=wireless+earbuds",
-        label="ebay-search", wait=2.0)
+        label="ebay-search")
 
     # 2. Extract product URLs from sieve inventory
     products = []
@@ -202,7 +247,7 @@ def workflow_ebay():
     prices = []
     for product in products[:3]:
         prod_sieve = observe(url=product["url"],
-                            label=f"ebay-product-{len(prices)+1}", wait=1.5)
+                            label=f"ebay-product-{len(prices)+1}")
         for i, e in enumerate(prod_sieve.get("elements", [])):
             label = (e.get("label") or "")
             if e.get("category") == "readable" and label.startswith("US $"):
@@ -220,7 +265,7 @@ def workflow_ebay():
 
     # 4. Return to search
     observe(url="https://www.ebay.com/sch/i.html?_nkw=wireless+earbuds",
-            label="ebay-done", wait=1.0)
+            label="ebay-done")
 
     print(f"\n  ✅ Collected {len(prices)} prices:")
     for p in prices:
@@ -239,36 +284,36 @@ def workflow_rc():
 
     # 1. Navigate to homepage
     sieve = observe(url="https://www.reservecalifornia.com/",
-                    label="rc-home", wait=4.0)
+                    label="rc-home")
 
     # 2. Type park name into search
     idx, _ = find_el(sieve, label_contains="Search by City or Park", category="typable")
     if idx is None:
-        sieve = observe(label="rc-home-retry", wait=2.0)
+        sieve = observe(label="rc-home-retry")
         idx, _ = find_el(sieve, label_contains="Search by City or Park", category="typable")
     assert idx is not None, "Search field not found"
-    fill(idx, "Big Basin", label="rc-search-fill", wait=1.5)
+    fill(idx, "Big Basin", label="rc-search-fill")
 
     # 3. Click "Search All" link (the <a> tag, not the container span)
-    sieve = observe(label="rc-dropdown", wait=0.5)
+    sieve = observe(label="rc-dropdown")
     idx, _ = find_el(sieve, label_exact="Search All", tag="a")
     assert idx is not None, "'Search All' link not found"
-    click(idx, label="rc-search-all", wait=1.5)
+    click(idx, label="rc-search-all")
 
     # 4. Date picker — click the date range selector
-    sieve = observe(label="rc-date-page", wait=1.0)
+    sieve = observe(label="rc-date-page")
     idx, _ = find_el(sieve, label_contains="Select Arrival")
     assert idx is not None, "Date selector not found"
-    click(idx, label="rc-open-calendar", wait=0.5)
+    click(idx, label="rc-open-calendar")
 
     # 5. Calendar — click today's date (the first clickable gridcell)
-    sieve = observe(label="rc-calendar", wait=0.5)
+    sieve = observe(label="rc-calendar")
     idx, el = find_el(sieve, label_contains="Choose")
     assert idx is not None, "No clickable date found"
-    click(idx, label="rc-pick-arrival", wait=0.5)
+    click(idx, label="rc-pick-arrival")
 
     # 6. Pick departure — find a "Choose" date after arrival (skip first match)
-    sieve = observe(label="rc-departure-cal", wait=0.5)
+    sieve = observe(label="rc-departure-cal")
     departure_picked = False
     chooseable = []
     for i, e in enumerate(sieve.get("elements", [])):
@@ -277,53 +322,53 @@ def workflow_rc():
             chooseable.append((i, el_label))
     # Pick the second chooseable date (first is likely the arrival date)
     if len(chooseable) >= 2:
-        click(chooseable[1][0], label="rc-pick-departure", wait=0.5)
+        click(chooseable[1][0], label="rc-pick-departure")
         departure_picked = True
     elif chooseable:
-        click(chooseable[0][0], label="rc-pick-departure", wait=0.5)
+        click(chooseable[0][0], label="rc-pick-departure")
         departure_picked = True
     if not departure_picked:
         print("  ⚠ No departure date found to click")
 
     # 7. Site type selection — skip, just click Show Results
-    sieve = observe(label="rc-site-type", wait=0.5)
+    sieve = observe(label="rc-site-type")
     idx, _ = find_el(sieve, label_contains="Show Results", category="clickable")
     if idx is not None:
-        click(idx, label="rc-show-results", wait=3.0)
+        click(idx, label="rc-show-results")
 
     # 8. Wait for results
     print("  Waiting for results...")
     loaded = wait_for_load(timeout=15)
-    sieve = observe(label="rc-results", wait=0.5)
+    sieve = observe(label="rc-results")
 
     # 9. Find a park with available sites (in viewport)
     found = False
     for i, e in enumerate(sieve.get("elements", [])):
         label = (e.get("label") or "")
         if "Available Sites" in label and " 0 Available" not in label:
-            click(i, label="rc-select-park", wait=3.0)
+            click(i, label="rc-select-park")
             found = True
             break
     if not found:
         # Try the "Parks with availability" filter
         idx, _ = find_el(sieve, label_contains="Parks with availability")
         if idx is not None:
-            click(idx, label="rc-filter-avail", wait=3.0)
+            click(idx, label="rc-filter-avail")
 
     # 10. Wait for park page
     print("  Waiting for park page...")
     wait_for_load(timeout=15)
-    sieve = observe(label="rc-park", wait=1.0)
+    sieve = observe(label="rc-park")
 
     # 11. Select a campground with availability
     for i, e in enumerate(sieve.get("elements", [])):
         label = (e.get("label") or "")
         if "Available" in label and "Starting at" in label:
-            click(i, label="rc-select-campground", wait=2.0)
+            click(i, label="rc-select-campground")
             break
 
     # 12. See available sites in the campground
-    sieve = observe(label="rc-campground", wait=1.5)
+    sieve = observe(label="rc-campground")
 
     # 13. Click an available campsite (element with "available" in label
     #     and a site-* id in locators)
@@ -332,19 +377,19 @@ def workflow_rc():
         if "available" in label.lower() and "not available" not in label.lower():
             site_id = e.get("locators", {}).get("id", "")
             if site_id.startswith("site-"):
-                click(i, label="rc-click-site", wait=1.0)
+                click(i, label="rc-click-site")
                 break
 
     # 14. Click Book Now
-    sieve = observe(label="rc-site-detail", wait=0.5)
+    sieve = observe(label="rc-site-detail")
     idx, _ = find_el(sieve, label_contains="Book Now", category="clickable")
     if idx is not None:
-        click(idx, label="rc-book-now", wait=1.5)
+        click(idx, label="rc-book-now")
     else:
         print("  ⚠ Book Now button not found")
 
     # 15. Login wall
-    sieve = observe(label="rc-login-wall", wait=0.5)
+    sieve = observe(label="rc-login-wall")
     has_login = any("please login" in (e.get("label") or "").lower()
                     or "login" == (e.get("label") or "").strip().lower()
                     for e in sieve.get("elements", []))
@@ -377,6 +422,19 @@ def main():
     with open(log_path, "w") as f:
         json.dump(clean, f, indent=2, default=str)
     print(f"\n📝 Log: {log_path}")
+
+    # Save full sieve element data (coordinates + categories) for overlay rendering
+    sieves_path = os.path.join(BASE, "workflow-sieves.json")
+    sieves = {}
+    for e in log_entries:
+        if e.get("_sieve") and isinstance(e["_sieve"], dict) and "elements" in e["_sieve"]:
+            sieves[e["label"]] = {
+                "elements": e["_sieve"]["elements"],
+                "viewport": e["_sieve"].get("viewport", {}),
+            }
+    with open(sieves_path, "w") as f:
+        json.dump(sieves, f, indent=2, default=str)
+    print(f"📊 Sieves: {sieves_path} ({len(sieves)} states)")
     print(f"📸 Screenshots: {OUT}/")
 
 

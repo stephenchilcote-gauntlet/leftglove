@@ -21,18 +21,18 @@
   },
   {
     "clipId": "ebay-workflow",
-    "t": 40500
+    "t": 44000
   },
   {
     "clipId": "business-impact",
-    "t": 50000
+    "t": 66000
   },
   {
     "clipId": "rc-workflow",
-    "t": 56500
+    "t": 74500
   },
   {
     "clipId": "closing",
-    "t": 71000
+    "t": 101000
   }
 ]

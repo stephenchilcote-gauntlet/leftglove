@@ -140,36 +140,32 @@ echo "  closing.mp4 (10s)"
 echo ""
 echo "=== Step 4: Normalize split-screen segments ==="
 
-# eBay split: 4x speed (21.97s → ~7.5s) + 2s freeze + fade in/out
+# eBay split: codec normalize + fade in/out (real-time recording, no speedup)
 if [[ ! -f "$SEGMENTS_DIR/normalized/ebay-split.mp4" ]] || \
    [[ "$SEGMENTS_DIR/ebay-split.mp4" -nt "$SEGMENTS_DIR/normalized/ebay-split.mp4" ]]; then
   EBAY_RAW_DUR=$(ffprobe -v quiet -show_entries format=duration \
     -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/ebay-split.mp4")
-  EBAY_OUT_DUR=$(python3 -c "print(round($EBAY_RAW_DUR / 4 + 2, 3))")
-  EBAY_FADE=$(python3 -c "print(round($EBAY_OUT_DUR - 0.4, 3))")
+  EBAY_FADE=$(python3 -c "print(round($EBAY_RAW_DUR - 0.4, 3))")
   ffmpeg -y -i "$SEGMENTS_DIR/ebay-split.mp4" \
-    -vf "setpts=0.25*PTS,tpad=stop=60:stop_mode=clone,\
-fade=t=in:st=0:d=0.4:color=0x1a1a2e,fade=t=out:st=${EBAY_FADE}:d=0.4:color=0x1a1a2e" \
+    -vf "fade=t=in:st=0:d=0.4:color=0x1a1a2e,fade=t=out:st=${EBAY_FADE}:d=0.4:color=0x1a1a2e" \
     -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
     "$SEGMENTS_DIR/normalized/ebay-split.mp4" 2>/dev/null
-  echo "  Normalized ebay-split.mp4 (4x + 2s freeze + fade in/out)"
+  echo "  Normalized ebay-split.mp4 (${EBAY_RAW_DUR}s, fade in/out)"
 else
   echo "  ebay-split.mp4 already normalized"
 fi
 
-# RC split: 4x speed (36.5s → ~12.1s) + 3s freeze + fade in
+# RC split: codec normalize + fade in/out (real-time recording, no speedup)
 if [[ ! -f "$SEGMENTS_DIR/normalized/rc-split.mp4" ]] || \
    [[ "$SEGMENTS_DIR/rc-split.mp4" -nt "$SEGMENTS_DIR/normalized/rc-split.mp4" ]]; then
   RC_RAW_DUR=$(ffprobe -v quiet -show_entries format=duration \
     -of default=noprint_wrappers=1:nokey=1 "$SEGMENTS_DIR/rc-split.mp4")
-  RC_OUT_DUR=$(python3 -c "print(round($RC_RAW_DUR / 4 + 3, 3))")
-  RC_FADE=$(python3 -c "print(round($RC_OUT_DUR - 0.4, 3))")
+  RC_FADE=$(python3 -c "print(round($RC_RAW_DUR - 0.4, 3))")
   ffmpeg -y -i "$SEGMENTS_DIR/rc-split.mp4" \
-    -vf "setpts=0.25*PTS,tpad=stop=90:stop_mode=clone,\
-fade=t=in:st=0:d=0.4:color=0x1a1a2e,fade=t=out:st=${RC_FADE}:d=0.4:color=0x1a1a2e" \
+    -vf "fade=t=in:st=0:d=0.4:color=0x1a1a2e,fade=t=out:st=${RC_FADE}:d=0.4:color=0x1a1a2e" \
     -c:v libx264 -crf 18 -preset fast -r 30 -pix_fmt yuv420p -an \
     "$SEGMENTS_DIR/normalized/rc-split.mp4" 2>/dev/null
-  echo "  Normalized rc-split.mp4 (4x + 3s freeze + fade in/out)"
+  echo "  Normalized rc-split.mp4 (${RC_RAW_DUR}s, fade in/out)"
 else
   echo "  rc-split.mp4 already normalized"
 fi

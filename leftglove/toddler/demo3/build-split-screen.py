@@ -165,28 +165,55 @@ def build_page_image_args(entries):
 
 
 def build_overlay_json(entries, sieves_data, t0, out_path):
-    """Generate overlay-events JSON for cast-to-mp4.py --overlay-data."""
+    """Generate overlay-events JSON for cast-to-mp4.py --overlay-data.
+
+    Two event types:
+      - 'sieve': fires at end_t of each observe; fades in all element boxes
+      - 'click': fires at t of each click/fill; highlights the specific element
+    """
     events  = []
     sieves  = {}
+
+    # Track the current sieve label so click events can reference it
+    current_sieve_key = None
+
     for entry in entries:
-        if entry.get('tool') != 'observe':
-            continue
-        label     = entry['label']
-        sieve_key = SIEVE_LABEL_MAP.get(label)
-        if not sieve_key or sieve_key not in sieves_data:
-            continue
-        t = round(entry['end_t'] - t0, 4)
-        events.append({'t': t, 'label': sieve_key})
-        if sieve_key not in sieves:
-            sd = sieves_data[sieve_key]
-            sieves[sieve_key] = {
-                'elements': sd['elements'],
-                'viewport': sd['viewport'],
-            }
+        tool  = entry.get('tool')
+        label = entry['label']
+
+        if tool == 'observe':
+            sieve_key = SIEVE_LABEL_MAP.get(label, label)
+            if sieve_key in sieves_data:
+                t = round(entry['end_t'] - t0, 4)
+                events.append({'type': 'sieve', 't': t, 'label': sieve_key})
+                current_sieve_key = sieve_key
+                if sieve_key not in sieves:
+                    sd = sieves_data[sieve_key]
+                    sieves[sieve_key] = {
+                        'elements': sd['elements'],
+                        'viewport': sd['viewport'],
+                    }
+
+        elif tool in ('click', 'fill') and current_sieve_key:
+            idx = entry.get('index')
+            if idx is not None:
+                t = round(entry['t'] - t0, 4)
+                # Verify index is within bounds for current sieve
+                n_els = len(sieves.get(current_sieve_key, {}).get('elements', []))
+                if idx < n_els:
+                    events.append({
+                        'type': 'click',
+                        't': t,
+                        'sieve_label': current_sieve_key,
+                        'index': idx,
+                    })
+
     events.sort(key=lambda e: e['t'])
     with open(out_path, 'w') as f:
         json.dump({'events': events, 'sieves': sieves}, f)
-    print(f"  Overlay data: {len(events)} events → {out_path}")
+    n_sieve  = sum(1 for e in events if e['type'] == 'sieve')
+    n_clicks = sum(1 for e in events if e['type'] == 'click')
+    print(f"  Overlay data: {n_sieve} observe + {n_clicks} click events → {out_path}")
     return out_path
 
 
