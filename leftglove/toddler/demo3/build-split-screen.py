@@ -262,13 +262,12 @@ def build_overlay_json(entries, sieves_data, t0, out_path):
                             'sieve_label': sieve_key,
                             'index': sel_idx,
                         })
-                        # Fade out: fire sieve-out right after the flash so
-                        # subsequent sieve events (product pages) are ignored.
+                        # Fade out: fire sieve-out after fade-in completes + 1s dwell.
                         # Duration is chosen so the overlay reaches 0 at
                         # next_page_end + 2s (roughly 00:57 in the final video).
                         if i + 1 < len(entries):
                             next_end     = entries[i + 1].get('end_t', entries[i + 1]['t'])
-                            out_start    = round(entry['end_t'] - t0 + 0.6, 4)
+                            out_start    = round(entry['end_t'] - t0 + 1.6, 4)
                             out_end      = round(next_end - t0 + 2.0, 4)
                             out_duration = round(out_end - out_start, 4)
                             events.append({

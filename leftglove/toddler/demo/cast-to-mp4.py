@@ -117,6 +117,7 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
     CLICK_HIGHLIGHT_DUR = 0.8   # seconds the click highlight is visible
 
     active_sieve  = None
+    first_sieve_t = None   # time of the very first sieve event (for fade-in)
     sieve_out_t   = None   # time the fade-out began, or None
     sieve_out_dur = SIEVE_FADE_DURATION
     active_click  = None
@@ -125,7 +126,9 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
         if ev['t'] > frame_time:
             break
         if ev['type'] == 'sieve':
-            active_sieve = ev   # always update content on page change
+            if first_sieve_t is None:
+                first_sieve_t = ev['t']  # capture once for fade-in
+            active_sieve = ev            # always update content on page change
         elif ev['type'] == 'sieve-out':
             sieve_out_t   = ev['t']
             sieve_out_dur = ev.get('duration', SIEVE_FADE_DURATION)
@@ -138,10 +141,12 @@ def get_overlay_state(frame_time, overlay_events, overlay_sieves):
         sieve = overlay_sieves.get(active_sieve['label'])
         if sieve:
             if sieve_out_t is not None:
+                # Fading out
                 elapsed    = frame_time - sieve_out_t
                 base_alpha = max(0.0, 1.0 - elapsed / sieve_out_dur)
             else:
-                base_alpha = 1.0
+                # Fading in from the first sieve event
+                base_alpha = min(1.0, (frame_time - first_sieve_t) / SIEVE_FADE_DURATION)
             if base_alpha > 0:
                 vp = sieve['viewport']
                 base_elements, vp_w, vp_h = sieve['elements'], vp['w'], vp['h']
