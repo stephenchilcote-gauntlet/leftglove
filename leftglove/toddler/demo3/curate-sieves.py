@@ -66,21 +66,20 @@ def curate_ebay_search(elements):
 KEEP_EBAY_P1 = {
     134,                # h1: product title
     136, 137, 138,      # seller name, review count, positive %
-    143, 144, 145,      # price, "Condition:", "New New"
+    143, 145,           # price, condition value (drop "Condition:" field label)
     150, 151,           # Buy It Now, Add to cart
-    162, 163, 164,      # Shipping section h2, "Shipping:", "Free"
-    168, 169,           # "Located in:", "Delivery:"
-    178, 179,           # "Returns:", policy text
+    164,                # "Free" shipping (drop section h2, "Shipping:" label, location, "Delivery:")
+    179,                # returns policy (drop "Returns:" label)
 }
 
 # product-2: JLab Go POP+  ($29.99)
 KEEP_EBAY_P2 = {
     313,                # h1
     315, 316, 317,      # seller, reviews, positive %
-    322, 323, 324,      # price, "Condition:", "New New"
+    322, 324,           # price, condition value
     334, 335,           # Buy It Now, Add to cart
-    349, 350, 351,      # Shipping section, "Shipping:", "Free 2-4 day delivery"
-    357, 358, 359,      # "Located in:", "Returns:", "30 days returns"
+    351,                # shipping value
+    359,                # returns policy
 }
 
 # product-3: AI Translation Earbuds  ($36.00 / was $179.99)
@@ -88,10 +87,10 @@ KEEP_EBAY_P3 = {
     140,                # h1
     142, 143, 144,      # seller, reviews, positive %
     149, 150,           # price, was-price (80% off)
-    162, 163,           # "Condition:", "New New"
+    163,                # condition value
     172, 173,           # Buy It Now, Add to cart
-    187, 188, 189,      # Shipping section, "Shipping:", "Free"
-    194, 204,           # "Located in:", "Returns:"
+    189,                # shipping value
+    204,                # returns
 }
 
 # done: back to search results — show count + the 4 products we analysed
@@ -130,7 +129,7 @@ def curate_ebay_done(elements):
 # Keep: search input + banner headings (3 elements)
 # ──────────────────────────────────────────────────────────────────
 
-KEEP_RC_HOME = {19, 20, 23}
+KEEP_RC_HOME = {23}   # only the search input; decorative headings → chrome
 
 
 def curate_rc_home(elements):
@@ -160,20 +159,15 @@ def curate_rc_dropdown(elements):
 
 
 # ──────────────────────────────────────────────────────────────────
-# RC Date Page  (14 elements — already small; click index=4)
-# Just strip SVGs, empty labels, and header/footer regions.
+# RC Date Page  (click index=5: arrival date picker button)
+# Keep: exit, arrival-date button, site-type, back, show-results
+# Chrome: page heading, instructions, language switcher
 # ──────────────────────────────────────────────────────────────────
 
+KEEP_RC_DATE_PAGE = {0, 5, 8, 9, 11}
+
 def curate_rc_date_page(elements):
-    for el in elements:
-        if is_chrome(el):
-            continue
-        if is_svg(el):
-            mark_chrome(el); continue
-        if empty_label(el):
-            mark_chrome(el); continue
-        if region_starts(el, "header", "contentinfo"):
-            mark_chrome(el); continue
+    _keep_explicit(elements, KEEP_RC_DATE_PAGE)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -183,7 +177,7 @@ def curate_rc_date_page(elements):
 # ──────────────────────────────────────────────────────────────────
 
 def curate_rc_calendar(elements, click_idx, n_nearby=3):
-    core = {0, 2, 3, 5, 8, 9, 10}          # exit, heading, desc, select, nav, month
+    core = {0, 5, 8, 9, 10}          # exit, date-select, prev/next month, month heading
     window = set(range(max(0, click_idx - n_nearby), click_idx + n_nearby + 1))
     keep = core | window
 
@@ -208,19 +202,15 @@ def curate_rc_calendar(elements, click_idx, n_nearby=3):
 
 
 # ──────────────────────────────────────────────────────────────────
-# RC Site Type  (16 elements — already small; click index=13)
+# RC Site Type  (click index=13: Show Results)
+# Keep: exit, site-type dropdown, ADA checkbox, back, show-results
+# Chrome: page heading, instructions, ADA info text, language switcher
 # ──────────────────────────────────────────────────────────────────
 
+KEEP_RC_SITE_TYPE = {0, 4, 5, 11, 13}
+
 def curate_rc_site_type(elements):
-    for el in elements:
-        if is_chrome(el):
-            continue
-        if is_svg(el):
-            mark_chrome(el); continue
-        if empty_label(el):
-            mark_chrome(el); continue
-        if region_starts(el, "header", "contentinfo"):
-            mark_chrome(el); continue
+    _keep_explicit(elements, KEEP_RC_SITE_TYPE)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -229,7 +219,7 @@ def curate_rc_site_type(elements):
 # Chrome: map markers, duplicate result items, header nav, lottery promo
 # ──────────────────────────────────────────────────────────────────
 
-KEEP_RC_RESULTS = {14, 21, 22, 23, 26, 27, 34}
+KEEP_RC_RESULTS = {14, 34}   # search-context button + the park result link
 
 _RC_LOTTERY_LABELS = {
     "Enter the Lottery Drawing Today!",
@@ -269,7 +259,14 @@ def curate_rc_results(elements):
 # Chrome: header/nav, lottery promo, footer
 # ──────────────────────────────────────────────────────────────────
 
-KEEP_RC_PARK = set(range(27, 48))   # Back to Search, h1, facilities list
+KEEP_RC_PARK = {
+    27,                     # Back to Search Results
+    30,                     # "5 facilities available"
+    32, 34, 36, 38, 40,     # campground div/links (with price + availability count)
+    42,                     # "Other Facilities" heading
+    44,                     # Bluffs Group Camp
+    47,                     # Show next available date
+}   # Chrome: "Search Results" h1, context p, duplicate a/links, no-avail text, price-only spans
 
 
 def curate_rc_park(elements):
@@ -312,8 +309,9 @@ def curate_rc_park(elements):
 #  34, 37–46 = site-list label, week nav, date column headers
 #  47–79 = first three site rows (S102, S103, S107) + availability cells
 KEEP_RC_CAMPGROUND = (
-    {15, 20, 27, 30, 34, 37, 38, 39}
+    {15, 20, 27, 30, 37, 39}
     | set(range(40, 80))        # date headers + S102, S103, S107 rows
+    # Chrome: 34 ("Site List" redundant label), 38 ("April" month span)
 )
 
 _RC_BANNER_CHROME = {
@@ -360,7 +358,7 @@ def curate_rc_campground(elements):
 KEEP_RC_SITE_DETAIL = {
     15,          # "San Onofre SB"
     20,          # search-context button
-    29, 30,      # campground name
+    30,          # campground name button (29 is a duplicate div)
     548, 549,    # site name + price
     551, 552,    # date + duration select
     554, 555,    # Book Now + Unit Details
@@ -384,7 +382,7 @@ def curate_rc_site_detail(elements):
 KEEP_RC_LOGIN_WALL = {
     15,          # "San Onofre SB"
     20,          # search-context button
-    29, 30,      # campground name
+    30,          # campground name button (29 is a duplicate div)
     548, 549,    # site name + price
     551, 552,    # date + duration select
     554, 564,    # "Book Now" (greyed) + "Close"
