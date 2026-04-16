@@ -159,7 +159,7 @@ test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
     style.textContent = `
       @keyframes scroll-html {
         from { transform: translateY(0); }
-        to   { transform: translateY(-6000px); }
+        to   { transform: translateY(-20000px); }
       }
     `;
     document.head.appendChild(style);
@@ -168,7 +168,7 @@ test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
     pre.style.cssText = `
       margin: 0;
       will-change: transform;
-      animation: scroll-html 8500ms linear forwards;
+      animation: scroll-html 30000ms linear forwards;
     `;
     pre.textContent = content + '\n\n' + content + '\n\n' + content;
     document.body.appendChild(pre);
