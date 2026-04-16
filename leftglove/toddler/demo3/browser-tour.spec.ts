@@ -160,9 +160,16 @@ test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
     document.body.appendChild(pre);
   });
 
+  // Fire sieve navigate before the scroll so eBay loads in the background (~3s).
+  // We extend the scroll to 200 steps (~9.2s), so eBay is fully loaded by the
+  // time the scroll ends and we open the TL UI.
+  const navigatePromise = sieveNavigate(EBAY_URL);
+
   // Drive scroll from Playwright — CSS animations get paused in headless mode.
-  // 170 steps × 50ms = 8500ms, 30px/step = 5100px total (≈20fps, smooth enough).
-  for (let step = 1; step <= 170; step++) {
+  // 200 steps × 50ms ≈ 9.2s wall-clock, 30px/step = 6000px total.
+  // Covers the full html-problem narration (7.6s) plus the sieve load wait,
+  // so the screen is never frozen between narrations.
+  for (let step = 1; step <= 200; step++) {
     await page.evaluate((y) => {
       const el = document.getElementById('html-scroll-wrapper');
       if (el) el.style.transform = `translateY(-${y}px)`;
@@ -170,11 +177,10 @@ test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
     await pause(page, 50);
   }
 
+  await navigatePromise;  // eBay has had ~9s to load — plenty of time
+
   // ─── SEGMENT B: Toddler Loop UI on eBay (15s) ──────────────────────────
   // Navigate sieve browser to eBay via API, then open TL UI to sieve it.
-
-  await sieveNavigate(EBAY_URL);
-  await pause(page, 3000);  // Let eBay load in sieve browser
 
   // Now open TL UI
   await page.goto(TL_URL, { waitUntil: 'domcontentloaded' });
