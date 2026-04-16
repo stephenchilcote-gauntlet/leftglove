@@ -154,22 +154,24 @@ test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
     ];
     const content = htmlLines.join('\n');
 
+    // CSS animation: compositor-accelerated, no rAF throttling or end-frame freeze
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes scroll-html {
+        from { transform: translateY(0); }
+        to   { transform: translateY(-6000px); }
+      }
+    `;
+    document.head.appendChild(style);
+
     const pre = document.createElement('pre');
-    pre.id = 'html-scroll-wrapper';
-    pre.style.cssText = 'margin: 0;';
+    pre.style.cssText = `
+      margin: 0;
+      will-change: transform;
+      animation: scroll-html 8500ms linear forwards;
+    `;
     pre.textContent = content + '\n\n' + content + '\n\n' + content;
     document.body.appendChild(pre);
-
-    // Smooth scroll for the full html-problem narration (~7.6s)
-    const SCROLL_DURATION = 8500;
-    const SCROLL_DISTANCE = 6000;
-    const startTime = performance.now();
-    function step(now) {
-      const progress = Math.min((now - startTime) / SCROLL_DURATION, 1);
-      pre.style.transform = `translateY(${-progress * SCROLL_DISTANCE}px)`;
-      if (progress < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
   });
 
   await pause(page, 8500); // Hold until scroll animation completes
