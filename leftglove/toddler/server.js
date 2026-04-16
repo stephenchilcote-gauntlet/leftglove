@@ -50,47 +50,58 @@ function slugify(url) {
 
 // ── LLM auto-classify (two-phase with prompt caching) ────────────────────
 
-const CLASSIFY_SYSTEM = `You are building a vocabulary for an AI agent that will interact with this web page in the future.
+const ANALYZE_SYSTEM = `You are preparing a vocabulary for an AI agent that will perform a task on a web page.
 
-For each element shown, decide:
+The agent talks about elements by short kebab-case handles. Later, an agent will write plans like "fill search-box with 'earbuds', click search, read product-price". Your job is to define the handle list for this page.
 
-1. CATEGORY — one of: clickable, typable, readable, chrome, skip
+A handle represents one specific element the agent would use to accomplish the page's primary task. Good handles are:
 
-   clickable — buttons, links, checkboxes, radio buttons, toggles, tabs, menu items,
-              dropdowns, select menus. Things an agent would click to act or navigate.
+- Specific to this page's purpose (product-price, park-search, buy-now)
+- Unique (one element per handle)
+- Actionable or informational (the agent either clicks it, types in it, or reads a dynamic value from it)
 
-   typable — text inputs, search boxes, textareas, date fields.
-            Things an agent would type into.
+Output format (exactly):
 
-   readable — dynamic, task-relevant data the agent needs to extract or check:
-             product prices, item titles in listings, stock/availability status,
-             error or success messages, result counts, ratings, scores.
-             If an agent wouldn't need to read this value to accomplish a task,
-             it is NOT readable — it is chrome.
+# Page
+<2-3 sentences: what this page is and the primary task(s) an agent would do here>
 
-   chrome — page structure the agent should ignore. This includes:
-           navigation bars, headers, footers, breadcrumbs, pagination controls,
-           static labels ("Price:", "Description:"), section headings, legal text,
-           cookie banners, ads, logos, decorative images, sidebar widgets,
-           instructional copy ("Enter your email below"), and any text that is
-           part of the permanent page template rather than task-specific data.
-           MOST text elements on a typical page are chrome.
+# Handles
+<handle>: <one sentence on which element this is and why the agent would use it>
+<handle>: ...
 
-   skip — invisible, off-screen, duplicate, or empty elements.
+Reference examples of handle lists for common archetypes:
 
-2. NAME — a short kebab-case handle the agent will use to refer to this element
-   in future interactions. Examples: "add-to-cart", "item-price", "search-box",
-   "check-availability". Only for clickable, typable, and readable elements.
-   null for chrome and skip. Names must be unique within the page and describe
-   the element's purpose, not its HTML implementation.
+- Product detail: product-title, product-price, condition, seller-name, seller-rating, review-count, buy-now, add-to-cart, shipping-info, returns-policy
+- Search results: search-box, search-button, sort-dropdown, result-count, filter-price, filter-condition
+- Park reservation home: park-search
 
-Respond ONLY with a JSON array. Each entry: {"index": <number>, "category": "<string>", "name": "<string or null>"}
-No explanation, no markdown fences, just the JSON array.`;
+A good list is focused: 1–15 handles. Omit everything else — site-wide header/footer nav, related-items rails, image thumbnails, breadcrumbs, category browse trees, legal/privacy links, cookie banners, chat widgets. Those exist on every page and are not part of the per-page vocabulary.`;
+
+const CLASSIFY_SYSTEM = `You are matching each element on a web page against the handle list defined in the prior turn.
+
+The handle list is the complete vocabulary — every non-chrome element must match exactly one handle from that list, and every handle should match exactly one element. Any element that doesn't match a handle is chrome.
+
+For each element, output one of:
+- A match: category from {clickable, typable, readable} + name equal to a handle from the list
+- category: "chrome", name: null — element is not in the handle vocabulary
+- category: "skip", name: null — element is invisible, empty, or has no meaningful content
+
+Category typing for matched elements:
+- clickable: buttons, links, checkboxes, radios, selects, tabs
+- typable: text inputs, textareas, search boxes
+- readable: dynamic text values (prices, titles, counts, status messages)
+
+When multiple elements could match the same handle, pick the one that most directly represents that handle's role (usually the primary/main instance — e.g., the <h1> over an <h3>, the main product's price over a related product's price). The others are chrome.
+
+Output: JSON array only, no prose, no markdown fences.
+Each entry: {"index": <number>, "category": "<clickable|typable|readable|chrome|skip>", "name": "<handle>" or null}`;
+
+const CLASSIFY_MODEL = process.env.CLASSIFY_MODEL || 'claude-haiku-4-5-20251001';
 
 function callAnthropic(apiKey, messages, system, maxTokens) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: CLASSIFY_MODEL,
       max_tokens: maxTokens || 4096,
       system,
       messages,
@@ -142,22 +153,61 @@ function parseJsonResponse(text) {
   return JSON.parse(cleaned);
 }
 
+function formatPromptAsMarkdown(tag, system, messages) {
+  const lines = [`# ${tag}`, ''];
+  const renderBlock = (b) => {
+    if (b.type === 'text') {
+      const cached = b.cache_control ? ' *(cached)*' : '';
+      return `**text**${cached}:\n\n${b.text}\n`;
+    }
+    if (b.type === 'image') {
+      const bytes = b.source?.data ? Math.round(b.source.data.length * 3 / 4) : 0;
+      return `**image** (${b.source?.media_type || 'png'}, ~${bytes} bytes base64)\n`;
+    }
+    return `**${b.type}** (unknown block)\n`;
+  };
+  lines.push('## System');
+  for (const b of system) lines.push(renderBlock(b));
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    lines.push(`## Turn ${i + 1} — ${m.role}`);
+    const content = Array.isArray(m.content) ? m.content : [{ type: 'text', text: m.content }];
+    for (const b of content) lines.push(renderBlock(b));
+  }
+  return lines.join('\n');
+}
+
+function maybeDumpPrompt(tag, system, messages) {
+  const dir = process.env.TODDLER_DUMP_DIR;
+  if (!dir) return;
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const file = path.join(dir, `${ts}-${tag}.md`);
+    fs.writeFileSync(file, formatPromptAsMarkdown(tag, system, messages));
+    console.error(`[toddler] dumped prompt: ${file}`);
+  } catch (e) {
+    console.error(`[toddler] dump failed: ${e.message}`);
+  }
+}
+
 // Phase 1: Analyze the page — returns a short description used as cached
 // context when classifying individual elements.
 async function handleAutoAnalyze(data, apiKey) {
   const { screenshotB64, pageUrl } = data;
   if (!screenshotB64) throw new Error('No screenshot provided');
 
-  const system = [{ type: 'text', text: 'You are analyzing a web page to prepare for element classification.' }];
+  const system = [{ type: 'text', text: ANALYZE_SYSTEM }];
   const messages = [{
     role: 'user',
     content: [
       { type: 'image', source: { type: 'base64', media_type: 'image/png', data: screenshotB64 } },
-      { type: 'text', text: `Page URL: ${pageUrl || 'unknown'}\n\nIn 2-3 sentences: what kind of page is this, what are the key functional areas, and what content is dynamic data vs static page structure?` },
+      { type: 'text', text: `Page URL: ${pageUrl || 'unknown'}\n\nDefine the handle list for this page.` },
     ],
   }];
 
-  const response = await callAnthropic(apiKey, messages, system, 512);
+  maybeDumpPrompt('analyze', system, messages);
+  const response = await callAnthropic(apiKey, messages, system, 1024);
   return { analysis: extractText(response) };
 }
 
@@ -167,9 +217,28 @@ async function handleAutoAnalyze(data, apiKey) {
 //   User 1: full page screenshot + URL (cache breakpoint)
 //   Asst 1: page analysis from phase 1 (cache breakpoint)
 //   User 2: element screenshots + descriptors (varies per batch)
+function parseHandlesFromAnalysis(text) {
+  if (!text) return [];
+  const handles = [];
+  let inHandles = false;
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (/^#\s*Handles\b/i.test(line)) { inHandles = true; continue; }
+    if (inHandles && /^#\s+/.test(line)) break;
+    if (!inHandles) continue;
+    const m = line.match(/^([a-z0-9][a-z0-9-]*)\s*:\s*(.+)$/i);
+    if (m) handles.push({ name: m[1], desc: m[2] });
+  }
+  return handles;
+}
+
 async function handleAutoClassify(data, apiKey) {
-  const { fullScreenshotB64, analysisText, elements, pageUrl } = data;
+  const { fullScreenshotB64, analysisText, elements, pageUrl, claimedNames } = data;
   if (!elements || !elements.length) throw new Error('No elements provided');
+
+  const handles = parseHandlesFromAnalysis(analysisText);
+  const claimed = Array.isArray(claimedNames) ? claimedNames : [];
+  const available = handles.filter(h => !claimed.includes(h.name));
 
   // System prompt with cache breakpoint
   const system = [
@@ -197,7 +266,18 @@ async function handleAutoClassify(data, apiKey) {
   };
 
   // Turn 3: per-element screenshots + descriptors (varies per batch)
+  // Prepend the closed-set handle list so phase 2 is constrained.
   const turn3Content = [];
+  const availableList = available.length
+    ? available.map(h => `- ${h.name}: ${h.desc}`).join('\n')
+    : '(none — all prior handles already claimed; every element in this batch is chrome)';
+  const claimedList = claimed.length
+    ? `\nAlready assigned in earlier batches (do NOT reuse): ${claimed.join(', ')}`
+    : '';
+  turn3Content.push({
+    type: 'text',
+    text: `Available handles for this batch:\n${availableList}${claimedList}\n\nEach handle may match at most one element across the whole page. If an element does not match one of the available handles above, mark it chrome.`,
+  });
   for (const el of elements) {
     if (el.screenshotB64) {
       turn3Content.push({
@@ -220,8 +300,23 @@ async function handleAutoClassify(data, apiKey) {
   turn3Content.push({ type: 'text', text: '\nClassify each element. Respond with a JSON array only.' });
 
   const messages = [turn1, turn2, { role: 'user', content: turn3Content }];
+  maybeDumpPrompt(`classify-batch-start-${elements[0]?.index ?? 'x'}`, system, messages);
   const response = await callAnthropic(apiKey, messages, system);
-  const classifications = parseJsonResponse(extractText(response));
+  const raw = extractText(response);
+  let classifications;
+  try {
+    classifications = parseJsonResponse(raw);
+  } catch (e) {
+    const dumpDir = process.env.TODDLER_DUMP_DIR;
+    if (dumpDir) {
+      try {
+        const f = path.join(dumpDir, `parse-fail-batch-${elements[0]?.index ?? 'x'}-${Date.now()}.txt`);
+        fs.writeFileSync(f, raw);
+        console.error(`[toddler] JSON parse failed, raw output dumped to ${f}`);
+      } catch {}
+    }
+    throw new Error(`JSON parse failed: ${e.message}`);
+  }
   return { classifications };
 }
 
@@ -319,6 +414,7 @@ const server = http.createServer((req, res) => {
         handleAutoAnalyze(data, apiKey).then(result => {
           jsonResponse(res, 200, result);
         }).catch(err => {
+          console.error('[toddler] auto-analyze error:', err && err.stack || err);
           jsonResponse(res, 500, { error: err.message });
         });
       } catch (e) {
@@ -356,6 +452,7 @@ const server = http.createServer((req, res) => {
         handleAutoClassify(data, apiKey).then(result => {
           jsonResponse(res, 200, result);
         }).catch(err => {
+          console.error('[toddler] auto-classify error:', err && err.stack || err);
           jsonResponse(res, 500, { error: err.message });
         });
       } catch (e) {

@@ -145,41 +145,49 @@ async function screenshotElement(
   page: Page,
   el: SieveElement,
 ): Promise<Buffer> {
+  // Anthropic rejects images whose dimensions exceed 8000px. Huge sections
+  // (long <section> / <li> containers) blow past that with locator.screenshot().
+  // Cap both dims to a viewport-sized crop anchored at the element's top-left.
+  const MAX_DIM = 3000;
   const loc = (el as Record<string, unknown>).locators as Record<string, string> | undefined;
-  let locator: Locator | null = null;
+  const rect = el.rect;
+  const tooBig = !!rect && (rect.w > MAX_DIM || rect.h > MAX_DIM);
 
-  // Try locators in order of reliability
-  if (loc?.testid) {
-    const candidate = page.locator(`[data-testid="${loc.testid}"]`);
-    if (await candidate.count() === 1) locator = candidate;
-  }
-  if (!locator && loc?.id) {
-    const escaped = loc.id.replace(/([ #.>+~[\]()=:,!])/g, "\\$1");
-    const candidate = page.locator(`#${escaped}`);
-    if (await candidate.count() === 1) locator = candidate;
-  }
-  if (!locator && loc?.name) {
-    const tag = (el as Record<string, unknown>).tag as string | undefined;
-    const sel = tag ? `${tag}[name="${loc.name}"]` : `[name="${loc.name}"]`;
-    const candidate = page.locator(sel);
-    if (await candidate.count() === 1) locator = candidate;
-  }
-
-  // Fallback: clip from full-page screenshot using sieve rect
-  if (!locator) {
-    const rect = el.rect;
-    if (!rect) throw new Error("Element has no rect and no usable locator");
-    const pad = 4;
-    const clip = {
-      x: Math.max(0, rect.x - pad),
-      y: Math.max(0, rect.y - pad),
-      width: rect.w + pad * 2,
-      height: rect.h + pad * 2,
-    };
-    return page.screenshot({ fullPage: true, clip });
+  if (!tooBig) {
+    let locator: Locator | null = null;
+    if (loc?.testid) {
+      const candidate = page.locator(`[data-testid="${loc.testid}"]`);
+      if (await candidate.count() === 1) locator = candidate;
+    }
+    if (!locator && loc?.id) {
+      const escaped = loc.id.replace(/([ #.>+~[\]()=:,!])/g, "\\$1");
+      const candidate = page.locator(`#${escaped}`);
+      if (await candidate.count() === 1) locator = candidate;
+    }
+    if (!locator && loc?.name) {
+      const tag = (el as Record<string, unknown>).tag as string | undefined;
+      const sel = tag ? `${tag}[name="${loc.name}"]` : `[name="${loc.name}"]`;
+      const candidate = page.locator(sel);
+      if (await candidate.count() === 1) locator = candidate;
+    }
+    if (locator) {
+      try {
+        return await locator.screenshot();
+      } catch {
+        // fall through to rect-based clip
+      }
+    }
   }
 
-  return locator.screenshot();
+  if (!rect) throw new Error("Element has no rect and no usable locator");
+  const pad = 4;
+  const clip = {
+    x: Math.max(0, rect.x - pad),
+    y: Math.max(0, rect.y - pad),
+    width: Math.min(MAX_DIM, rect.w + pad * 2),
+    height: Math.min(MAX_DIM, rect.h + pad * 2),
+  };
+  return page.screenshot({ fullPage: true, clip });
 }
 
 async function parseBody(req: IncomingMessage): Promise<Record<string, unknown>> {
