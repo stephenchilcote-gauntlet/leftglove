@@ -42,9 +42,10 @@ async function sieveScan(): Promise<any> {
 // ═══════════════════════════════════════════════════════════════════════════
 test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
 
-  // ─── SEGMENT A: Raw HTML scrolling (5s) ─────────────────────────────────
-  // Show realistic raw HTML source scrolling fast — unintelligible noise.
-  // This is a standalone visual: no sieve needed.
+  // ─── SEGMENT A: Raw HTML scrolling (8.5s) ───────────────────────────────
+  // Show realistic raw HTML source scrolling smoothly — unintelligible noise.
+  // Two columns fill the full 1920px width. Runs for the full html-problem
+  // narration duration (~7.6s).
 
   await page.goto('about:blank');
   await page.evaluate(() => {
@@ -53,7 +54,7 @@ test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
       background: #0d1117; color: #8b949e;
       font-family: 'JetBrains Mono', 'Consolas', monospace;
       font-size: 11px; line-height: 1.4;
-      padding: 20px 40px; white-space: pre; overflow: hidden; margin: 0;
+      padding: 0; margin: 0; overflow: hidden;
     `;
     const htmlLines = [
       '<!DOCTYPE html>',
@@ -151,15 +152,36 @@ test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
       '</body></html>',
     ];
     const content = htmlLines.join('\n');
-    document.body.textContent = content + '\n\n' + content + '\n\n' + content;
+    const tripleContent = content + '\n\n' + content + '\n\n' + content;
+
+    // Two-column flex wrapper fills the full 1920px viewport width
+    const wrapper = document.createElement('div');
+    wrapper.id = 'html-scroll-wrapper';
+    wrapper.style.cssText = 'display: flex; gap: 0; width: 100%; padding: 20px 16px 0; box-sizing: border-box;';
+
+    for (let col = 0; col < 2; col++) {
+      const pre = document.createElement('pre');
+      pre.style.cssText = 'flex: 1; margin: 0; padding: 0 12px; white-space: pre; overflow: visible;';
+      pre.textContent = tripleContent;
+      wrapper.appendChild(pre);
+    }
+
+    document.body.appendChild(wrapper);
+
+    // Smooth scroll: translate the wrapper upward over the full narration duration.
+    // html-problem narration is ~7.6s; we scroll for 8.5s to cover it entirely.
+    const SCROLL_DURATION = 8500;
+    const SCROLL_DISTANCE = 4000; // px — covers ~2.5 passes through the content
+    const startTime = performance.now();
+    function step(now) {
+      const progress = Math.min((now - startTime) / SCROLL_DURATION, 1);
+      wrapper.style.transform = `translateY(${-progress * SCROLL_DISTANCE}px)`;
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
   });
 
-  await pause(page, 500);
-  // Fast auto-scroll — "wall of noise" effect
-  for (let i = 0; i < 25; i++) {
-    await page.evaluate(() => window.scrollBy(0, 200));
-    await pause(page, 180);
-  }
+  await pause(page, 8500); // Hold until scroll animation completes
 
   // ─── SEGMENT B: Toddler Loop UI on eBay (15s) ──────────────────────────
   // Navigate sieve browser to eBay via API, then open TL UI to sieve it.
