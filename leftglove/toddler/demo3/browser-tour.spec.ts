@@ -53,8 +53,9 @@ test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
     document.body.style.cssText = `
       background: #0d1117; color: #8b949e;
       font-family: 'JetBrains Mono', 'Consolas', monospace;
-      font-size: 11px; line-height: 1.4;
-      padding: 0; margin: 0; overflow: hidden;
+      font-size: 28px; line-height: 1.4;
+      padding: 16px; margin: 0; overflow: hidden;
+      white-space: pre-wrap; word-break: break-all;
     `;
     const htmlLines = [
       '<!DOCTYPE html>',
@@ -152,30 +153,20 @@ test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
       '</body></html>',
     ];
     const content = htmlLines.join('\n');
-    const tripleContent = content + '\n\n' + content + '\n\n' + content;
 
-    // Two-column flex wrapper fills the full 1920px viewport width
-    const wrapper = document.createElement('div');
-    wrapper.id = 'html-scroll-wrapper';
-    wrapper.style.cssText = 'display: flex; gap: 0; width: 100%; padding: 20px 16px 0; box-sizing: border-box;';
+    const pre = document.createElement('pre');
+    pre.id = 'html-scroll-wrapper';
+    pre.style.cssText = 'margin: 0;';
+    pre.textContent = content + '\n\n' + content + '\n\n' + content;
+    document.body.appendChild(pre);
 
-    for (let col = 0; col < 2; col++) {
-      const pre = document.createElement('pre');
-      pre.style.cssText = 'flex: 1; margin: 0; padding: 0 12px; white-space: pre; overflow: visible;';
-      pre.textContent = tripleContent;
-      wrapper.appendChild(pre);
-    }
-
-    document.body.appendChild(wrapper);
-
-    // Smooth scroll: translate the wrapper upward over the full narration duration.
-    // html-problem narration is ~7.6s; we scroll for 8.5s to cover it entirely.
+    // Smooth scroll for the full html-problem narration (~7.6s)
     const SCROLL_DURATION = 8500;
-    const SCROLL_DISTANCE = 4000; // px — covers ~2.5 passes through the content
+    const SCROLL_DISTANCE = 6000;
     const startTime = performance.now();
     function step(now) {
       const progress = Math.min((now - startTime) / SCROLL_DURATION, 1);
-      wrapper.style.transform = `translateY(${-progress * SCROLL_DISTANCE}px)`;
+      pre.style.transform = `translateY(${-progress * SCROLL_DISTANCE}px)`;
       if (progress < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
