@@ -153,28 +153,22 @@ test('LeftGlove Demo 3 — Intro Segments', async ({ page }) => {
       '</body></html>',
     ];
     const content = htmlLines.join('\n');
-
-    // CSS animation: compositor-accelerated, no rAF throttling or end-frame freeze
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes scroll-html {
-        from { transform: translateY(0); }
-        to   { transform: translateY(-20000px); }
-      }
-    `;
-    document.head.appendChild(style);
-
     const pre = document.createElement('pre');
-    pre.style.cssText = `
-      margin: 0;
-      will-change: transform;
-      animation: scroll-html 30000ms linear forwards;
-    `;
+    pre.id = 'html-scroll-wrapper';
+    pre.style.cssText = 'margin: 0;';
     pre.textContent = content + '\n\n' + content + '\n\n' + content;
     document.body.appendChild(pre);
   });
 
-  await pause(page, 8500); // Hold until scroll animation completes
+  // Drive scroll from Playwright — CSS animations get paused in headless mode.
+  // 170 steps × 50ms = 8500ms, 30px/step = 5100px total (≈20fps, smooth enough).
+  for (let step = 1; step <= 170; step++) {
+    await page.evaluate((y) => {
+      const el = document.getElementById('html-scroll-wrapper');
+      if (el) el.style.transform = `translateY(-${y}px)`;
+    }, step * 30);
+    await pause(page, 50);
+  }
 
   // ─── SEGMENT B: Toddler Loop UI on eBay (15s) ──────────────────────────
   // Navigate sieve browser to eBay via API, then open TL UI to sieve it.
