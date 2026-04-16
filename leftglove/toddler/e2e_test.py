@@ -472,8 +472,8 @@ def test_auto_classify_real_workflow(driver):
     # Click Auto
     click(driver, "btn-auto-classify")
 
-    # Wait for auto-classify to finish (toast appears after)
-    WebDriverWait(driver, 30).until(
+    # Wait for auto-classify to finish (analysis + element screenshots + batches)
+    WebDriverWait(driver, 90).until(
         lambda d: "auto-classified" in (
             d.find_element(By.ID, 'toast').text.lower()
         ) or "auto-classify failed" in (

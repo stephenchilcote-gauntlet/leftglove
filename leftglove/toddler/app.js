@@ -1950,7 +1950,7 @@ function downloadBlob(content, filename, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-// ---- Auto-Classify (LLM) ----
+// ---- Auto-Classify (LLM, two-phase with prompt caching) ----
 async function doAutoClassify() {
   // If in diff mode, auto-accept so we can classify the new inventory
   if (state.mode === 'diff') {
@@ -1965,29 +1965,18 @@ async function doAutoClassify() {
     return;
   }
 
-  // Get screenshot as base64 (strip data:image/png;base64, prefix)
-  var screenshotB64 = null;
+  // Full-page screenshot as base64 (strip data URI prefix)
+  var fullScreenshotB64 = null;
   if (state.screenshotUrl && state.screenshotUrl.startsWith('data:')) {
-    screenshotB64 = state.screenshotUrl.replace(/^data:image\/\w+;base64,/, '');
+    fullScreenshotB64 = state.screenshotUrl.replace(/^data:image\/\w+;base64,/, '');
   }
 
-  // Build element list — include all unclassified, or all if none classified yet
+  // Collect unclassified element indices
   var elements = state.inventory.elements;
   var toClassify = [];
   for (var i = 0; i < elements.length; i++) {
-    if (state.classifications[i]) continue; // already classified
-    var el = elements[i];
-    toClassify.push({
-      index: i,
-      tag: el.tag,
-      elementType: el['element-type'] || null,
-      label: el.label || null,
-      visibleText: el.visibleText || null,
-      ariaRole: el['aria-role'] || null,
-      locators: el.locators || null,
-      rect: el.rect || null,
-      region: el.region || null,
-    });
+    if (state.classifications[i]) continue;
+    toClassify.push(i);
   }
 
   if (toClassify.length === 0) {
@@ -1997,30 +1986,71 @@ async function doAutoClassify() {
 
   var statusEl = document.getElementById('status-indicator');
   var origStatus = statusEl.textContent;
-  statusEl.textContent = 'Auto-classifying ' + toClassify.length + ' elements...';
-
-  // Batch: send up to 40 elements at a time (keep prompt manageable)
-  var BATCH_SIZE = 40;
   var totalClassified = 0;
   var totalNamed = 0;
 
   try {
-    for (var batchStart = 0; batchStart < toClassify.length; batchStart += BATCH_SIZE) {
-      var batch = toClassify.slice(batchStart, batchStart + BATCH_SIZE);
-      statusEl.textContent = 'Auto-classifying... (' + batchStart + '/' + toClassify.length + ')';
+    // Phase 1a: Fetch per-element screenshots from sieve server
+    statusEl.textContent = 'Taking element screenshots (' + toClassify.length + ')...';
+    var ssRes = await fetch(API + '/element-screenshots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ indices: toClassify }),
+      signal: AbortSignal.timeout(120000),
+    });
+    if (!ssRes.ok) {
+      var ssErr = await ssRes.json().catch(function () { return {}; });
+      throw new Error(ssErr.error || 'Element screenshots failed: ' + ssRes.status);
+    }
+    var ssData = await ssRes.json();
+    var screenshotMap = {};
+    (ssData.screenshots || []).forEach(function (s) {
+      if (s.b64) screenshotMap[s.index] = s.b64;
+    });
 
-      var payload = {
-        screenshotB64: screenshotB64,
-        elements: batch,
-        pageUrl: state.pageUrl,
-        batchStart: batchStart,
-        batchEnd: Math.min(batchStart + BATCH_SIZE, toClassify.length),
-      };
+    // Phase 1b: Page analysis (one LLM call, becomes cached prefix for batches)
+    statusEl.textContent = 'Analyzing page...';
+    var analyzeRes = await fetch('/auto-analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ screenshotB64: fullScreenshotB64, pageUrl: state.pageUrl }),
+    });
+    if (!analyzeRes.ok) {
+      var analyzeErr = await analyzeRes.json().catch(function () { return {}; });
+      throw new Error(analyzeErr.error || 'Page analysis failed: ' + analyzeRes.status);
+    }
+    var analyzeData = await analyzeRes.json();
+    var analysisText = analyzeData.analysis;
+
+    // Phase 2: Classify elements in batches (prompt-cached)
+    var BATCH_SIZE = 15;
+    for (var batchStart = 0; batchStart < toClassify.length; batchStart += BATCH_SIZE) {
+      var batchIndices = toClassify.slice(batchStart, batchStart + BATCH_SIZE);
+      statusEl.textContent = 'Classifying... (' + batchStart + '/' + toClassify.length + ')';
+
+      var batchElements = batchIndices.map(function (idx) {
+        var el = elements[idx];
+        return {
+          index: idx,
+          tag: el.tag,
+          elementType: el['element-type'] || null,
+          label: el.label || null,
+          visibleText: el.visibleText || null,
+          ariaRole: el['aria-role'] || null,
+          locators: el.locators || null,
+          screenshotB64: screenshotMap[idx] || null,
+        };
+      });
 
       var res = await fetch('/auto-classify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          fullScreenshotB64: fullScreenshotB64,
+          analysisText: analysisText,
+          elements: batchElements,
+          pageUrl: state.pageUrl,
+        }),
       });
 
       if (!res.ok) {
@@ -2035,21 +2065,19 @@ async function doAutoClassify() {
       }
 
       // Apply classifications
-      var validCategories = { clickable: 1, typable: 1, readable: 1, selectable: 1, chrome: 1, skip: 1, custom: 1 };
+      var validCategories = { clickable: 1, typable: 1, readable: 1, chrome: 1, skip: 1, custom: 1 };
       for (var j = 0; j < classifications.length; j++) {
         var c = classifications[j];
         if (c.index === undefined || !c.category) continue;
-        // Map 'selectable' to 'clickable' since TL UI doesn't have a selectable category
-        var cat = c.category === 'selectable' ? 'clickable' : c.category;
-        if (!validCategories[cat]) continue;
-        state.classifications[c.index] = cat;
+        if (!validCategories[c.category]) continue;
+        state.classifications[c.index] = c.category;
         totalClassified++;
 
-        // Apply name if provided and category is not chrome/skip
-        if (c.name && cat !== 'chrome' && cat !== 'skip') {
+        // Apply name for actionable/readable elements
+        if (c.name && c.category !== 'chrome' && c.category !== 'skip') {
           state.glossaryNames[c.index] = {
             name: c.name,
-            intent: deriveIntentName(elements[c.index]?.region),
+            intent: '',
             source: 'auto',
             notes: '',
           };
@@ -2062,7 +2090,7 @@ async function doAutoClassify() {
       renderPanel();
     }
 
-    // If all classified, build pass2 order
+    // If all classified, advance mode
     var allClassified = elements.every(function (_, i) {
       return !!state.classifications[i];
     });
@@ -2080,7 +2108,6 @@ async function doAutoClassify() {
   } catch (err) {
     statusEl.textContent = origStatus;
     showToast('Auto-classify failed: ' + err.message, 8000);
-    // Still save whatever we got
     commitAndRender();
   }
 }

@@ -2,12 +2,13 @@
  * Playwright-based sieve server — replaces the Clojure/Etaoin sieve server.
  *
  * Endpoints:
- *   POST /sieve      — inject sieve.js, return element inventory
- *   POST /navigate   — navigate to a URL
- *   POST /click      — click by index, coordinates, or CSS selector
- *   POST /fill       — fill by index, coordinates, or CSS selector
- *   GET  /screenshot  — PNG screenshot of current page
- *   GET  /status      — current browser state
+ *   POST /sieve                — inject sieve.js, return element inventory
+ *   POST /navigate             — navigate to a URL
+ *   POST /click                — click by index, coordinates, or CSS selector
+ *   POST /fill                 — fill by index, coordinates, or CSS selector
+ *   GET  /screenshot           — PNG screenshot of current page
+ *   POST /element-screenshots  — per-element screenshots by index
+ *   GET  /status               — current browser state
  *
  * The server keeps the last sieve inventory in memory so that click/fill
  * can resolve element indices to center coordinates.
@@ -17,7 +18,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium, type Browser, type Page } from "playwright";
+import { chromium, type Browser, type Page, type Locator } from "playwright";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SIEVE_JS = readFileSync(join(__dirname, "sieve.js"), "utf8");
@@ -135,6 +136,52 @@ async function fillElement(
   return { filled: { x, y }, text, url: page.url(), title: await page.title() };
 }
 
+/**
+ * Locate an element on the page using the best available locator from the
+ * sieve inventory, then take a screenshot of it via Playwright's native
+ * element screenshot (scrolls into view, captures the element as rendered).
+ */
+async function screenshotElement(
+  page: Page,
+  el: SieveElement,
+): Promise<Buffer> {
+  const loc = (el as Record<string, unknown>).locators as Record<string, string> | undefined;
+  let locator: Locator | null = null;
+
+  // Try locators in order of reliability
+  if (loc?.testid) {
+    const candidate = page.locator(`[data-testid="${loc.testid}"]`);
+    if (await candidate.count() === 1) locator = candidate;
+  }
+  if (!locator && loc?.id) {
+    const escaped = loc.id.replace(/([ #.>+~[\]()=:,!])/g, "\\$1");
+    const candidate = page.locator(`#${escaped}`);
+    if (await candidate.count() === 1) locator = candidate;
+  }
+  if (!locator && loc?.name) {
+    const tag = (el as Record<string, unknown>).tag as string | undefined;
+    const sel = tag ? `${tag}[name="${loc.name}"]` : `[name="${loc.name}"]`;
+    const candidate = page.locator(sel);
+    if (await candidate.count() === 1) locator = candidate;
+  }
+
+  // Fallback: clip from full-page screenshot using sieve rect
+  if (!locator) {
+    const rect = el.rect;
+    if (!rect) throw new Error("Element has no rect and no usable locator");
+    const pad = 4;
+    const clip = {
+      x: Math.max(0, rect.x - pad),
+      y: Math.max(0, rect.y - pad),
+      width: rect.w + pad * 2,
+      height: rect.h + pad * 2,
+    };
+    return page.screenshot({ fullPage: true, clip });
+  }
+
+  return locator.screenshot();
+}
+
 async function parseBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -231,6 +278,33 @@ export async function startSieveServer(
       } else if (method === "GET" && path === "/screenshot") {
         const buffer = await page.screenshot({ fullPage: false });
         pngResponse(res, buffer);
+      } else if (method === "POST" && path === "/element-screenshots") {
+        const body = await parseBody(req);
+        const indices = body.indices as number[] | undefined;
+        if (!Array.isArray(indices) || indices.length === 0) {
+          jsonResponse(res, 400, { error: "Provide 'indices' array of element indices" });
+          return;
+        }
+        const elements = lastInventory?.elements;
+        if (!elements) {
+          jsonResponse(res, 400, { error: "No sieve inventory — call /sieve first" });
+          return;
+        }
+        const screenshots: { index: number; b64: string }[] = [];
+        for (const idx of indices) {
+          const el = elements[idx];
+          if (!el) {
+            screenshots.push({ index: idx, b64: "" });
+            continue;
+          }
+          try {
+            const buf = await screenshotElement(page, el);
+            screenshots.push({ index: idx, b64: buf.toString("base64") });
+          } catch {
+            screenshots.push({ index: idx, b64: "" });
+          }
+        }
+        jsonResponse(res, 200, { screenshots });
       } else if (method === "GET" && path === "/status") {
         jsonResponse(res, 200, {
           ready: true,
@@ -251,7 +325,7 @@ export async function startSieveServer(
       const sieveUrl = `http://localhost:${port}`;
       console.error(`[sieve] Server started on ${sieveUrl}`);
       console.error(
-        "[sieve] Endpoints: POST /sieve, GET /screenshot, POST /navigate, GET /status, POST /click, POST /fill",
+        "[sieve] Endpoints: POST /sieve, GET /screenshot, POST /element-screenshots, POST /navigate, GET /status, POST /click, POST /fill",
       );
       resolve({
         port,

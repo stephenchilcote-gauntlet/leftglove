@@ -47,14 +47,52 @@ function slugify(url) {
   } catch (e) { return 'unknown'; }
 }
 
-// ── LLM auto-classify ──────────────��────────────────────────────────────────
 
-function callAnthropic(apiKey, messages, systemPrompt) {
+// ── LLM auto-classify (two-phase with prompt caching) ────────────────────
+
+const CLASSIFY_SYSTEM = `You are building a vocabulary for an AI agent that will interact with this web page in the future.
+
+For each element shown, decide:
+
+1. CATEGORY — one of: clickable, typable, readable, chrome, skip
+
+   clickable — buttons, links, checkboxes, radio buttons, toggles, tabs, menu items,
+              dropdowns, select menus. Things an agent would click to act or navigate.
+
+   typable — text inputs, search boxes, textareas, date fields.
+            Things an agent would type into.
+
+   readable — dynamic, task-relevant data the agent needs to extract or check:
+             product prices, item titles in listings, stock/availability status,
+             error or success messages, result counts, ratings, scores.
+             If an agent wouldn't need to read this value to accomplish a task,
+             it is NOT readable — it is chrome.
+
+   chrome — page structure the agent should ignore. This includes:
+           navigation bars, headers, footers, breadcrumbs, pagination controls,
+           static labels ("Price:", "Description:"), section headings, legal text,
+           cookie banners, ads, logos, decorative images, sidebar widgets,
+           instructional copy ("Enter your email below"), and any text that is
+           part of the permanent page template rather than task-specific data.
+           MOST text elements on a typical page are chrome.
+
+   skip — invisible, off-screen, duplicate, or empty elements.
+
+2. NAME — a short kebab-case handle the agent will use to refer to this element
+   in future interactions. Examples: "add-to-cart", "item-price", "search-box",
+   "check-availability". Only for clickable, typable, and readable elements.
+   null for chrome and skip. Names must be unique within the page and describe
+   the element's purpose, not its HTML implementation.
+
+Respond ONLY with a JSON array. Each entry: {"index": <number>, "category": "<string>", "name": "<string or null>"}
+No explanation, no markdown fences, just the JSON array.`;
+
+function callAnthropic(apiKey, messages, system, maxTokens) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      system: systemPrompt,
+      max_tokens: maxTokens || 4096,
+      system,
       messages,
     });
     const opts = {
@@ -89,13 +127,85 @@ function callAnthropic(apiKey, messages, systemPrompt) {
   });
 }
 
+function extractText(response) {
+  return (response.content || [])
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('');
+}
+
+function parseJsonResponse(text) {
+  let cleaned = text.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+  }
+  return JSON.parse(cleaned);
+}
+
+// Phase 1: Analyze the page — returns a short description used as cached
+// context when classifying individual elements.
+async function handleAutoAnalyze(data, apiKey) {
+  const { screenshotB64, pageUrl } = data;
+  if (!screenshotB64) throw new Error('No screenshot provided');
+
+  const system = [{ type: 'text', text: 'You are analyzing a web page to prepare for element classification.' }];
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: screenshotB64 } },
+      { type: 'text', text: `Page URL: ${pageUrl || 'unknown'}\n\nIn 2-3 sentences: what kind of page is this, what are the key functional areas, and what content is dynamic data vs static page structure?` },
+    ],
+  }];
+
+  const response = await callAnthropic(apiKey, messages, system, 512);
+  return { analysis: extractText(response) };
+}
+
+// Phase 2: Classify a batch of elements using cached page context.
+// Message structure for prompt caching:
+//   System: classification instructions (cache breakpoint)
+//   User 1: full page screenshot + URL (cache breakpoint)
+//   Asst 1: page analysis from phase 1 (cache breakpoint)
+//   User 2: element screenshots + descriptors (varies per batch)
 async function handleAutoClassify(data, apiKey) {
-  const { screenshotB64, elements, pageUrl, batchStart, batchEnd } = data;
+  const { fullScreenshotB64, analysisText, elements, pageUrl } = data;
   if (!elements || !elements.length) throw new Error('No elements provided');
 
-  // Build element descriptions for the prompt
-  const elementDescs = elements.map((el, i) => {
-    const parts = [`[${el.index}] <${el.tag}>`,];
+  // System prompt with cache breakpoint
+  const system = [
+    { type: 'text', text: CLASSIFY_SYSTEM, cache_control: { type: 'ephemeral' } },
+  ];
+
+  // Turn 1: full page screenshot (cached across batches)
+  const turn1 = {
+    role: 'user',
+    content: [
+      ...(fullScreenshotB64 ? [{
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/png', data: fullScreenshotB64 },
+      }] : []),
+      { type: 'text', text: `Page: ${pageUrl || 'unknown'}`, cache_control: { type: 'ephemeral' } },
+    ],
+  };
+
+  // Turn 2: analysis pre-fill (cached across batches)
+  const turn2 = {
+    role: 'assistant',
+    content: [
+      { type: 'text', text: analysisText || 'Ready to classify elements.', cache_control: { type: 'ephemeral' } },
+    ],
+  };
+
+  // Turn 3: per-element screenshots + descriptors (varies per batch)
+  const turn3Content = [];
+  for (const el of elements) {
+    if (el.screenshotB64) {
+      turn3Content.push({
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/png', data: el.screenshotB64 },
+      });
+    }
+    const parts = [`[${el.index}] <${el.tag}>`];
     if (el.elementType) parts.push(`type="${el.elementType}"`);
     if (el.label) parts.push(`label="${el.label}"`);
     if (el.visibleText) parts.push(`text="${el.visibleText.slice(0, 80)}"`);
@@ -105,69 +215,13 @@ async function handleAutoClassify(data, apiKey) {
       if (el.locators.id) parts.push(`id="${el.locators.id}"`);
       if (el.locators.name) parts.push(`name="${el.locators.name}"`);
     }
-    if (el.rect) parts.push(`rect=(${el.rect.x},${el.rect.y},${el.rect.w}x${el.rect.h})`);
-    if (el.region) parts.push(`region="${el.region}"`);
-    return parts.join(' ');
-  });
-
-  const systemPrompt = `You are classifying interactive elements on a web page for an AI agent vocabulary system.
-
-For each element, you must decide:
-1. CATEGORY: one of: clickable, typable, readable, selectable, chrome, skip
-   - clickable: buttons, links, checkboxes, radio buttons — things you click
-   - typable: text inputs, textareas, search boxes — things you type into
-   - readable: prices, titles, status text, ratings — informational text the agent needs to read
-   - selectable: dropdowns, select menus, date pickers — things with predefined options
-   - chrome: navigation bars, footers, cookie banners, ads, decorative elements — page chrome the agent should ignore
-   - skip: invisible elements, duplicates, or elements with no useful purpose
-
-2. NAME: a short kebab-case glossary name (only if category is NOT chrome or skip)
-   - e.g., "add-to-cart", "price", "search-button", "park-selector"
-   - Names should be descriptive and unique within the page
-   - Use the element's purpose, not its implementation
-
-Respond ONLY with a JSON array. Each entry: {"index": <number>, "category": "<string>", "name": "<string or null>"}
-No explanation, no markdown fences, just the JSON array.`;
-
-  const userContent = [];
-
-  // Add screenshot if provided
-  if (screenshotB64) {
-    userContent.push({
-      type: 'image',
-      source: {
-        type: 'base64',
-        media_type: 'image/png',
-        data: screenshotB64,
-      },
-    });
+    turn3Content.push({ type: 'text', text: parts.join(' ') });
   }
+  turn3Content.push({ type: 'text', text: '\nClassify each element. Respond with a JSON array only.' });
 
-  userContent.push({
-    type: 'text',
-    text: `Page URL: ${pageUrl || 'unknown'}
-Elements to classify (batch ${batchStart !== undefined ? batchStart + '-' + batchEnd : 'all'} of ${elements.length}):
-
-${elementDescs.join('\n')}
-
-Classify each element. Respond with a JSON array only.`,
-  });
-
-  const response = await callAnthropic(apiKey, [{ role: 'user', content: userContent }], systemPrompt);
-
-  // Extract text from response
-  const text = response.content
-    ?.filter(b => b.type === 'text')
-    .map(b => b.text)
-    .join('') || '';
-
-  // Parse JSON from response (handle potential markdown fences)
-  let cleaned = text.trim();
-  if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-  }
-
-  const classifications = JSON.parse(cleaned);
+  const messages = [turn1, turn2, { role: 'user', content: turn3Content }];
+  const response = await callAnthropic(apiKey, messages, system);
+  const classifications = parseJsonResponse(extractText(response));
   return { classifications };
 }
 
@@ -237,7 +291,44 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // POST /auto-classify — LLM-powered element classification
+  // POST /auto-analyze — LLM page analysis (phase 1 of auto-classify)
+  if (req.method === 'POST' && req.url === '/auto-analyze') {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      jsonResponse(res, 500, { error: 'ANTHROPIC_API_KEY not set.' });
+      return;
+    }
+    let body = '';
+    let errored = false;
+    const MAX_BODY = 50 * 1024 * 1024;
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > MAX_BODY) {
+        errored = true;
+        req.destroy();
+        jsonResponse(res, 413, { error: 'Request body too large' });
+      }
+    });
+    req.on('error', () => {
+      if (!errored) { errored = true; jsonResponse(res, 400, { error: 'request stream error' }); }
+    });
+    req.on('end', () => {
+      if (errored) return;
+      try {
+        const data = JSON.parse(body);
+        handleAutoAnalyze(data, apiKey).then(result => {
+          jsonResponse(res, 200, result);
+        }).catch(err => {
+          jsonResponse(res, 500, { error: err.message });
+        });
+      } catch (e) {
+        jsonResponse(res, 400, { error: 'Invalid JSON: ' + e.message });
+      }
+    });
+    return;
+  }
+
+  // POST /auto-classify — LLM element classification (phase 2, prompt-cached)
   if (req.method === 'POST' && req.url === '/auto-classify') {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
